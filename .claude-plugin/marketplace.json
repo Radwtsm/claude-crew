@@ -30,6 +30,12 @@
       "category": "grafica"
     },
     {
+      "name": "indesign-script",
+      "source": "./plugins/indesign-script",
+      "description": "Costruire impaginati InDesign da script ExtendScript (griglia, stili di paragrafo, immagini, esportazione PDF) lanciati da Claude via COM su Windows, con le trappole già incontrate.",
+      "category": "grafica"
+    },
+    {
       "name": "server-minecraft",
       "source": "./plugins/server-minecraft",
       "description": "Server Minecraft Java (Paper, Purpur, Fabric, Forge): installazione, flag JVM, plugin e mod, sicurezza, backup, lag con spark, crash log, aggiornamenti",
