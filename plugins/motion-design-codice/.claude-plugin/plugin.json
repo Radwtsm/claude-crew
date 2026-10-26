@@ -1,0 +1,10 @@
+{
+  "name": "motion-design-codice",
+  "description": "Animazioni e reel generati in codice (Node + canvas + ffmpeg): fotogrammi come funzione del tempo, molle, motion blur, forme che si trasformano senza stacchi, export MP4/ProRes, controllo dei fotogrammi e aree sicure Instagram",
+  "author": {
+    "name": "crew"
+  },
+  "keywords": [
+    "video"
+  ]
+}

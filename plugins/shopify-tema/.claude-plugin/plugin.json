@@ -1,0 +1,10 @@
+{
+  "name": "shopify-tema",
+  "description": "Personalizzare un tema Shopify (Horizon/Online Store 2.0) con la Shopify CLI: anteprima locale, pull prima del push, sezioni modificabili dall'editor, tema live, trappole dell'intestazione Horizon e import prodotti da CSV",
+  "author": {
+    "name": "crew"
+  },
+  "keywords": [
+    "web"
+  ]
+}

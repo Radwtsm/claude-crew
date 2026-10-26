@@ -30,10 +30,28 @@
       "category": "minecraft"
     },
     {
+      "name": "after-effects-pannelli",
+      "source": "./plugins/after-effects-pannelli",
+      "description": "Creare pannelli/plugin CEP per After Effects (HTML/JS + ExtendScript): setup e modalità debug, architettura con anteprima, trappole dell'API (forme, keyframe, testo, effetti, maschere, 3D), test e checklist",
+      "category": "video"
+    },
+    {
+      "name": "motion-design-codice",
+      "source": "./plugins/motion-design-codice",
+      "description": "Animazioni e reel generati in codice (Node + canvas + ffmpeg): fotogrammi come funzione del tempo, molle, motion blur, forme che si trasformano senza stacchi, export MP4/ProRes, controllo dei fotogrammi e aree sicure Instagram",
+      "category": "video"
+    },
+    {
       "name": "video-ffmpeg",
       "source": "./plugins/video-ffmpeg",
       "description": "Video con ffmpeg: tagliare, comprimere, verticale per TikTok/Reels, solo audio, unire clip, sottotitoli; consigli OBS, YouTube, Discord",
       "category": "video"
+    },
+    {
+      "name": "shopify-tema",
+      "source": "./plugins/shopify-tema",
+      "description": "Personalizzare un tema Shopify (Horizon/Online Store 2.0) con la Shopify CLI: anteprima locale, pull prima del push, sezioni modificabili dall'editor, tema live, trappole dell'intestazione Horizon e import prodotti da CSV",
+      "category": "web"
     }
   ]
 }
