@@ -5,81 +5,109 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Claude Crew</title>
 <style>
-:root { --bg:#faf8f4; --card:#fff; --ink:#1f1d1a; --muted:#6b665e; --line:#e6e1d8; --accent:#c4602d; --accent-ink:#fff; }
-@media (prefers-color-scheme: dark) { :root { --bg:#171614; --card:#211f1c; --ink:#ece8e1; --muted:#a39d93; --line:#34312c; --accent:#e07a45; --accent-ink:#171614; } }
+:root { --bg:#faf8f4; --card:#fff; --ink:#1f1d1a; --muted:#6b665e; --line:#e6e1d8; --accent:#c4602d; --accent-ink:#fff; --soft:#f3ece2; }
+@media (prefers-color-scheme: dark) { :root { --bg:#171614; --card:#211f1c; --ink:#ece8e1; --muted:#a39d93; --line:#34312c; --accent:#e07a45; --accent-ink:#171614; --soft:#2a2723; } }
 * { box-sizing:border-box; }
 body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
-main { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
-h1 { font-size:2rem; margin:0 0 4px; } h2 { margin:40px 0 12px; font-size:1.3rem; } h3 { margin:0; font-size:1.05rem; }
-.sub { color:var(--muted); margin:0 0 24px; }
+main { max-width:820px; margin:0 auto; padding:32px 16px 64px; }
+h1 { font-size:2rem; margin:0 0 4px; } h2 { margin:44px 0 12px; font-size:1.3rem; } h3 { margin:6px 0 4px; font-size:1.15rem; }
+.sub, .muted { color:var(--muted); } .sub { margin:0 0 20px; } .muted { font-size:.88rem; }
 ol.steps { padding-left:1.3em; } ol.steps li { margin:8px 0; }
-b.ui { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:1px 6px; font-weight:600; white-space:nowrap; }
-ul.skills { list-style:none; padding:0; margin:0; display:grid; gap:10px; }
-.skill { display:flex; gap:12px; align-items:center; justify-content:space-between; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
-.skill p { margin:4px 0 0; color:var(--muted); font-size:.92rem; }
+b.ui { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:1px 6px; font-weight:600; }
+input[type=search] { width:100%; font:inherit; padding:12px 14px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); margin-bottom:14px; }
+ul.cards { list-style:none; padding:0; margin:0; display:grid; gap:12px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; }
+.card p { margin:0 0 8px; }
+.head { display:flex; justify-content:space-between; gap:8px; align-items:center; }
 .tag { font-size:.75rem; text-transform:uppercase; letter-spacing:.06em; color:var(--accent); font-weight:700; }
-.btn { flex:none; background:var(--accent); color:var(--accent-ink); border:0; border-radius:8px; padding:9px 14px; font:inherit; font-weight:600; text-decoration:none; cursor:pointer; }
-pre { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; white-space:pre-wrap; word-break:break-word; font-size:.88rem; max-height:320px; overflow:auto; margin:0 0 10px; }
-details { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 16px; margin-top:12px; }
-summary { cursor:pointer; font-weight:600; }
+ul.inside { margin:0 0 12px; padding-left:1.1em; } ul.inside li { margin:6px 0; }
+.actions { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:6px; }
+.btn { background:var(--accent); color:var(--accent-ink); border:0; border-radius:8px; padding:9px 14px; font:inherit; font-size:.95rem; font-weight:600; text-decoration:none; cursor:pointer; }
+.btn.alt { background:var(--soft); color:var(--ink); }
+pre { background:var(--soft); border-radius:10px; padding:12px 14px; white-space:pre-wrap; word-break:break-word; font-size:.86rem; max-height:360px; overflow:auto; margin:8px 0; }
+details { margin-top:6px; } summary { cursor:pointer; color:var(--accent); font-weight:600; font-size:.95rem; }
+.two > *, .card { min-width:0; } pre, .card { overflow-wrap:anywhere; }
+.two { display:grid; gap:12px; grid-template-columns:1fr; } @media (min-width:720px) { .two { grid-template-columns:1fr 1fr; } }
+.box { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; }
+.box h3 { margin-top:0; }
 a { color:var(--accent); }
+.vuoto { display:none; color:var(--muted); }
 footer { margin-top:48px; color:var(--muted); font-size:.9rem; }
 </style>
 </head>
 <body>
 <main>
 <h1>Claude Crew</h1>
-<p class="sub">Le regole e le skill che usiamo tutti con Claude. Scegli quelle che ti servono.</p>
+<p class="sub">Le regole e le skill che usiamo con Claude. Ogni scheda dice cosa fa, cosa c'è dentro e quando è stata aggiornata: scegli solo quelle che ti servono.</p>
 
-<h2>Usi Claude Code?</h2>
-<p>Incolla questa frase a Claude Code: fa tutto lui e ti chiede solo quali skill vuoi.</p>
-<pre id="frase">Installa la crew seguendo https://raw.githubusercontent.com/{{REPO}}/main/INSTALLA.md</pre>
-<button class="btn" data-copia="frase">Copia la frase</button>
+<div class="two">
+  <div class="box">
+    <h3>Usi Claude Code?</h3>
+    <p>Copia questa frase e incollala a Claude Code: installa lui e ti chiede quali plugin vuoi. Gli aggiornamenti poi arrivano da soli.</p>
+    <pre id="frase">Installa la crew seguendo {{INSTALLA}}</pre>
+    <button class="btn" data-copia="frase">Copia la frase</button>
+  </div>
+  <div class="box">
+    <h3>Usi l'app Claude?</h3>
+    <p>Copia le regole nelle tue preferenze e scarica dalle schede le skill che vuoi: i passi sono <a href="#app">più sotto</a>.</p>
+  </div>
+</div>
 
-<h2>Usi l'app Claude? · 1 · Le regole comuni</h2>
+<h2>Catalogo</h2>
+<input type="search" id="cerca" placeholder="Cerca: minecraft, video, logo, lag…" aria-label="Cerca nel catalogo">
+<ul class="cards" id="catalogo">
+{{CATALOGO}}
+</ul>
+<p class="vuoto" id="vuoto">Niente trovato. Hai un'idea? Proponila (vedi sotto).</p>
+
+<h2 id="app">App Claude: come si installa</h2>
+<p><b>1 · Le regole comuni</b></p>
 <ol class="steps">
   <li>Premi <b class="ui">Copia le regole</b> qui sotto.</li>
-  <li>Su claude.ai o nell'app Claude: <b class="ui">Impostazioni</b> → <b class="ui">Generali</b> (o Profilo) → campo delle <b class="ui">preferenze personali</b>.</li>
+  <li>Su claude.ai o nell'app desktop: <b class="ui">Impostazioni</b> → <b class="ui">Generali</b> (o Profilo) → campo delle <b class="ui">preferenze personali</b>.</li>
   <li>Incolla <b>sotto</b> le tue preferenze. Quando le regole cambiano, sostituisci solo il pezzo tra le due righe <code>regole crew</code>: quello che hai scritto tu resta tuo e vince sempre.</li>
 </ol>
 <pre id="regole">{{REGOLE}}</pre>
 <button class="btn" data-copia="regole">Copia le regole</button>
-
-<h2>Usi l'app Claude? · 2 · Le skill</h2>
-<p>Una skill insegna a Claude un tipo di lavoro. Si caricano da computer (claude.ai o app desktop) e poi valgono anche sul telefono.</p>
+<p style="margin-top:20px"><b>2 · Le skill</b> (da computer: poi valgono anche sul telefono)</p>
 <ol class="steps">
-  <li>Premi <b class="ui">Scarica</b> sulla skill che vuoi: arriva un file <code>.zip</code>, <b>non aprirlo</b>.</li>
-  <li><b class="ui">Impostazioni</b> → <b class="ui">Funzionalità</b> (Capabilities): accendi <b class="ui">Esecuzione di codice e creazione di file</b> se è spenta.</li>
-  <li>Nella sezione <b class="ui">Skill</b> premi <b class="ui">Carica skill</b> e scegli lo zip.</li>
+  <li>Nella scheda della skill premi <b class="ui">Scarica … per l'app</b>: arriva un file <code>.zip</code>, <b>non aprirlo</b>.</li>
+  <li><b class="ui">Impostazioni</b> → <b class="ui">Funzionalità</b>: accendi <b class="ui">Esecuzione di codice e creazione di file</b> se è spenta.</li>
+  <li>Nella sezione <b class="ui">Skill</b> premi <b class="ui">Carica skill</b> e scegli lo zip. Claude la usa da solo quando serve.</li>
+  <li>Aggiornamenti: se la data della scheda è più recente di quando l'hai scaricata, riscaricala e ricaricala.</li>
 </ol>
-<ul class="skills">
-{{SKILLS}}
-</ul>
-<p class="sub" style="margin-top:12px">Quando una skill cambia, la vedi aggiornata qui: riscaricala e ricaricala.</p>
+
+<h2>Hai una skill o una regola da condividere?</h2>
+<p>Di' al tuo Claude <b>"condividi questa skill con la crew"</b> (skill <code>condividi-skill</code>, nel plugin <code>regole</code>):
+la ripulisce da dati personali e ti prepara uno zip da mandare in chat a chi gestisce la crew.
+Hai solo un'idea? <a href="https://github.com/{{REPO}}/issues/new/choose">Proponila qui</a> (account GitHub gratuito) o scrivila in chat.</p>
+<p class="muted">Il tuo modo di usare Claude (come ti chiama, il tono, i tuoi metodi) resta nelle tue preferenze: la crew non lo tocca.</p>
 
 <details>
 <summary>Claude Code a mano (se preferisci i comandi)</summary>
 <pre>/plugin marketplace add {{REPO}}</pre>
-<pre>{{INSTALL}}</pre>
-<p>Su Windows senza chiave SSH di GitHub imposta prima <code>CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1</code> (lo fa la frase sopra).
-Aggiornamenti automatici: <code>/plugin</code> → Marketplaces → claude-crew → Enable auto-update.</p>
+<p>Poi <code>/plugin</code> → scheda Discover: vedi tutti i plugin con la descrizione e li accendi o spegni da lì. Aggiornamenti automatici: <code>/plugin</code> → Marketplaces → claude-crew → Enable auto-update.
+Su Windows senza chiave SSH di GitHub serve prima <code>CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1</code> (la frase sopra lo imposta).</p>
 </details>
-
-<h2>Hai una skill o una regola da condividere?</h2>
-<p>Di' al tuo Claude <b>"condividi questa skill con la crew"</b> (serve la skill <code>condividi-skill</code>):
-la ripulisce da dati personali e ti prepara uno zip da mandare in chat a chi gestisce la crew.
-Hai solo un'idea? <a href="https://github.com/{{REPO}}/issues/new/choose">Proponila qui</a> (account GitHub gratuito) o scrivila in chat.</p>
-<p class="sub">Il tuo modo di usare Claude (come ti chiama, il tono, i tuoi metodi) resta nelle tue preferenze: la crew non lo tocca.</p>
 
 <footer>Sorgente: <a href="https://github.com/{{REPO}}">github.com/{{REPO}}</a></footer>
 </main>
 <script>
-document.querySelectorAll("[data-copia]").forEach((b) => b.addEventListener("click", async () => {
-  const el = document.getElementById(b.dataset.copia);
-  try { await navigator.clipboard.writeText(el.textContent); b.textContent = "Copiato ✓"; }
-  catch { const r = document.createRange(); r.selectNodeContents(el);
-          const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = "Selezionato: copia a mano"; }
+async function copia(b, t, el) {
+  try { await navigator.clipboard.writeText(t); b.textContent = "Copiato ✓"; }
+  catch { if (el) { const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+          b.textContent = "Copia a mano"; }
+}
+document.querySelectorAll("[data-copia]").forEach((b) => b.addEventListener("click", () => {
+  const el = document.getElementById(b.dataset.copia); copia(b, el.textContent, el);
 }));
+document.querySelectorAll("[data-testo]").forEach((b) => b.addEventListener("click", () => copia(b, b.dataset.testo)));
+const cards = [...document.querySelectorAll("#catalogo .card")];
+document.getElementById("cerca").addEventListener("input", (ev) => {
+  const q = ev.target.value.trim().toLowerCase(); let n = 0;
+  cards.forEach((c) => { const ok = !q || c.textContent.toLowerCase().includes(q); c.style.display = ok ? "" : "none"; n += ok; });
+  document.getElementById("vuoto").style.display = n ? "none" : "block";
+});
 </script>
 </body>
 </html>

@@ -80,3 +80,5 @@ Regole comuni della crew (plugin `codice`). Le regole tue e il CLAUDE.md del pro
 - Spostare un tipo in un altro modulo: cerca ogni file che lo usa e aggiungi l'import; poi build completa.
 - Rimozioni in blocco da script: dopo, controlla il diff per dichiarazioni tolte che non erano nel bersaglio.
 - Strumenti di "codice inutilizzato" = lista da verificare, non da cancellare; build + test dopo ogni lotto.
+- Chrome headless non scende sotto 500 px di larghezza: uno screenshot a 414 è solo ritagliato (sembra un overflow).
+  Misura `innerWidth` prima di giudicare un layout da telefono, o usa l'emulazione del dispositivo.

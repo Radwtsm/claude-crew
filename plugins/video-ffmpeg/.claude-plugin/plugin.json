@@ -1,6 +1,6 @@
 {
   "name": "video-ffmpeg",
-  "description": "Skill per video: ffmpeg, compressione, tagli, formati social, OBS",
+  "description": "Video con ffmpeg: tagliare, comprimere, verticale per TikTok/Reels, solo audio, unire clip, sottotitoli; consigli OBS, YouTube, Discord",
   "author": {
     "name": "crew"
   }

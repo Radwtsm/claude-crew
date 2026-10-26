@@ -1,6 +1,6 @@
 {
   "name": "codice",
-  "description": "Regole per chi programma: stile, test, git, segreti, architettura",
+  "description": "Per chi programma (solo Claude Code): regole sempre attive su stile, commenti, segreti, test, git, codice di terzi, trappole tecniche, architettura",
   "author": {
     "name": "crew"
   }

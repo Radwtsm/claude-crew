@@ -1,6 +1,6 @@
 {
   "name": "regole",
-  "description": "Regole comuni della crew, caricate a ogni sessione",
+  "description": "Base per tutti: regole comuni sempre attive + skill condividi-skill (manda una tua skill alla crew) e installa-crew (aggiungi, togli, aggiorna skill)",
   "author": {
     "name": "crew"
   }

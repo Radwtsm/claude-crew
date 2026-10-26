@@ -1,6 +1,6 @@
 {
   "name": "server-minecraft",
-  "description": "Skill per server Minecraft (Paper, Fabric, Forge): setup, plugin, backup, lag, crash",
+  "description": "Server Minecraft Java (Paper, Purpur, Fabric, Forge): installazione, flag JVM, plugin e mod, sicurezza, backup, lag con spark, crash log, aggiornamenti",
   "author": {
     "name": "crew"
   }
