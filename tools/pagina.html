@@ -48,8 +48,13 @@ footer { margin-top:48px; color:var(--muted); font-size:.9rem; }
     <button class="btn" data-copia="frase">Copia la frase</button>
   </div>
   <div class="box">
-    <h3>Usi l'app Claude?</h3>
-    <p>Copia le regole nelle tue preferenze e scarica dalle schede le skill che vuoi: i passi sono <a href="#app">più sotto</a>.</p>
+    <h3>Usi l'app Claude desktop?</h3>
+    <ol class="steps">
+      <li><b class="ui">Personalizza</b> → <b class="ui">Plugin</b> (Customize → Plugins) → <b class="ui">Aggiungi marketplace</b> e scrivi <code>{{REPO}}</code>.</li>
+      <li>Installa i plugin che vuoi e accendi <b class="ui">Sync automatically</b>: si aggiornano da soli e valgono anche in chat e sul telefono.</li>
+      <li>Una volta sola: copia le regole comuni nelle tue preferenze (<a href="#app">più sotto</a>).</li>
+    </ol>
+    <p class="muted">Solo web o telefono? Scarica gli zip dalle schede (passi più sotto).</p>
   </div>
 </div>
 
@@ -60,7 +65,7 @@ footer { margin-top:48px; color:var(--muted); font-size:.9rem; }
 </ul>
 <p class="vuoto" id="vuoto">Niente trovato. Hai un'idea? Proponila (vedi sotto).</p>
 
-<h2 id="app">App Claude: come si installa</h2>
+<h2 id="app">App Claude: regole e skill a mano</h2>
 <p><b>1 · Le regole comuni</b></p>
 <ol class="steps">
   <li>Premi <b class="ui">Copia le regole</b> qui sotto.</li>
@@ -69,7 +74,7 @@ footer { margin-top:48px; color:var(--muted); font-size:.9rem; }
 </ol>
 <pre id="regole">{{REGOLE}}</pre>
 <button class="btn" data-copia="regole">Copia le regole</button>
-<p style="margin-top:20px"><b>2 · Le skill</b> (da computer: poi valgono anche sul telefono)</p>
+<p style="margin-top:20px"><b>2 · Le skill</b>, solo se non usi i plugin dell'app desktop (da computer: poi valgono anche sul telefono)</p>
 <ol class="steps">
   <li>Nella scheda della skill premi <b class="ui">Scarica … per l'app</b>: arriva un file <code>.zip</code>, <b>non aprirlo</b>.</li>
   <li><b class="ui">Impostazioni</b> → <b class="ui">Funzionalità</b>: accendi <b class="ui">Esecuzione di codice e creazione di file</b> se è spenta.</li>

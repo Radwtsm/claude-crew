@@ -17,7 +17,9 @@ Regole e skill condivise di un gruppo di amici che usano Claude (Claude Code e a
 ## Installare
 
 - **Claude Code**: incolla al tuo Claude `Installa la crew seguendo` + il link a `INSTALLA.md` (lo trovi sulla pagina).
-- **App Claude**: dalla pagina (link in "About" del repo) scarichi gli zip delle skill e copi le regole.
+- **App Claude desktop**: Personalizza → Plugin → Aggiungi marketplace `Radwtsm/claude-crew`, installa, accendi
+  Sync automatically (valgono anche in chat e sul telefono); le regole comuni si incollano nelle preferenze.
+- **Solo web/telefono**: dalla pagina (link in "About" del repo) scarichi gli zip delle skill e copi le regole.
 
 ## Tre strati, nessuno tocca gli altri
 
