@@ -5,6 +5,11 @@ amici che usano Claude (Claude Code e app, Windows e Mac). Serve a far crescere 
 lavorare**: quello che uno scopre o impara da un errore arriva al Claude di tutti.
 **Una skill = un plugin**: ognuno accende solo quelle che vuole.
 
+**Dove vogliamo arrivare**: ogni progetto di uno di noi lascia qui quello che ha insegnato, così il prossimo parte
+già avanti. Lo scopo finale è comporre le skill: un progetto unico che tocca più settori (es. un server con sito,
+negozio online, campagna SEO e video promozionale) dove ogni pezzo nasce dalle stesse scelte e si incastra con gli
+altri. Le scelte stanno nella scheda di progetto `progetto.md`, gestita dalla skill `progetto-crew`.
+
 **Dove vive**: la cartella condivisa **Google Drive `Claude Crew/libreria`** è il centro, dove i Claude dei
 manutentori lavorano. Questo repo è la copia pubblicata (storia, backup, controlli) da cui si installano i plugin.
 Le due si allineano da sole ogni ~10 minuti.
@@ -13,7 +18,7 @@ Le due si allineano da sole ogni ~10 minuti.
 
 | Cosa | Dove | Per chi |
 |---|---|---|
-| Regole comuni + `organizza-claude` (struttura comune), `condividi-skill`, `raccogli-skill`, `installa-crew` | `plugins/regole/` | tutti |
+| Regole comuni + `progetto-crew` (progetti con più settori), `organizza-claude` (struttura comune), `condividi-skill`, `raccogli-skill`, `installa-crew` | `plugins/regole/` | tutti |
 | Regole per chi programma | `plugins/codice/` | chi programma (solo Claude Code) |
 | Una skill per tipo di lavoro | `plugins/<skill>/skills/<skill>/SKILL.md` | chi la installa |
 | Plugin di terzi consigliati (fissati a un commit) | `esterni.json` | tutti |
