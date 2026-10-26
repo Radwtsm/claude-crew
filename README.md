@@ -38,13 +38,34 @@ Ognuno lo chiede al proprio Claude: **"aggiungi questo a crew"** (una skill) o *
 - **Gli altri**: `condividi-skill` prepara uno zip da mandare a un manutentore, che lo importa con
   `python3 tools/aggiungi.py <skill.zip> <categoria>`. Oppure un modulo in Issues.
 
-### Setup di un manutentore con l'app Claude (una volta)
-1. Google Drive per desktop; la cartella `Claude Crew` condivisa con lui (Editor) → "Aggiungi scorciatoia a Il mio
-   Drive" → tasto destro → **Disponibile offline**.
-2. App Claude desktop → Cowork → nuovo progetto "Claude Crew" con la cartella `Claude Crew/libreria`; istruzioni
-   del progetto: `Prima di ogni lavoro leggi e segui CLAUDE.md di questa cartella.`
-3. Personalizza → Plugin → Aggiungi marketplace `Radwtsm/claude-crew` → installa i plugin → Sync automatically.
-4. Regole comuni nelle preferenze personali (dalla pagina).
+### Condividere la cartella (manutentore principale)
+Su drive.google.com (non il menu "Condividi" di macOS/Windows, che manda solo una copia): tasto destro su
+`Claude Crew` → **Condividi** → email → **Editor** per un manutentore, **Visualizzatore** per gli altri → Invia.
+
+### Setup di un manutentore con l'app Claude, Windows (una volta)
+1. **Google Drive per desktop** dal sito di Google; accedi con l'account a cui è condivisa la cartella. In Esplora
+   file compare il disco **Google Drive (G:)**.
+2. drive.google.com → **Condivisi con me** → tasto destro su `Claude Crew` → **Organizza → Aggiungi scorciatoia →
+   Il mio Drive**. Dopo poco è in `G:\Il mio Drive\Claude Crew`.
+3. Esplora file → tasto destro su `Claude Crew` → **Accesso offline → Disponibile offline** (obbligatorio, vedi
+   `CLAUDE.md` → "Cartella condivisa").
+4. Sul Desktop solo un collegamento: tasto destro → **Mostra altre opzioni → Invia a → Desktop (crea
+   collegamento)**. Mai trascinare o copiare la cartella.
+5. App Claude desktop → **Cowork** → nuovo progetto "Claude Crew" con la cartella vera
+   `G:\Il mio Drive\Claude Crew\libreria` (non il collegamento); istruzioni del progetto:
+   `Prima di ogni lavoro leggi e segui CLAUDE.md di questa cartella.`
+6. **Personalizza → Plugin → Aggiungi marketplace** `Radwtsm/claude-crew` → installa i plugin → **Sync
+   automatically**.
+7. Regole comuni nelle preferenze personali (dalla pagina), poi nel progetto: "organizza il mio Claude e raccogli
+   le mie skill nella crew".
+
+Su Mac è uguale: Drive compare nel Finder sotto "Google Drive"; tasto destro → Google Drive → Disponibile offline.
+
+### Pubblicazione (lato manutentore principale)
+Un job sul suo computer sincronizza la cartella con questo repo ogni ~10 minuti, con le regole di `CLAUDE.md` →
+"Cartella condivisa" (due direzioni, conflitti fermati, script in attesa di ok, `check.sh` prima di ogni push). Se
+un giorno lo spostiamo su un altro computer, servono: Drive per desktop con la cartella offline, un clone di questo
+repo con permesso di push, e un Python che il sistema lasci accedere ai file di Drive in background.
 
 Regole per ciò che entra:
 - Repo **pubblico**: niente segreti, IP, nomi di PC, percorsi, email, dati di persone (`check.sh` + CI li bloccano;

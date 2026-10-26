@@ -22,6 +22,23 @@ le istanze di tutti lavorano allo stesso modo. Il repo è **pubblico**.
   Mai la stessa modifica in tutti e due i posti: crea un conflitto.
 - **Chi non è manutentore**: niente scrittura; `condividi-skill` prepara uno zip da mandare a un manutentore.
 
+## Cartella condivisa: come funziona (leggi prima di dire "fatto")
+- **Due direzioni, ogni ~10 minuti**: cambiato solo su Drive → pubblicato su GitHub; cambiato solo su GitHub →
+  copiato su Drive; cambiato in tutti e due i posti → **conflitto**: nessuno dei due vince, il manutentore
+  principale decide. Quindi: una modifica in un posto solo, e aspetta la pubblicazione prima di rifarla.
+- **Cosa passa da solo**: `plugins/**/*.md` e `plugins/*/.claude-plugin/plugin.json`. Tutto il resto (script,
+  hook, json, file fuori da `plugins/`) **aspetta l'ok** del manutentore principale, che legge il diff.
+- **Cosa viene bloccato**: tutto ciò che `check.sh` segnala (IP, URL non della crew, email, segreti). Il file resta
+  su Drive, su GitHub non va niente: correggilo e al giro dopo passa.
+- **"Disponibile offline" obbligatorio** su ogni computer che usa la cartella: un file solo online non è ancora sul
+  disco e la sincronizzazione lo salta finché non arriva. Se una skill non compare dopo 20 minuti, è quasi sempre
+  questo, o Drive per desktop è chiuso.
+- **Cancellare** su Drive cancella anche su GitHub (e dai plugin di tutti): fallo solo se l'utente lo vuole.
+- Mai copiare o trascinare la cartella altrove (Desktop compreso): la copia non si sincronizza più. Sul Desktop va
+  solo un collegamento.
+- **Tempi**: pubblicazione su GitHub ~10 minuti; poi Claude Code la riceve all'avvio successivo (aggiornamento
+  automatico acceso), l'app desktop con Sync automatically.
+
 ## Prima di ogni modifica
 1. **Allinea**: lavora sull'ultima versione (cartella Drive sincronizzata e "disponibile offline"; nel clone
    `git pull --ff-only`). Leggi l'elenco dei plugin per sapere cosa c'è già.
