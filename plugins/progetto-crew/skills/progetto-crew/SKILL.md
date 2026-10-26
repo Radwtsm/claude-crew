@@ -44,3 +44,29 @@ Prima di dire "fatto" su un pezzo, e di nuovo a fine progetto:
 - Rivedi con l'utente cosa è andato storto o è stato lento: ogni problema non ovvio → `annota-lezione`; ogni
   sequenza di passi nuova e riutilizzabile → una skill nuova o migliorata (`condividi-skill`).
 - Così il prossimo progetto parte già da qui.
+
+## Progetto per un cliente esterno (negozio, bar, studio)
+Quando il progetto è per un'attività che paga o prova il nostro lavoro, oltre ai passi sopra:
+- **Prima del sì**: il problema detto dal cliente con parole sue, chi userà la cosa, orari di apertura, hardware e
+  rete che ha già. Meglio una demo con il suo nome e dati finti che una presentazione.
+- **Si parte in piccolo**: un pilota con durata, cosa è incluso e cosa no scritti in una pagina, anche se gratis.
+- **Proposta scritta**: cosa è incluso ed escluso, tempi, costo una tantum e mensile, assistenza (canale, orari,
+  tempi di risposta), cosa succede ai dati a fine rapporto (export). Il primo modello lo rivede un commercialista o
+  un legale; la forma per incassare si decide con il commercialista prima del primo incasso.
+- **Account a nome del cliente** (dominio, profilo Google, fornitori, app): lui è proprietario, la crew ha accesso
+  delegato. Credenziali solo in un gestore password condiviso, mai in chat o nella scheda.
+- **Dati personali** dei suoi clienti o dipendenti: accordo GDPR per il trattamento, dati in UE, mai nei test o
+  nelle demo.
+- **Fisco** (fattura elettronica, registratore telematico): solo tramite un fornitore abilitato, mai rifatto da noi.
+- **Consegna**: backup attivo e ripristino provato, guida di una pagina, 15 minuti di formazione, versione taggata
+  per tornare indietro.
+- **Dopo**: aggiornamenti a negozio chiuso e prima su un solo dispositivo; ogni richiesta di assistenza che rivela un
+  errore → `annota-lezione`.
+
+## Insidie con i clienti
+- Lavoro che non finisce mai → "già che ci sei" accettato a voce → ogni cosa fuori dalla proposta è una richiesta
+  nuova, con tempi e costo.
+- Cliente bloccato o crew bloccata → dominio o account registrati a nome di uno di noi → sempre a nome del cliente.
+- Pagamento che non arriva → lavoro iniziato senza nulla di scritto → proposta accettata per iscritto (anche una
+  mail) prima di iniziare.
+- Prodotto che non serve → costruito prima di parlare con chi lo usa → prima demo e pilota, poi il prodotto.
