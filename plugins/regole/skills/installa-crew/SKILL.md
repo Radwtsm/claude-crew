@@ -20,6 +20,10 @@ Le istruzioni complete, anche per la prima installazione, sono in `INSTALLA.md` 
 - Le modifiche valgono dalla prossima sessione (o con `/reload-plugins`).
 - Mai toccare il CLAUDE.md personale o le impostazioni dell'utente oltre a quanto scritto in `INSTALLA.md`.
 
+## Insidie
+- Plugin installato con Claude già aperto → le sue regole e i suoi hook mancano anche dopo `/clear` → `/clear` non
+  carica i plugin nuovi: `/reload-plugins` o chiudi e riapri `claude`, poi controlla che le regole ci siano.
+
 ## App Claude desktop
 - Personalizza → Plugin: i plugin nuovi della crew compaiono nel marketplace `claude-crew` (Discover); con **Sync
   automatically** quelli installati si aggiornano da soli, quelli nuovi si installano con un clic.
