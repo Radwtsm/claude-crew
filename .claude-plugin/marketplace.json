@@ -18,6 +18,12 @@
       "category": "regole"
     },
     {
+      "name": "blender-riga-di-comando",
+      "source": "./plugins/blender-riga-di-comando",
+      "description": "Blender guidato da script Python senza interfaccia: lancio in background, scena da zero, luci e camere, Cycles su GPU (OptiX/CUDA), materiali, render e insidie dei render realistici",
+      "category": "3d"
+    },
+    {
       "name": "grafica",
       "source": "./plugins/grafica",
       "description": "Grafica: formati di export, dimensioni per YouTube/Instagram/TikTok/Discord, texture e skin Minecraft, regole di qualità, diritti su font e immagini",

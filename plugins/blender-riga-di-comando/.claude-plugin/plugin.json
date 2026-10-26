@@ -1,0 +1,10 @@
+{
+  "name": "blender-riga-di-comando",
+  "description": "Blender guidato da script Python senza interfaccia: lancio in background, scena da zero, luci e camere, Cycles su GPU (OptiX/CUDA), materiali, render e insidie dei render realistici",
+  "author": {
+    "name": "crew"
+  },
+  "keywords": [
+    "3d"
+  ]
+}
