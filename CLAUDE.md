@@ -10,7 +10,8 @@ le istanze di tutti lavorano allo stesso modo. Il repo è **pubblico**.
 | Una skill = un plugin | `plugins/<nome>/` |
 | Regole comuni + skill `condividi-skill`, `raccogli-skill`, `organizza-claude`, `installa-crew` | `plugins/regole/` |
 | Come ognuno organizza il proprio Claude (strati, cartelle, app) | `plugins/regole/skills/organizza-claude/SKILL.md` |
-| Elenco dei plugin (GENERATO, non toccare) | `.claude-plugin/marketplace.json` ← `tools/elenco.py` |
+| Plugin di terzi consigliati, fissati a un commit | `esterni.json` |
+| Elenco dei plugin (GENERATO, non toccare) | `.claude-plugin/marketplace.json` ← `tools/elenco.py` (plugins/ + esterni.json) |
 | Pagina per l'app, zip | `tools/build.py` + `tools/pagina.html` → GitHub Pages (CI) |
 | Installazione guidata per Claude Code | `INSTALLA.md` |
 | Controllo anti-fuga | `check.sh` (pre-commit + CI + sincronizzazione) |
@@ -71,6 +72,27 @@ sezioni `##` brevi (prima "Prima di tutto chiedi", poi le regole, poi comandi in
 - Categoria: una già usata (`regole`, `minecraft`, `grafica`, `video`) o una nuova breve, minuscola.
 - Italiano, frasi brevi, stile delle skill che ci sono.
 - File in più (esempi, modelli) dentro `skills/<nome>/`, citati dal `SKILL.md`.
+
+## Strumenti: tutti qui, niente sparso
+Ogni strumento utile a più di una persona sta nella crew, non in un solo progetto o computer:
+| Strumento | Come entra nella crew |
+|---|---|
+| Skill / procedura | plugin `plugins/<nome>/` (sopra) |
+| Hook (comando che parte da solo) | `plugins/<nome>/hooks/hooks.json` + script in `plugins/<nome>/scripts/` — aspetta l'ok |
+| Server MCP | `plugins/<nome>/.mcp.json` (niente chiavi: le mette ognuno nelle sue impostazioni) — aspetta l'ok |
+| Plugin di terzi | una voce in `esterni.json`: `name`, `description`, `category`, `source` git (`github` o `git-subdir`) con `sha` del commit (40 caratteri) — aspetta l'ok |
+| Programma da installare | nella skill del tema: nome, fonte ufficiale, comando di verifica |
+
+Per un plugin di terzi: solo fonti note, letto per intero (hook e script compresi), fissato a un commit; per
+aggiornarlo si cambia lo `sha` dopo aver riletto cosa è cambiato. Chi ha installato tutta la crew lo riceve da
+solo: per questo serve l'ok del manutentore principale.
+
+## Lezioni: un errore si fa una volta sola
+Un problema non ovvio risolto (da te o da un collaboratore) diventa una riga dove lo troverà il prossimo:
+- nella skill del tema, sezione insidie/trappole (es. `blender-riga-di-comando` → "Insidie");
+- nel plugin `codice` → "Trappole tecniche" se riguarda programmazione, sistemi, strumenti;
+- nelle regole comuni se vale per qualunque lavoro.
+Una riga: sintomo → causa → cosa fare. Prima di aggiungerla cerca se c'è già (migliora quella, niente doppioni).
 
 ## Pulizia (obbligatoria, ogni volta)
 Togli e chiedi conferma all'utente: password, token, chiavi; IP, nomi di PC/server, percorsi del suo computer, URL

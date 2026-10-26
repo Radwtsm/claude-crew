@@ -12,10 +12,13 @@ Fai tu i passi, spiegando in breve cosa fai; chiedi solo le scelte. Funziona su 
 3. **Aggiungi la libreria**: `claude plugin marketplace add Radwtsm/claude-crew`
 4. **Fai scegliere**: leggi l'elenco dei plugin (`.claude-plugin/marketplace.json` della crew) e chiedi all'utente
    quali vuole, con una domanda a scelta multipla. Consiglia sempre `regole` (base comune + come condividere skill).
-   `codice` solo a chi programma.
+   `codice` solo a chi programma. Prima opzione: **"Tutte, anche quelle future"** (consigliata a chi lavora in più
+   campi: ogni strumento nuovo della crew arriva da solo).
 5. **Installa** ognuno: `claude plugin install <nome>@claude-crew`
 6. **Aggiornamenti automatici**: di' all'utente di scrivere `/plugin`, aprire **Marketplaces**, scegliere
-   `claude-crew` e premere **Enable auto-update** (è l'unico passo che deve fare lui).
+   `claude-crew` e premere **Enable auto-update** (è l'unico passo che deve fare lui). Aggiorna i plugin installati,
+   non installa quelli nuovi: se ha scelto "Tutte, anche quelle future", di' che basta chiedere "aggiorna la crew"
+   ogni tanto (skill `installa-crew` installa quelli arrivati).
 7. **Personale**: se l'utente ha già preferenze sue (come vuole essere chiamato, tono, formato), restano nel suo
    `~/.claude/CLAUDE.md`, che non va toccato. Le regole personali vincono su quelle della crew.
 8. **Verifica**: `claude plugin list` deve mostrare i plugin scelti come abilitati. Di' all'utente che le regole

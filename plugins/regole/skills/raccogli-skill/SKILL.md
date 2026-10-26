@@ -1,6 +1,6 @@
 ---
 name: raccogli-skill
-description: Fare l'inventario di TUTTE le skill e procedure dell'utente (personali, di ogni progetto, comandi, CLAUDE.md, app), confrontarle con la crew e portare nella crew quelle generiche, unendo i doppioni. Usala quando l'utente dice "raccogli le mie skill", "porta tutto nella crew", "sincronizza le mie skill con la crew", "cosa posso condividere".
+description: Fare l'inventario di TUTTI gli strumenti dell'utente (skill, procedure, comandi, plugin, server MCP, hook, lezioni imparate) in ogni progetto e nell'app, confrontarli con la crew e portare nella crew quelli utili ad altri, unendo i doppioni. Usala quando l'utente dice "raccogli le mie skill", "porta tutto nella crew", "sincronizza i miei strumenti con la crew", "cosa posso condividere".
 ---
 
 # Raccogli le skill nella crew
@@ -20,6 +20,10 @@ scrive nella crew sono nel `CLAUDE.md` della libreria: leggilo prima di scrivere
 - Procedure riutilizzabili scritte nei `CLAUDE.md` (personale e dei progetti): passi ripetibili che potrebbero
   diventare una skill.
 - App Claude / Cowork: le skill in Personalizza → Skill (se non vedi i file, chiedi all'utente di scaricarle).
+- Plugin di terzi: `claude plugin list` (quelli non della crew); nell'app Personalizza → Plugin.
+- Server MCP: `claude mcp list`, i file `.mcp.json` dei progetti; nell'app i connettori personalizzati.
+- Hook: la chiave `hooks` in `~/.claude/settings.json` e in `.claude/settings.json` di ogni progetto.
+- Lezioni: problemi risolti scritti nei `CLAUDE.md`, nelle note o nella memoria (sintomo → causa → soluzione).
 
 ## 3. Confronta e classifica
 Per ognuna: **già nella crew** (uguale / la crew è più vecchia → proposta di aggiornamento) · **generica** (utile
@@ -32,7 +36,7 @@ Niente senza il suo sì.
 
 ## 5. Scrivi
 Per ogni scelta: pulisci (vedi `CLAUDE.md`), unisci i doppioni in una skill sola, scrivi seguendo la struttura del
-`CLAUDE.md`. Senza accesso alla libreria: usa `condividi-skill` (zip). La skill privata originale non la cancelli:
+`CLAUDE.md` (sezioni "Strumenti: tutti qui" per plugin, MCP e hook; "Lezioni" per i problemi risolti). Senza accesso alla libreria: usa `condividi-skill` (zip). La skill privata originale non la cancelli:
 se l'utente vuole, dopo la pubblicazione la sostituisce col plugin della crew.
 
 ## 6. Riepilogo

@@ -1,16 +1,27 @@
 ---
 name: installa-crew
-description: Scegliere, aggiungere o togliere skill della crew in Claude Code, aggiornarle o controllare che siano installate bene. Usala quando l'utente chiede "che skill della crew ci sono", "aggiungi/togli la skill X", "aggiorna la crew".
+description: Scegliere, aggiungere o togliere plugin della crew, tenerli tutti sincronizzati (anche quelli nuovi), aggiornarli o controllare che siano installati bene, in Claude Code o nell'app. Usala quando l'utente chiede "che skill della crew ci sono", "aggiungi/togli la skill X", "aggiorna la crew", "voglio tutte le skill sempre aggiornate".
 ---
 
-# Gestire le skill della crew (Claude Code)
+# Gestire i plugin della crew
 
-Le istruzioni complete, che valgono anche per la prima installazione, sono in `INSTALLA.md` alla radice del repo
-`Radwtsm/claude-crew`. In breve:
+Le istruzioni complete, anche per la prima installazione, sono in `INSTALLA.md` alla radice del repo
+`Radwtsm/claude-crew`.
 
-- Elenco: leggi il `.claude-plugin/marketplace.json` della crew (`claude plugin list` per quelle installate) e
-  proponi all'utente cosa accendere o spegnere, con una domanda a scelta multipla.
+## Claude Code
+- Elenco: `claude plugin marketplace update claude-crew`, poi leggi il `.claude-plugin/marketplace.json` della crew
+  (copia locale: `~/.claude/plugins/marketplaces/claude-crew/`) e confrontalo con `claude plugin list`; proponi
+  cosa accendere o spegnere con una domanda a scelta multipla.
 - Aggiungere: `claude plugin install <nome>@claude-crew`. Togliere: `claude plugin uninstall <nome>@claude-crew`.
-- Aggiornare subito: `claude plugin marketplace update claude-crew`.
+- **"Tutte, sempre"**: l'aggiornamento automatico (`/plugin` → Marketplaces → claude-crew → Enable auto-update)
+  aggiorna i plugin installati, ma **non installa quelli nuovi**. A ogni "aggiorna la crew": marketplace update,
+  poi installa ogni plugin dell'elenco che manca in `claude plugin list`, poi di' quali sono arrivati.
+- I plugin di terzi nell'elenco (voci di `esterni.json`) si installano allo stesso modo.
 - Le modifiche valgono dalla prossima sessione (o con `/reload-plugins`).
 - Mai toccare il CLAUDE.md personale o le impostazioni dell'utente oltre a quanto scritto in `INSTALLA.md`.
+
+## App Claude desktop
+- Personalizza → Plugin: i plugin nuovi della crew compaiono nel marketplace `claude-crew` (Discover); con **Sync
+  automatically** quelli installati si aggiornano da soli, quelli nuovi si installano con un clic.
+- Dall'app non puoi installarli tu: di' all'utente quali sono nuovi (confronta l'elenco della crew con quelli che
+  ha) e dove cliccare.

@@ -10,7 +10,8 @@ Regole e skill condivise di un gruppo di amici che usano Claude (Claude Code e a
 | Regole comuni + `organizza-claude` (struttura comune), `condividi-skill`, `raccogli-skill`, `installa-crew` | `plugins/regole/` | tutti |
 | Regole per chi programma | `plugins/codice/` | chi programma (solo Claude Code) |
 | Una skill per tipo di lavoro | `plugins/<skill>/skills/<skill>/SKILL.md` | chi la installa |
-| Elenco dei plugin | `.claude-plugin/marketplace.json` | Claude Code |
+| Plugin di terzi consigliati (fissati a un commit) | `esterni.json` | tutti |
+| Elenco dei plugin (generato) | `.claude-plugin/marketplace.json` | Claude Code, app |
 | Pagina per l'app (zip + regole da copiare) | `tools/build.py` + `tools/pagina.html` → GitHub Pages | chi usa l'app |
 | Istruzioni d'installazione per Claude | `INSTALLA.md` | Claude Code |
 
@@ -20,6 +21,12 @@ Regole e skill condivise di un gruppo di amici che usano Claude (Claude Code e a
 - **App Claude desktop**: Personalizza → Plugin → Aggiungi marketplace `Radwtsm/claude-crew`, installa, accendi
   Sync automatically (valgono anche in chat e sul telefono); le regole comuni si incollano nelle preferenze.
 - **Solo web/telefono**: dalla pagina (link in "About" del repo) scarichi gli zip delle skill e copi le regole.
+
+## Perché tutto qui
+
+Ogni strumento utile scoperto da uno (skill, plugin, server MCP, hook, programma) e ogni problema già risolto
+finisce qui, non sparso nei progetti di qualcuno: così arriva a tutti e nessuno si incastra due volte nello stesso
+errore. Come si fa: `CLAUDE.md` → "Strumenti: tutti qui" e "Lezioni".
 
 ## Tre strati, nessuno tocca gli altri
 

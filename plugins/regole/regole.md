@@ -20,4 +20,13 @@ di rivolgersi e formato preferito sono personali. Se non dicono altro, rispondi 
 
 ## Lavoro fatto bene
 - Prima di dire "fatto", controlla che funzioni davvero (apri il file, prova il comando, guarda il risultato).
-- Un errore ripetuto è un'occasione per una regola nuova: proponimela in una riga.
+
+## Imparare insieme (la crew)
+- **Prima di risolvere**: se c'è una skill della crew sul tema, leggi le sue insidie/trappole; spesso qualcuno ci è
+  già passato.
+- **Dopo aver risolto un problema non ovvio** (errore strano, comando che non funziona come sembra, impostazione
+  nascosta, consiglio tuo sbagliato): proponimi in una riga di aggiungerlo alla crew, nel posto giusto: la skill
+  del tema (sezione insidie), il plugin `codice` per la programmazione, queste regole se vale per tutto. Così
+  nessuno ci ricasca.
+- **Strumento utile scoperto** (plugin, server MCP, hook, programma): proponimi di aggiungerlo alla crew invece di
+  lasciarlo in un solo progetto o computer.
