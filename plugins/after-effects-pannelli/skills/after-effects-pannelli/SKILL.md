@@ -74,6 +74,17 @@ reg add "HKCU\Software\Adobe\CSXS.12" /v PlayerDebugMode /t REG_SZ /d 1 /f
   un null 3D con `anchorPoint [0,0,0]` e figli con `setParentWithJump` (il normale `parent =` compensa i valori).
 - **Layer selezionati**: keyframe relativi al valore attuale (`valueAtTime(t0,false)`); posizione nel tempo:
   dal cursore, fino al cursore, inizio o fine del layer. La selezione si legge con un polling (~800 ms).
+- 🧪 **Spostare keyframe esistenti** (strumenti tipo "ease", "inverti", "sfalsa"): non esiste `moveKey`. Leggi
+  tutto (valore, interpolazioni, ease, tangenti spaziali, roving), **rimuovi tutti** quelli da spostare (indici
+  decrescenti), **poi** riaggiungili e ritrovali con `nearestKeyIndex(t)` (gli indici cambiano a ogni `addKey`).
+  Invertire nel tempo = scambiare entrata e uscita. Quante `KeyframeEase` passare: leggilo da
+  `keyOutTemporalEase(i).length`, non indovinarlo.
+- **Espressioni** che devono valere per numeri e array: `add()`/`mul()` invece di `+`/`*`.
+- ⚠️ **Parametri di effetti con gruppi** (Fractal Noise, 4-Color Gradient): l'indice è incerto. Cerca per nome
+  (inglese e lingua di AE), poi matchName, poi indice.
+- **Transizioni di "camera"** su un adjustment layer: Motion Tile (output 300%, bordi specchiati) e poi
+  Transform (otturatore proprio per il motion blur); keyframe che accelerano fino al taglio, salto con HOLD,
+  poi frenano.
 - **Rollback**: dopo un errore `app.executeCommand(16)` (Annulla) **solo se sono stati creati layer**, altrimenti
   annulleresti un'azione precedente dell'utente.
 
@@ -88,12 +99,15 @@ reg add "HKCU\Software\Adobe\CSXS.12" /v PlayerDebugMode /t REG_SZ /d 1 /f
   affiancate se largo. Il pulsante principale dice cosa farà ("Applica ai layer selezionati").
 - Errori in rosso con il **testo originale di AE**: l'utente lo copia e te lo manda.
 - Prova a 320, 440 e 900 px di larghezza.
+- **Risorse di terzi** (texture, immagini): leggi la licenza prima. Molte (es. Texturelabs) vietano di includerle in
+  plugin o template: il pannello le legge da una cartella dell'utente, che le scarica da sé.
 
 ## Come provare
 1. Pannello in un normale browser (server statico locale) per layout ed errori JS.
 2. Per ogni preset e ogni opzione: `build`, disegno a più tempi, `JSON.stringify`, controllo keyframe doppi.
 3. Prova a secco dell'host in Node con un AE finto (oggetti `Proxy` che rispondono a tutto): trova errori di
    codice, non quelli dell'API vera. Attento ai cicli `while (x.property(...))`, con un finto sono infiniti.
+   Con `vm` gli array creati fuori dal contesto falliscono `instanceof Array` dentro: crea i dati nel contesto.
 4. Dentro AE dalla porta di debug 8088 (protocollo DevTools): ricarica il pannello, rivaluta l'host con
    `$.evalFile(...)`, leggi lo stato. Creare layer solo nel progetto vuoto concordato.
 
