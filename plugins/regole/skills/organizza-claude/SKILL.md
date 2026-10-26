@@ -40,6 +40,22 @@ solo su quella macchina, oppure direttamente in `~/.claude/CLAUDE.md` sotto gli 
 | Personale | Impostazioni → preferenze personali (sopra la riga della crew); skill solo tue in Personalizza → Skill |
 | Progetto | un Progetto (o un progetto Cowork con la sua cartella) con le sue istruzioni |
 
+## Contesto snello: cosa si carica sempre
+Ogni risposta di Claude rilegge tutto ciò che è sempre caricato; in una sessione lunga lo rilegge centinaia di volte.
+- **CLAUDE.md = indice corto**: regole che valgono sempre + una tabella "argomento → file → leggilo prima di…".
+  Lezioni, procedure lunghe, elenchi: in file per tema (es. `docs/lezioni/<tema>.md`), letti solo quando servono.
+  Le 4–5 regole che non si possono mai dimenticare restano nel CLAUDE.md, una riga ciascuna.
+- **CLAUDE.md nelle sottocartelle** (es. `app/CLAUDE.md`): Claude Code lo legge solo quando lavora lì. Ci va ciò che
+  vale solo per quella parte.
+- **Skill invece di regole sempre caricate**: di una skill resta in contesto solo la descrizione; il resto si legge
+  quando serve. Descrizione corta ma con i casi d'uso ("Usala prima di…").
+- **Hook d'avvio corti** (sotto ~8 KB): oltre ~10 KB Claude Code salva l'output in un file e ne mostra solo
+  l'inizio. Prima gli avvisi, poi gli elenchi; un elenco lungo = numeri + "dettagli con <comando>".
+- **Plugin e connettori per progetto**: attiva solo quelli che servono a quel progetto (in Claude Code
+  `enabledPlugins` nel `.claude/settings.json` del progetto; nell'app i connettori della conversazione).
+- **Una sessione per argomento**, `/clear` dopo il commit: lo stato sta nel backlog e nella memoria, non nella chat.
+- Ogni tanto misura (skill di uso dei token, se c'è): se le istruzioni fisse sono più di metà, sono da sfoltire.
+
 ## Dove va una cosa nuova
 - Vale per chiunque nella crew? → crew (`condividi-skill`).
 - Vale per te ovunque? → personale.

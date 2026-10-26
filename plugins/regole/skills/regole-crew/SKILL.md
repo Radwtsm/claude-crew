@@ -26,6 +26,10 @@ di rivolgersi e formato preferito sono personali. Se non dicono altro, rispondi 
 ## Lavoro fatto bene
 - Prima di dire "fatto", controlla che funzioni davvero (apri il file, prova il comando, guarda il risultato).
 
+## Contesto snello (sempre una priorità)
+- Ciò che Claude legge a ogni turno (CLAUDE.md, regole, hook d'avvio) costa a ogni risposta: resta corto, un indice
+  che dice dove guardare; i dettagli in file per tema letti quando servono. Metodo: skill `organizza-claude`.
+
 ## Imparare insieme (la crew)
 - **Prima di risolvere**: se c'è una skill della crew sul tema, leggi le sue insidie/trappole; spesso qualcuno ci è
   già passato.

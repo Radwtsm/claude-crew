@@ -115,7 +115,7 @@ solo: per questo serve l'ok del manutentore principale.
 ## Lezioni: un errore si fa una volta sola
 Un problema non ovvio risolto (da te o da un collaboratore) diventa una riga dove lo troverà il prossimo:
 - nella skill del tema, sezione insidie/trappole (es. `blender-riga-di-comando` → "Insidie");
-- nel plugin `codice` → "Trappole tecniche" se riguarda programmazione, sistemi, strumenti;
+- nel plugin `codice` → skill `trappole-tecniche` se riguarda programmazione, sistemi, strumenti;
 - nelle regole comuni se vale per qualunque lavoro.
 Una riga: sintomo → causa → cosa fare. Prima di aggiungerla cerca se c'è già (migliora quella, niente doppioni).
 Se l'errore si può riconoscere con uno script, la lezione diventa anche un **controllo** che lo blocca (come

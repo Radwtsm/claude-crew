@@ -17,7 +17,7 @@ macro → clip_start 0.002". Niente nomi, percorsi o dati personali.
 ## 3. Mettila nel posto giusto
 - C'è una skill della crew sul tema → nella sua sezione **Insidie** o **Trappole** (crea la sezione se manca, con
   una di queste parole nel titolo: così gli altri Claude la trovano cercando quelle parole).
-- Programmazione, sistemi, strumenti in generale → plugin `codice`, sezione "Trappole tecniche".
+- Programmazione, sistemi, strumenti in generale → plugin `codice`, skill `trappole-tecniche` (in fondo).
 - Vale per qualunque lavoro → regole comuni (skill `regole-crew`, sezione "Imparare insieme").
 - Nessuna skill sul tema e capiterà ancora → proponi una skill nuova (`condividi-skill`).
 Prima cerca se la lezione c'è già: se sì, migliora quella riga.
