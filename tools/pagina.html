@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Crew</title>
+<style>
+:root { --bg:#faf8f4; --card:#fff; --ink:#1f1d1a; --muted:#6b665e; --line:#e6e1d8; --accent:#c4602d; --accent-ink:#fff; }
+@media (prefers-color-scheme: dark) { :root { --bg:#171614; --card:#211f1c; --ink:#ece8e1; --muted:#a39d93; --line:#34312c; --accent:#e07a45; --accent-ink:#171614; } }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+main { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
+h1 { font-size:2rem; margin:0 0 4px; } h2 { margin:40px 0 12px; font-size:1.3rem; } h3 { margin:0; font-size:1.05rem; }
+.sub { color:var(--muted); margin:0 0 24px; }
+ol.steps { padding-left:1.3em; } ol.steps li { margin:8px 0; }
+b.ui { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:1px 6px; font-weight:600; white-space:nowrap; }
+ul.skills { list-style:none; padding:0; margin:0; display:grid; gap:10px; }
+.skill { display:flex; gap:12px; align-items:center; justify-content:space-between; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+.skill p { margin:4px 0 0; color:var(--muted); font-size:.92rem; }
+.tag { font-size:.75rem; text-transform:uppercase; letter-spacing:.06em; color:var(--accent); font-weight:700; }
+.btn { flex:none; background:var(--accent); color:var(--accent-ink); border:0; border-radius:8px; padding:9px 14px; font:inherit; font-weight:600; text-decoration:none; cursor:pointer; }
+pre { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; white-space:pre-wrap; word-break:break-word; font-size:.88rem; max-height:320px; overflow:auto; margin:0 0 10px; }
+details { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 16px; margin-top:12px; }
+summary { cursor:pointer; font-weight:600; }
+a { color:var(--accent); }
+footer { margin-top:48px; color:var(--muted); font-size:.9rem; }
+</style>
+</head>
+<body>
+<main>
+<h1>Claude Crew</h1>
+<p class="sub">Le regole e le skill che usiamo tutti con Claude. Scegli quelle che ti servono.</p>
+
+<h2>Usi Claude Code?</h2>
+<p>Incolla questa frase a Claude Code: fa tutto lui e ti chiede solo quali skill vuoi.</p>
+<pre id="frase">Installa la crew seguendo https://raw.githubusercontent.com/{{REPO}}/main/INSTALLA.md</pre>
+<button class="btn" data-copia="frase">Copia la frase</button>
+
+<h2>Usi l'app Claude? · 1 · Le regole comuni</h2>
+<ol class="steps">
+  <li>Premi <b class="ui">Copia le regole</b> qui sotto.</li>
+  <li>Su claude.ai o nell'app Claude: <b class="ui">Impostazioni</b> → <b class="ui">Generali</b> (o Profilo) → campo delle <b class="ui">preferenze personali</b>.</li>
+  <li>Incolla <b>sotto</b> le tue preferenze. Quando le regole cambiano, sostituisci solo il pezzo tra le due righe <code>regole crew</code>: quello che hai scritto tu resta tuo e vince sempre.</li>
+</ol>
+<pre id="regole">{{REGOLE}}</pre>
+<button class="btn" data-copia="regole">Copia le regole</button>
+
+<h2>Usi l'app Claude? · 2 · Le skill</h2>
+<p>Una skill insegna a Claude un tipo di lavoro. Si caricano da computer (claude.ai o app desktop) e poi valgono anche sul telefono.</p>
+<ol class="steps">
+  <li>Premi <b class="ui">Scarica</b> sulla skill che vuoi: arriva un file <code>.zip</code>, <b>non aprirlo</b>.</li>
+  <li><b class="ui">Impostazioni</b> → <b class="ui">Funzionalità</b> (Capabilities): accendi <b class="ui">Esecuzione di codice e creazione di file</b> se è spenta.</li>
+  <li>Nella sezione <b class="ui">Skill</b> premi <b class="ui">Carica skill</b> e scegli lo zip.</li>
+</ol>
+<ul class="skills">
+{{SKILLS}}
+</ul>
+<p class="sub" style="margin-top:12px">Quando una skill cambia, la vedi aggiornata qui: riscaricala e ricaricala.</p>
+
+<details>
+<summary>Claude Code a mano (se preferisci i comandi)</summary>
+<pre>/plugin marketplace add {{REPO}}</pre>
+<pre>{{INSTALL}}</pre>
+<p>Su Windows senza chiave SSH di GitHub imposta prima <code>CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1</code> (lo fa la frase sopra).
+Aggiornamenti automatici: <code>/plugin</code> → Marketplaces → claude-crew → Enable auto-update.</p>
+</details>
+
+<h2>Hai una skill o una regola da condividere?</h2>
+<p>Di' al tuo Claude <b>"condividi questa skill con la crew"</b> (serve la skill <code>condividi-skill</code>):
+la ripulisce da dati personali e ti prepara uno zip da mandare in chat a chi gestisce la crew.
+Hai solo un'idea? <a href="https://github.com/{{REPO}}/issues/new/choose">Proponila qui</a> (account GitHub gratuito) o scrivila in chat.</p>
+<p class="sub">Il tuo modo di usare Claude (come ti chiama, il tono, i tuoi metodi) resta nelle tue preferenze: la crew non lo tocca.</p>
+
+<footer>Sorgente: <a href="https://github.com/{{REPO}}">github.com/{{REPO}}</a></footer>
+</main>
+<script>
+document.querySelectorAll("[data-copia]").forEach((b) => b.addEventListener("click", async () => {
+  const el = document.getElementById(b.dataset.copia);
+  try { await navigator.clipboard.writeText(el.textContent); b.textContent = "Copiato ✓"; }
+  catch { const r = document.createRange(); r.selectNodeContents(el);
+          const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = "Selezionato: copia a mano"; }
+}));
+</script>
+</body>
+</html>

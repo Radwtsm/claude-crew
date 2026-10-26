@@ -1,0 +1,12 @@
+{
+  "description": "Passa a Claude le regole comuni a ogni sessione",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "cat \"${CLAUDE_PLUGIN_ROOT}/regole.md\"", "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}

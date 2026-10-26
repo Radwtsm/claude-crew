@@ -1,0 +1,7 @@
+{
+  "name": "server-minecraft",
+  "description": "Skill per server Minecraft (Paper, Fabric, Forge): setup, plugin, backup, lag, crash",
+  "author": {
+    "name": "crew"
+  }
+}

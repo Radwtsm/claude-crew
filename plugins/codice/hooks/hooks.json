@@ -1,0 +1,13 @@
+{
+  "description": "Passa a Claude le regole del codice a ogni sessione (un file per comando: in PowerShell cat ne legge uno)",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "cat \"${CLAUDE_PLUGIN_ROOT}/codice.md\"", "timeout": 10 },
+          { "type": "command", "command": "cat \"${CLAUDE_PLUGIN_ROOT}/architettura.md\"", "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "claude-crew",
+  "description": "Regole e skill condivise della crew: una skill = un plugin, ognuno accende quelle che vuole",
+  "owner": { "name": "crew" },
+  "plugins": [
+    { "name": "regole", "source": "./plugins/regole", "category": "regole", "description": "Regole comuni della crew, caricate a ogni sessione" },
+    { "name": "codice", "source": "./plugins/codice", "category": "regole", "description": "Regole per chi programma: stile, test, git, segreti, architettura" },
+    { "name": "server-minecraft", "source": "./plugins/server-minecraft", "category": "minecraft", "description": "Server Minecraft: setup, plugin, backup, lag, crash" },
+    { "name": "grafica", "source": "./plugins/grafica", "category": "grafica", "description": "Grafica: formati, dimensioni, qualità, diritti" },
+    { "name": "video-ffmpeg", "source": "./plugins/video-ffmpeg", "category": "video", "description": "Video: ffmpeg, compressione, tagli, formati social, OBS" }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "regole",
+  "description": "Regole comuni della crew, caricate a ogni sessione",
+  "author": {
+    "name": "crew"
+  }
+}

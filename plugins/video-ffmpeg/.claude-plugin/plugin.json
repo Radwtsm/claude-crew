@@ -1,0 +1,7 @@
+{
+  "name": "video-ffmpeg",
+  "description": "Skill per video: ffmpeg, compressione, tagli, formati social, OBS",
+  "author": {
+    "name": "crew"
+  }
+}

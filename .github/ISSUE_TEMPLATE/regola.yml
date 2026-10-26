@@ -1,0 +1,15 @@
+name: Proponi una regola
+description: Un comportamento di Claude che vale per tutti
+labels: [regola]
+body:
+  - type: textarea
+    id: regola
+    attributes:
+      label: La regola
+      placeholder: es. "Quando mi dai un comando, dimmi prima dove incollarlo"
+    validations:
+      required: true
+  - type: textarea
+    id: perche
+    attributes:
+      label: Perché? Cosa è successo?
