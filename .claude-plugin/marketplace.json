@@ -30,6 +30,12 @@
       "category": "minecraft"
     },
     {
+      "name": "prova-launchd",
+      "source": "./plugins/prova-launchd",
+      "description": "Prova",
+      "category": "prova"
+    },
+    {
       "name": "video-ffmpeg",
       "source": "./plugins/video-ffmpeg",
       "description": "Video con ffmpeg: tagliare, comprimere, verticale per TikTok/Reels, solo audio, unire clip, sottotitoli; consigli OBS, YouTube, Discord",
