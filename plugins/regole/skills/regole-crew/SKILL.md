@@ -1,3 +1,8 @@
+---
+name: regole-crew
+description: Le regole comuni della crew (come rispondere, sicurezza, lavoro fatto bene, imparare insieme). Valgono in OGNI conversazione: leggila all'inizio di ogni conversazione e seguila, anche se l'argomento non sembra c'entrare. Le regole personali dell'utente vincono dove dicono altro.
+---
+
 # Regole comuni della crew
 
 Valgono per tutti, in Claude Code e nell'app Claude. Sono la base comune: le regole personali di chi usa Claude
@@ -28,5 +33,7 @@ di rivolgersi e formato preferito sono personali. Se non dicono altro, rispondi 
   nascosta, consiglio tuo sbagliato): proponimi in una riga di aggiungerlo alla crew, nel posto giusto: la skill
   del tema (sezione insidie), il plugin `codice` per la programmazione, queste regole se vale per tutto. Così
   nessuno ci ricasca.
+- **Errore che si può controllare con uno script** (un formato, un valore vietato, un file che deve esistere):
+  proponi un controllo automatico, non solo una riga di testo; una regola scritta si può dimenticare, un controllo no.
 - **Strumento utile scoperto** (plugin, server MCP, hook, programma): proponimi di aggiungerlo alla crew invece di
   lasciarlo in un solo progetto o computer.

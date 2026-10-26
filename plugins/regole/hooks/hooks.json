@@ -4,7 +4,7 @@
     "SessionStart": [
       {
         "hooks": [
-          { "type": "command", "command": "cat \"${CLAUDE_PLUGIN_ROOT}/regole.md\"", "timeout": 10 }
+          { "type": "command", "command": "cat \"${CLAUDE_PLUGIN_ROOT}/skills/regole-crew/SKILL.md\"", "timeout": 10 }
         ]
       }
     ]

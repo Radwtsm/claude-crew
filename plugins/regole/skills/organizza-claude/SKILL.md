@@ -36,8 +36,8 @@ solo su quella macchina, oppure direttamente in `~/.claude/CLAUDE.md` sotto gli 
 ## App Claude (desktop, web, telefono)
 | Strato | Dove |
 |---|---|
-| Crew | Personalizza → Plugin → marketplace della crew, Sync automatically; le regole comuni nel blocco `regole crew` in fondo alle preferenze |
-| Personale | Impostazioni → preferenze personali (sopra il blocco della crew); skill solo tue in Personalizza → Skill |
+| Crew | Personalizza → Plugin → marketplace della crew, Sync automatically; nelle preferenze una riga sola: "Segui sempre le regole comuni della crew: all'inizio di ogni conversazione leggi la skill regole-crew" (il testo si aggiorna da solo) |
+| Personale | Impostazioni → preferenze personali (sopra la riga della crew); skill solo tue in Personalizza → Skill |
 | Progetto | un Progetto (o un progetto Cowork con la sua cartella) con le sue istruzioni |
 
 ## Dove va una cosa nuova

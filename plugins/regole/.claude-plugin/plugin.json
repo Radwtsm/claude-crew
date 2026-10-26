@@ -1,6 +1,6 @@
 {
   "name": "regole",
-  "description": "Base per tutti: regole comuni sempre attive + skill organizza-claude (struttura comune per organizzare il proprio Claude), raccogli-skill (inventario di tutte le tue skill), condividi-skill (manda una skill alla crew) e installa-crew",
+  "description": "Base per tutti: skill regole-crew (regole comuni, sempre attive), annota-lezione (un problema risolto diventa lezione per tutti), organizza-claude (struttura comune), raccogli-skill (inventario di tutti i tuoi strumenti), condividi-skill e installa-crew",
   "author": {
     "name": "crew"
   },

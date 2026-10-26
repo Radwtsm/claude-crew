@@ -4,6 +4,19 @@ Valgono per ogni Claude (Claude Code o Cowork) che lavora qui o nella cartella c
 (Google Drive). Sono la sola fonte su come si aggiungono, aggiornano e tolgono skill: seguile alla lettera, così
 le istanze di tutti lavorano allo stesso modo. Il repo è **pubblico**.
 
+**Scopo**: una libreria di skill condivise per settori diversi, per far crescere insieme conoscenza e flussi di
+lavoro. Quello che un utente scopre (uno strumento, un modo di lavorare, la soluzione a un errore) deve finire qui e
+arrivare al Claude di tutti, invece di restare in un progetto o in una chat.
+
+## Settori
+- Il **settore** di un plugin è la sua categoria (`keywords[0]` del `plugin.json`): `regole`, `codice`,
+  `minecraft`, `grafica`, `video`, `web`… Uno nuovo si crea quando serve, breve e minuscolo; prima controlla che
+  non ce ne sia già uno simile.
+- In ogni settore due tipi di skill: **conoscenza** (come funziona, scelte, insidie) e **flusso di lavoro** (i passi
+  per fare una cosa dall'inizio alla fine, con le verifiche). Una skill di flusso cita quelle di conoscenza invece
+  di ripeterle.
+- Le skill di un settore si richiamano per nome (es. "per le misure di export vedi il plugin `grafica`").
+
 ## Mappa
 | Cosa | Dove |
 |---|---|
@@ -12,7 +25,6 @@ le istanze di tutti lavorano allo stesso modo. Il repo è **pubblico**.
 | Come ognuno organizza il proprio Claude (strati, cartelle, app) | `plugins/regole/skills/organizza-claude/SKILL.md` |
 | Plugin di terzi consigliati, fissati a un commit | `esterni.json` |
 | Elenco dei plugin (GENERATO, non toccare) | `.claude-plugin/marketplace.json` ← `tools/elenco.py` (plugins/ + esterni.json) |
-| Pagina per l'app, zip | `tools/build.py` + `tools/pagina.html` → GitHub Pages (CI) |
 | Installazione guidata per Claude Code | `INSTALLA.md` |
 | Controllo anti-fuga | `check.sh` (pre-commit + CI + sincronizzazione) |
 
@@ -93,6 +105,10 @@ Un problema non ovvio risolto (da te o da un collaboratore) diventa una riga dov
 - nel plugin `codice` → "Trappole tecniche" se riguarda programmazione, sistemi, strumenti;
 - nelle regole comuni se vale per qualunque lavoro.
 Una riga: sintomo → causa → cosa fare. Prima di aggiungerla cerca se c'è già (migliora quella, niente doppioni).
+Se l'errore si può riconoscere con uno script, la lezione diventa anche un **controllo** che lo blocca (come
+`check.sh` fa con IP e segreti): nella skill uno script di verifica, oppure una regola in `check.sh` se riguarda la
+crew stessa (chiedi al manutentore principale). Le lezioni stanno nelle sezioni delle skill con "Insidie" o "Trappole"
+nel titolo: per cercarle, cerca queste parole nei `SKILL.md` della crew; usale anche tu nei titoli.
 
 ## Pulizia (obbligatoria, ogni volta)
 Togli e chiedi conferma all'utente: password, token, chiavi; IP, nomi di PC/server, percorsi del suo computer, URL
@@ -112,7 +128,7 @@ plugin: restano **in attesa** finché il manutentore principale non li approva. 
 che funzionino su Windows (Git Bash o PowerShell) e Mac; niente eseguibili né file scaricati.
 
 ## Non toccare
-`.claude-plugin/marketplace.json`, `dist/`, `.github/`, `tools/`, `check.sh`, `LICENSE`, `INSTALLA.md`, questo file:
+`.claude-plugin/marketplace.json`, `.github/`, `tools/`, `check.sh`, `LICENSE`, `INSTALLA.md`, questo file:
 si cambiano solo su richiesta del manutentore principale. Ignora i file temporanei di Drive.
 
 ## Dopo

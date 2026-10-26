@@ -1,6 +1,8 @@
 # claude-crew
 
-Regole e skill condivise di un gruppo di amici che usano Claude (Claude Code e app Claude, Windows e Mac).
+Una libreria di skill condivise, divisa per **settori** (minecraft, grafica, video, web, codice…), per un gruppo di
+amici che usano Claude (Claude Code e app, Windows e Mac). Serve a far crescere insieme **conoscenza e modi di
+lavorare**: quello che uno scopre o impara da un errore arriva al Claude di tutti.
 **Una skill = un plugin**: ognuno accende solo quelle che vuole.
 
 ## Mappa
@@ -12,15 +14,17 @@ Regole e skill condivise di un gruppo di amici che usano Claude (Claude Code e a
 | Una skill per tipo di lavoro | `plugins/<skill>/skills/<skill>/SKILL.md` | chi la installa |
 | Plugin di terzi consigliati (fissati a un commit) | `esterni.json` | tutti |
 | Elenco dei plugin (generato) | `.claude-plugin/marketplace.json` | Claude Code, app |
-| Pagina per l'app (zip + regole da copiare) | `tools/build.py` + `tools/pagina.html` → GitHub Pages | chi usa l'app |
 | Istruzioni d'installazione per Claude | `INSTALLA.md` | Claude Code |
 
 ## Installare
 
-- **Claude Code**: incolla al tuo Claude `Installa la crew seguendo` + il link a `INSTALLA.md` (lo trovi sulla pagina).
+- **Claude Code**: incolla al tuo Claude `Installa la crew seguendo` + il link a `INSTALLA.md` (`https://raw.githubusercontent.com/Radwtsm/claude-crew/main/INSTALLA.md`).
 - **App Claude desktop**: Personalizza → Plugin → Aggiungi marketplace `Radwtsm/claude-crew`, installa, accendi
   Sync automatically (valgono anche in chat e sul telefono); le regole comuni si incollano nelle preferenze.
-- **Solo web/telefono**: dalla pagina (link in "About" del repo) scarichi gli zip delle skill e copi le regole.
+- Plugin installati dall'app desktop valgono anche su web e telefono (stesso account).
+- **Una riga nelle preferenze, una volta sola** (Impostazioni → preferenze personali, sotto le tue):
+  `Segui sempre le regole comuni della crew: all'inizio di ogni conversazione leggi la skill regole-crew. Le mie preferenze qui sopra vincono dove dicono altro.`
+  Il testo delle regole sta nella skill e si aggiorna da solo: non si ricopia mai.
 
 ## Perché tutto qui
 
@@ -63,7 +67,7 @@ Su drive.google.com (non il menu "Condividi" di macOS/Windows, che manda solo un
    `Prima di ogni lavoro leggi e segui CLAUDE.md di questa cartella.`
 6. **Personalizza → Plugin → Aggiungi marketplace** `Radwtsm/claude-crew` → installa i plugin → **Sync
    automatically**.
-7. Regole comuni nelle preferenze personali (dalla pagina), poi nel progetto: "organizza il mio Claude e raccogli
+7. La riga delle regole comuni nelle preferenze personali (sopra, "Installare"), poi nel progetto: "organizza il mio Claude e raccogli
    le mie skill nella crew".
 
 Su Mac è uguale: Drive compare nel Finder sotto "Google Drive"; tasto destro → Google Drive → Disponibile offline.
