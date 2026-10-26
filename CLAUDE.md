@@ -8,7 +8,8 @@ le istanze di tutti lavorano allo stesso modo. Il repo è **pubblico**.
 | Cosa | Dove |
 |---|---|
 | Una skill = un plugin | `plugins/<nome>/` |
-| Regole comuni + skill `condividi-skill`, `raccogli-skill`, `installa-crew` | `plugins/regole/` |
+| Regole comuni + skill `condividi-skill`, `raccogli-skill`, `organizza-claude`, `installa-crew` | `plugins/regole/` |
+| Come ognuno organizza il proprio Claude (strati, cartelle, app) | `plugins/regole/skills/organizza-claude/SKILL.md` |
 | Elenco dei plugin (GENERATO, non toccare) | `.claude-plugin/marketplace.json` ← `tools/elenco.py` |
 | Pagina per l'app, zip | `tools/build.py` + `tools/pagina.html` → GitHub Pages (CI) |
 | Installazione guidata per Claude Code | `INSTALLA.md` |
@@ -27,7 +28,9 @@ le istanze di tutti lavorano allo stesso modo. Il repo è **pubblico**.
 2. **Raccogli, non pescare**: se l'utente vuole condividere "le sue skill", usa `raccogli-skill`: prima l'inventario
    di TUTTE le sue skill (personali, di ogni progetto, comandi, procedure nei CLAUDE.md, app), poi il confronto con
    la crew, poi la scelta. Mai solo quelle del progetto aperto.
-3. **Una skill per tema**: se esiste già una skill sullo stesso tema, migliora quella invece di crearne un'altra.
+3. **Strato giusto**: la struttura comune (crew / personale / progetto) è nella skill `organizza-claude`; nella
+   crew entra solo ciò che vale per chiunque.
+4. **Una skill per tema**: se esiste già una skill sullo stesso tema, migliora quella invece di crearne un'altra.
 
 ## Struttura di un plugin
 ```

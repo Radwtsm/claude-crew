@@ -7,7 +7,7 @@ Regole e skill condivise di un gruppo di amici che usano Claude (Claude Code e a
 
 | Cosa | Dove | Per chi |
 |---|---|---|
-| Regole comuni + `condividi-skill`, `raccogli-skill`, `installa-crew` | `plugins/regole/` | tutti |
+| Regole comuni + `organizza-claude` (struttura comune), `condividi-skill`, `raccogli-skill`, `installa-crew` | `plugins/regole/` | tutti |
 | Regole per chi programma | `plugins/codice/` | chi programma (solo Claude Code) |
 | Una skill per tipo di lavoro | `plugins/<skill>/skills/<skill>/SKILL.md` | chi la installa |
 | Elenco dei plugin | `.claude-plugin/marketplace.json` | Claude Code |
