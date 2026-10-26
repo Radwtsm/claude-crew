@@ -82,3 +82,7 @@ Regole comuni della crew (plugin `codice`). Le regole tue e il CLAUDE.md del pro
 - Strumenti di "codice inutilizzato" = lista da verificare, non da cancellare; build + test dopo ogni lotto.
 - Chrome headless non scende sotto 500 px di larghezza: uno screenshot a 414 è solo ritagliato (sembra un overflow).
   Misura `innerWidth` prima di giudicare un layout da telefono, o usa l'emulazione del dispositivo.
+- macOS + Google Drive/iCloud (File Provider): un job di launchd con `/usr/bin/python3` non può nemmeno chiedere il
+  permesso ("Platform binary prompting is Deny"): usa un Python non di sistema e fai premere Consenti una volta.
+- File Provider: leggere da launchd un file non ancora scaricato dà `Resource deadlock avoided` (EDEADLK): saltalo
+  e riprova dopo, mai trattarlo come cancellato; la cartella va resa "disponibile offline".
