@@ -8,13 +8,10 @@ le istanze di tutti lavorano allo stesso modo. Il repo è **pubblico**.
 lavoro. Quello che un utente scopre (uno strumento, un modo di lavorare, la soluzione a un errore) deve finire qui e
 arrivare al Claude di tutti, invece di restare in un progetto o in una chat.
 
-**Visione**: le skill non sono isole. Lo scopo finale è un progetto che le usa insieme (es. un server con sito,
-negozio, campagna SEO e video promozionale) con la stessa identità in ogni pezzo. Quindi:
-- le scelte di un progetto stanno in un posto solo, la scheda `progetto.md` (skill `progetto-crew`, modello
-  `plugins/regole/skills/progetto-crew/scheda.md`); ogni skill la legge invece di fare scelte sue;
-- una skill di settore dice cosa le serve e cosa consegna (formati, file) e cita le skill degli altri settori con cui
-  si incastra;
-- a fine progetto le lezioni e i passi nuovi tornano nella crew.
+**Oggi**: condividere conoscenza e flussi di lavoro. **In futuro**: progetti fatti insieme che usano le skill di
+più settori (es. un server con sito, negozio, campagna SEO e video promozionale) con la stessa identità in ogni
+pezzo. Per quelli: plugin `progetto-crew` (scheda `progetto.md`, sola fonte delle scelte del progetto). Le regole
+comuni non lo richiamano: entra in gioco solo in un progetto della crew.
 
 ## Il centro è la cartella Drive
 `Claude Crew/libreria` su Google Drive è dove si lavora: lì i Claude dei manutentori leggono e scrivono, lì si trova
@@ -37,7 +34,7 @@ installano i plugin; le due si allineano da sole ogni ~10 minuti. Quindi:
 | Cosa | Dove |
 |---|---|
 | Una skill = un plugin | `plugins/<nome>/` |
-| Regole comuni + skill `progetto-crew` (+ modello `scheda.md`), `condividi-skill`, `raccogli-skill`, `organizza-claude`, `installa-crew` | `plugins/regole/` |
+| Regole comuni + skill `condividi-skill`, `raccogli-skill`, `organizza-claude`, `installa-crew` | `plugins/regole/` |
 | Come ognuno organizza il proprio Claude (strati, cartelle, app) | `plugins/regole/skills/organizza-claude/SKILL.md` |
 | Plugin di terzi consigliati, fissati a un commit | `esterni.json` |
 | Elenco dei plugin (GENERATO, non toccare) | `.claude-plugin/marketplace.json` ← `tools/elenco.py` (plugins/ + esterni.json) |
