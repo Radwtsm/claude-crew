@@ -8,6 +8,14 @@ le istanze di tutti lavorano allo stesso modo. Il repo è **pubblico**.
 lavoro. Quello che un utente scopre (uno strumento, un modo di lavorare, la soluzione a un errore) deve finire qui e
 arrivare al Claude di tutti, invece di restare in un progetto o in una chat.
 
+## Il centro è la cartella Drive
+`Claude Crew/libreria` su Google Drive è dove si lavora: lì i Claude dei manutentori leggono e scrivono, lì si trova
+sempre la versione più recente. GitHub è la copia pubblicata (storia, backup, controllo anti-fuga) da cui tutti
+installano i plugin; le due si allineano da sole ogni ~10 minuti. Quindi:
+- prima di ogni lavoro sulla crew leggi questo file **dalla cartella Drive** e controlla che sia sincronizzata;
+- Drive per desktop sempre acceso e cartella "disponibile offline" su ogni computer dei manutentori;
+- se Drive non si sincronizza, non lavorare su una copia vecchia: dillo all'utente.
+
 ## Settori
 - Il **settore** di un plugin è la sua categoria (`keywords[0]` del `plugin.json`): `regole`, `codice`,
   `minecraft`, `grafica`, `video`, `web`… Uno nuovo si crea quando serve, breve e minuscolo; prima controlla che

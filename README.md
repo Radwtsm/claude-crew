@@ -5,6 +5,10 @@ amici che usano Claude (Claude Code e app, Windows e Mac). Serve a far crescere 
 lavorare**: quello che uno scopre o impara da un errore arriva al Claude di tutti.
 **Una skill = un plugin**: ognuno accende solo quelle che vuole.
 
+**Dove vive**: la cartella condivisa **Google Drive `Claude Crew/libreria`** è il centro, dove i Claude dei
+manutentori lavorano. Questo repo è la copia pubblicata (storia, backup, controlli) da cui si installano i plugin.
+Le due si allineano da sole ogni ~10 minuti.
+
 ## Mappa
 
 | Cosa | Dove | Per chi |
