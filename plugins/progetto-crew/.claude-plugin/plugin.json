@@ -1,0 +1,10 @@
+{
+  "name": "progetto-crew",
+  "description": "Per quando la crew fa un progetto insieme che tocca più settori (es. server + sito + negozio + SEO + video): scheda di progetto progetto.md come sola fonte delle scelte, piano per settori, consegne tra le skill, controllo di coerenza, lezioni a fine progetto",
+  "author": {
+    "name": "crew"
+  },
+  "keywords": [
+    "progetti"
+  ]
+}

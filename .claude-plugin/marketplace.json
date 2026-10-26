@@ -36,6 +36,12 @@
       "category": "minecraft"
     },
     {
+      "name": "progetto-crew",
+      "source": "./plugins/progetto-crew",
+      "description": "Per quando la crew fa un progetto insieme che tocca più settori (es. server + sito + negozio + SEO + video): scheda di progetto progetto.md come sola fonte delle scelte, piano per settori, consegne tra le skill, controllo di coerenza, lezioni a fine progetto",
+      "category": "progetti"
+    },
+    {
       "name": "after-effects-pannelli",
       "source": "./plugins/after-effects-pannelli",
       "description": "Creare pannelli/plugin CEP per After Effects (HTML/JS + ExtendScript): setup e modalità debug, architettura con anteprima, trappole dell'API (forme, keyframe, testo, effetti, maschere, 3D), test e checklist",
