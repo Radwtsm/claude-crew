@@ -1,7 +1,10 @@
 {
   "name": "regole",
-  "description": "Base per tutti: regole comuni sempre attive + skill condividi-skill (manda una tua skill alla crew) e installa-crew (aggiungi, togli, aggiorna skill)",
+  "description": "Base per tutti: regole comuni sempre attive + skill condividi-skill (manda una skill alla crew), raccogli-skill (inventario di tutte le tue skill e porta nella crew quelle generiche) e installa-crew (aggiungi, togli, aggiorna)",
   "author": {
     "name": "crew"
-  }
+  },
+  "keywords": [
+    "regole"
+  ]
 }

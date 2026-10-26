@@ -7,7 +7,7 @@ Regole e skill condivise di un gruppo di amici che usano Claude (Claude Code e a
 
 | Cosa | Dove | Per chi |
 |---|---|---|
-| Regole comuni + `condividi-skill` + `installa-crew` | `plugins/regole/` | tutti |
+| Regole comuni + `condividi-skill`, `raccogli-skill`, `installa-crew` | `plugins/regole/` | tutti |
 | Regole per chi programma | `plugins/codice/` | chi programma (solo Claude Code) |
 | Una skill per tipo di lavoro | `plugins/<skill>/skills/<skill>/SKILL.md` | chi la installa |
 | Elenco dei plugin | `.claude-plugin/marketplace.json` | Claude Code |
@@ -30,10 +30,21 @@ Regole e skill condivise di un gruppo di amici che usano Claude (Claude Code e a
 
 ## Contribuire
 
-- **Facile**: di' al tuo Claude "condividi questa skill con la crew": prepara uno zip ripulito da mandare in chat a
-  un manutentore. Oppure un modulo in Issues.
-- **Manutentori**: `python3 tools/aggiungi.py <skill.zip> <categoria>`, rileggi per intero i file aggiunti,
-  `sh check.sh`, PR. Il merge su `main` lo fa un manutentore dopo averla letta tutta (CODEOWNERS).
+Ognuno lo chiede al proprio Claude: **"aggiungi questo a crew"** (una skill) o **"raccogli le mie skill nella crew"**
+(inventario completo). Le regole che le istanze seguono sono in [`CLAUDE.md`](CLAUDE.md), la sola fonte.
+
+- **Manutentori**: il loro Claude scrive nella cartella condivisa `Claude Crew/libreria` (Google Drive); un job sul
+  Mac del manutentore principale la pubblica qui ogni ~10 minuti dopo il check. Script e hook aspettano il suo ok.
+- **Gli altri**: `condividi-skill` prepara uno zip da mandare a un manutentore, che lo importa con
+  `python3 tools/aggiungi.py <skill.zip> <categoria>`. Oppure un modulo in Issues.
+
+### Setup di un manutentore con l'app Claude (una volta)
+1. Google Drive per desktop; la cartella `Claude Crew` condivisa con lui (Editor) → "Aggiungi scorciatoia a Il mio
+   Drive" → tasto destro → **Disponibile offline**.
+2. App Claude desktop → Cowork → nuovo progetto "Claude Crew" con la cartella `Claude Crew/libreria`; istruzioni
+   del progetto: `Prima di ogni lavoro leggi e segui CLAUDE.md di questa cartella.`
+3. Personalizza → Plugin → Aggiungi marketplace `Radwtsm/claude-crew` → installa i plugin → Sync automatically.
+4. Regole comuni nelle preferenze personali (dalla pagina).
 
 Regole per ciò che entra:
 - Repo **pubblico**: niente segreti, IP, nomi di PC, percorsi, email, dati di persone (`check.sh` + CI li bloccano;

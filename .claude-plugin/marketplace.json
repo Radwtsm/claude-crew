@@ -8,32 +8,32 @@
     {
       "name": "regole",
       "source": "./plugins/regole",
-      "category": "regole",
-      "description": "Base per tutti: regole comuni sempre attive + skill condividi-skill (manda una tua skill alla crew) e installa-crew (aggiungi, togli, aggiorna skill)"
+      "description": "Base per tutti: regole comuni sempre attive + skill condividi-skill (manda una skill alla crew), raccogli-skill (inventario di tutte le tue skill e porta nella crew quelle generiche) e installa-crew (aggiungi, togli, aggiorna)",
+      "category": "regole"
     },
     {
       "name": "codice",
       "source": "./plugins/codice",
-      "category": "regole",
-      "description": "Per chi programma (solo Claude Code): regole sempre attive su stile, commenti, segreti, test, git, codice di terzi, trappole tecniche, architettura"
-    },
-    {
-      "name": "server-minecraft",
-      "source": "./plugins/server-minecraft",
-      "category": "minecraft",
-      "description": "Server Minecraft Java (Paper, Purpur, Fabric, Forge): installazione, flag JVM, plugin e mod, sicurezza, backup, lag con spark, crash log, aggiornamenti"
+      "description": "Per chi programma (solo Claude Code): regole sempre attive su stile, commenti, segreti, test, git, codice di terzi, trappole tecniche, architettura",
+      "category": "regole"
     },
     {
       "name": "grafica",
       "source": "./plugins/grafica",
-      "category": "grafica",
-      "description": "Grafica: formati di export, dimensioni per YouTube/Instagram/TikTok/Discord, texture e skin Minecraft, regole di qualità, diritti su font e immagini"
+      "description": "Grafica: formati di export, dimensioni per YouTube/Instagram/TikTok/Discord, texture e skin Minecraft, regole di qualità, diritti su font e immagini",
+      "category": "grafica"
+    },
+    {
+      "name": "server-minecraft",
+      "source": "./plugins/server-minecraft",
+      "description": "Server Minecraft Java (Paper, Purpur, Fabric, Forge): installazione, flag JVM, plugin e mod, sicurezza, backup, lag con spark, crash log, aggiornamenti",
+      "category": "minecraft"
     },
     {
       "name": "video-ffmpeg",
       "source": "./plugins/video-ffmpeg",
-      "category": "video",
-      "description": "Video con ffmpeg: tagliare, comprimere, verticale per TikTok/Reels, solo audio, unire clip, sottotitoli; consigli OBS, YouTube, Discord"
+      "description": "Video con ffmpeg: tagliare, comprimere, verticale per TikTok/Reels, solo audio, unire clip, sottotitoli; consigli OBS, YouTube, Discord",
+      "category": "video"
     }
   ]
 }

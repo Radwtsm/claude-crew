@@ -6,6 +6,8 @@ Poi: leggi per intero i file aggiunti (script compresi), sh check.sh, PR.
 """
 import json, os, re, shutil, sys, tempfile, zipfile
 
+import elenco
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -38,15 +40,11 @@ def main():
     os.makedirs(os.path.join(pdir, ".claude-plugin"))
     short = desc.split(" - ")[0].split(". Usala")[0][:120]
     with open(os.path.join(pdir, ".claude-plugin", "plugin.json"), "w", encoding="utf-8") as f:
-        json.dump({"name": name, "description": short, "author": {"name": "crew"}}, f, ensure_ascii=False, indent=2)
+        json.dump({"name": name, "description": short, "author": {"name": "crew"}, "keywords": [categoria]},
+                  f, ensure_ascii=False, indent=2)
         f.write("\n")
-    mpath = os.path.join(ROOT, ".claude-plugin", "marketplace.json")
-    market = json.load(open(mpath, encoding="utf-8"))
-    market["plugins"].append({"name": name, "source": f"./plugins/{name}", "category": categoria,
-                              "description": short})
-    with open(mpath, "w", encoding="utf-8") as f:
-        json.dump(market, f, ensure_ascii=False, indent=2)
-        f.write("\n")
+    for p in elenco.genera(ROOT):
+        print("attenzione:", p)
     if tmp:
         shutil.rmtree(tmp)
     print(f"aggiunto plugins/{name} ({categoria}); rileggi per intero:")

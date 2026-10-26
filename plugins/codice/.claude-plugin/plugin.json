@@ -3,5 +3,8 @@
   "description": "Per chi programma (solo Claude Code): regole sempre attive su stile, commenti, segreti, test, git, codice di terzi, trappole tecniche, architettura",
   "author": {
     "name": "crew"
-  }
+  },
+  "keywords": [
+    "regole"
+  ]
 }
