@@ -55,6 +55,8 @@ Ogni risposta di Claude rilegge tutto ciò che è sempre caricato; in una sessio
   (~100 token); il contenuto si legge quando il lavoro lo chiede. Non spegnerli per risparmiare: costa poco e li
   perdi. Da tenere d'occhio solo ciò che entra sempre per intero: testi iniettati all'avvio (hook) e connettori con
   molti strumenti; quelli si spengono nel progetto dove non servono (`enabledPlugins` / connettori della chat).
+- **Un controllo, non solo una regola**: un file `limiti-contesto.txt` (byte massimi per file, glob ammessi) letto
+  dal check del pre-commit blocca chi fa ricrescere CLAUDE.md, regole e lezioni; alzare un limite = scelta nel commit.
 - **Una sessione per argomento**, `/clear` dopo il commit: lo stato sta nel backlog e nella memoria, non nella chat.
 - Ogni tanto misura (skill di uso dei token, se c'è): se le istruzioni fisse sono più di metà, sono da sfoltire.
 

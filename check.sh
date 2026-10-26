@@ -19,4 +19,18 @@ if [ -n "$hits" ]; then
   echo "check.sh: possibile dato privato/segreto qui sopra, togli prima del commit" >&2
   exit 1
 fi
+# Contesto snello: i file letti a ogni sessione non ricrescono (limiti in byte in limiti-contesto.txt)
+fuori=$(grep -vE '^(#|$)' limiti-contesto.txt | while read -r max f; do
+  for x in $f; do
+    if [ -f "$x" ]; then
+      n=$(wc -c < "$x" | tr -d ' ')
+      if [ "$n" -gt "$max" ]; then echo "$x: $n byte > $max"; fi
+    fi
+  done
+done)
+if [ -n "$fuori" ]; then
+  echo "$fuori"
+  echo "check.sh: file troppo lunghi; i dettagli in un file per tema letto quando serve (organizza-claude)" >&2
+  exit 1
+fi
 exit 0
