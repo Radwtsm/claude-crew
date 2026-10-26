@@ -30,12 +30,6 @@
       "category": "minecraft"
     },
     {
-      "name": "prova-sync",
-      "source": "./plugins/prova-sync",
-      "description": "Prova della sincronizzazione",
-      "category": "prova"
-    },
-    {
       "name": "video-ffmpeg",
       "source": "./plugins/video-ffmpeg",
       "description": "Video con ffmpeg: tagliare, comprimere, verticale per TikTok/Reels, solo audio, unire clip, sottotitoli; consigli OBS, YouTube, Discord",
