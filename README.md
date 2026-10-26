@@ -10,6 +10,10 @@ così il prossimo parte già avanti. **In futuro** faremo progetti insieme che t
 sito, negozio online, campagna SEO e video promozionale): per quelli c'è il plugin `progetto-crew`, che tiene le
 scelte in una scheda `progetto.md` così ogni pezzo si incastra con gli altri.
 
+**Dove vive**: la cartella condivisa **Google Drive `Claude Crew/libreria`** è il centro, dove i Claude dei
+manutentori lavorano. Questo repo è la copia pubblicata (storia, backup, controlli) da cui si installano i plugin.
+Le due si allineano da sole ogni ~10 minuti.
+
 ## Mappa
 
 | Cosa | Dove | Per chi |
