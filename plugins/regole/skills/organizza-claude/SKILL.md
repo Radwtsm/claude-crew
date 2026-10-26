@@ -51,8 +51,10 @@ Ogni risposta di Claude rilegge tutto ciò che è sempre caricato; in una sessio
   quando serve. Descrizione corta ma con i casi d'uso ("Usala prima di…").
 - **Hook d'avvio corti** (sotto ~8 KB): oltre ~10 KB Claude Code salva l'output in un file e ne mostra solo
   l'inizio. Prima gli avvisi, poi gli elenchi; un elenco lungo = numeri + "dettagli con <comando>".
-- **Plugin e connettori per progetto**: attiva solo quelli che servono a quel progetto (in Claude Code
-  `enabledPlugins` nel `.claude/settings.json` del progetto; nell'app i connettori della conversazione).
+- **Plugin: tutti attivi, si usano da soli quando servono.** Di una skill resta in memoria solo la descrizione
+  (~100 token); il contenuto si legge quando il lavoro lo chiede. Non spegnerli per risparmiare: costa poco e li
+  perdi. Da tenere d'occhio solo ciò che entra sempre per intero: testi iniettati all'avvio (hook) e connettori con
+  molti strumenti; quelli si spengono nel progetto dove non servono (`enabledPlugins` / connettori della chat).
 - **Una sessione per argomento**, `/clear` dopo il commit: lo stato sta nel backlog e nella memoria, non nella chat.
 - Ogni tanto misura (skill di uso dei token, se c'è): se le istruzioni fisse sono più di metà, sono da sfoltire.
 
