@@ -30,4 +30,3 @@ description: Lavori di grafica - loghi, miniature YouTube, post e storie social,
 ## Diritti
 - Font, immagini e musica: solo con licenza adatta (Google Fonts, Unsplash, Pexels, o propri). Loghi e personaggi
   di altri: chiedi a cosa servono e segnala il rischio di copyright.
-
