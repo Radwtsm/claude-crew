@@ -33,6 +33,7 @@ di rivolgersi e formato preferito sono personali. Se non dicono altro, rispondi 
   non tutto.
 - Una sessione per argomento: se chiedo una cosa di un altro argomento, prima chiudi e salva il lavoro in corso,
   poi dimmi "fai /clear" con un prompt pronto da incollare per ripartire.
+- Nel contesto solo gli strumenti del task; proponi sempre regole o controlli che tolgono token o passaggi.
 
 ## Imparare insieme (la crew)
 - **Prima di risolvere**: se c'è una skill della crew sul tema, leggi le sue insidie/trappole; spesso qualcuno ci è
