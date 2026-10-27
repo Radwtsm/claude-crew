@@ -1,7 +1,6 @@
 # claude-crew — come Claude gestisce questa libreria
 
-Valgono per ogni Claude (Claude Code o Cowork) che lavora qui o nella cartella condivisa `Claude Crew/libreria`
-(Google Drive). Sono la sola fonte su come si aggiungono, aggiornano e tolgono skill: seguile alla lettera, così
+Valgono per ogni Claude (Claude Code o app) che lavora in questo repo. Sono la sola fonte su come si aggiungono, aggiornano e tolgono skill: seguile alla lettera, così
 le istanze di tutti lavorano allo stesso modo. Il repo è **pubblico**.
 
 **Scopo**: una libreria di skill condivise per settori diversi, per far crescere insieme conoscenza e flussi di
@@ -13,13 +12,11 @@ più settori (es. un server con sito, negozio, campagna SEO e video promozionale
 pezzo. Per quelli: plugin `progetto-crew` (scheda `progetto.md`, sola fonte delle scelte del progetto). Le regole
 comuni non lo richiamano: entra in gioco solo in un progetto della crew.
 
-## Il centro è la cartella Drive
-`Claude Crew/libreria` su Google Drive è dove si lavora: lì i Claude dei manutentori leggono e scrivono, lì si trova
-sempre la versione più recente. GitHub è la copia pubblicata (storia, backup, controllo anti-fuga) da cui tutti
-installano i plugin; le due si allineano da sole ogni ~10 minuti. Quindi:
-- prima di ogni lavoro sulla crew leggi questo file **dalla cartella Drive** e controlla che sia sincronizzata;
-- Drive per desktop sempre acceso e cartella "disponibile offline" su ogni computer dei manutentori;
-- se Drive non si sincronizza, non lavorare su una copia vecchia: dillo all'utente.
+## Il centro è questo repo (solo git, dal 2026-10-27)
+Il repo GitHub `Radwtsm/claude-crew` è la sola fonte: chi scrive ci lavora in un clone (`~/claude-crew`), tutti
+installano i plugin da qui. Nessun'altra copia (la vecchia cartella Drive `Claude Crew/libreria` è un archivio fermo).
+- Prima di ogni lavoro: `git pull --ff-only`. Dopo: `sh check.sh` verde, commit breve, push.
+- Push rifiutato (qualcuno ha pubblicato prima): `git pull --rebase`, di nuovo `sh check.sh`, push.
 
 ## Settori
 - Il **settore** di un plugin è la sua categoria (`keywords[0]` del `plugin.json`): `regole`, `codice`,
@@ -39,35 +36,20 @@ installano i plugin; le due si allineano da sole ogni ~10 minuti. Quindi:
 | Plugin di terzi consigliati, fissati a un commit | `esterni.json` |
 | Elenco dei plugin (GENERATO, non toccare) | `.claude-plugin/marketplace.json` ← `tools/elenco.py` (plugins/ + esterni.json) |
 | Installazione guidata per Claude Code | `INSTALLA.md` |
-| Controllo anti-fuga | `check.sh` (pre-commit + CI + sincronizzazione) |
+| Controllo anti-fuga + formato | `check.sh` (pre-commit + CI) con `tools/lint_regole.py` |
 
 ## Dove si scrive
-- **Manutentori**: nella cartella condivisa `Claude Crew/libreria`. Un job sul Mac del manutentore principale la
-  pubblica su GitHub ogni ~10 minuti (dopo `check.sh`) e riporta lì le modifiche arrivate da GitHub.
-- **Clone git (`~/claude-crew`)**: va bene anche lì (commit + push dopo `sh check.sh`); il job lo riporta su Drive.
-  Mai la stessa modifica in tutti e due i posti: crea un conflitto.
-- **Chi non è manutentore**: niente scrittura; `condividi-skill` prepara uno zip da mandare a un manutentore.
-
-## Cartella condivisa: come funziona (leggi prima di dire "fatto")
-- **Due direzioni, ogni ~10 minuti**: cambiato solo su Drive → pubblicato su GitHub; cambiato solo su GitHub →
-  copiato su Drive; cambiato in tutti e due i posti → **conflitto**: nessuno dei due vince, il manutentore
-  principale decide. Quindi: una modifica in un posto solo, e aspetta la pubblicazione prima di rifarla.
-- **Cosa passa da solo**: `plugins/**/*.md` e `plugins/*/.claude-plugin/plugin.json`. Tutto il resto (script,
-  hook, json, file fuori da `plugins/`) **aspetta l'ok** del manutentore principale, che legge il diff.
-- **Cosa viene bloccato**: tutto ciò che `check.sh` segnala (IP, URL non della crew, email, segreti). Il file resta
-  su Drive, su GitHub non va niente: correggilo e al giro dopo passa.
-- **"Disponibile offline" obbligatorio** su ogni computer che usa la cartella: un file solo online non è ancora sul
-  disco e la sincronizzazione lo salta finché non arriva. Se una skill non compare dopo 20 minuti, è quasi sempre
-  questo, o Drive per desktop è chiuso.
-- **Cancellare** su Drive cancella anche su GitHub (e dai plugin di tutti): fallo solo se l'utente lo vuole.
-- Mai copiare o trascinare la cartella altrove (Desktop compreso): la copia non si sincronizza più. Sul Desktop va
-  solo un collegamento.
-- **Tempi**: pubblicazione su GitHub ~10 minuti; poi Claude Code la riceve all'avvio successivo (aggiornamento
-  automatico acceso), l'app desktop con Sync automatically.
+- **Collaboratori del repo** (invitati su GitHub): il loro Claude li guida la prima volta: account GitHub,
+  `gh auth login`, `git clone`, `git config core.hooksPath .githooks` (il pre-commit lancia `check.sh`). Skill e
+  testi (`plugins/**/*.md`, `plugin.json`): commit e push su `main`. Script, hook, json o file fuori da `plugins/`:
+  un branch e una pull request, che legge il manutentore principale.
+- **Chi non è collaboratore**: `condividi-skill` prepara uno zip da mandare a un collaboratore.
+- **Cancellare** un file lo toglie dai plugin di tutti: solo se l'utente lo vuole.
+- **Tempi**: dopo il push Claude Code la riceve all'avvio successivo (aggiornamento automatico acceso), l'app con
+  Sync automatically.
 
 ## Prima di ogni modifica
-1. **Allinea**: lavora sull'ultima versione (cartella Drive sincronizzata e "disponibile offline"; nel clone
-   `git pull --ff-only`). Leggi l'elenco dei plugin per sapere cosa c'è già.
+1. **Allinea**: lavora sull'ultima versione (`git pull --ff-only` nel clone). Leggi l'elenco dei plugin per sapere cosa c'è già.
 2. **Raccogli, non pescare**: se l'utente vuole condividere "le sue skill", usa `raccogli-skill`: prima l'inventario
    di TUTTE le sue skill (personali, di ogni progetto, comandi, procedure nei CLAUDE.md, app), poi il confronto con
    la crew, poi la scelta. Mai solo quelle del progetto aperto.
@@ -137,12 +119,12 @@ quelle restano nelle sue regole personali.
 
 ## Script e hook
 Permessi (`plugins/<nome>/scripts/`, `plugins/<nome>/hooks/hooks.json`), ma partono da soli sui PC di chi usa il
-plugin: restano **in attesa** finché il manutentore principale non li approva. Dillo all'utente. Brevi, leggibili,
+plugin: vanno in una pull request, che il manutentore principale legge e approva. Dillo all'utente. Brevi, leggibili,
 che funzionino su Windows (Git Bash o PowerShell) e Mac; niente eseguibili né file scaricati.
 
 ## Non toccare
 `.claude-plugin/marketplace.json`, `.github/`, `tools/`, `check.sh`, `LICENSE`, `INSTALLA.md`, questo file:
-si cambiano solo su richiesta del manutentore principale. Ignora i file temporanei di Drive.
+si cambiano solo su richiesta del manutentore principale.
 
 ## Dopo
 Di' all'utente: cosa hai aggiunto o cambiato (nomi dei plugin), che si pubblica entro ~10 minuti, che arriva a tutti

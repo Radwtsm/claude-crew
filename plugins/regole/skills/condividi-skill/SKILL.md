@@ -18,8 +18,8 @@ URL privati; nomi, email, account, dati di persone; preferenze solo sue (tono, c
 restano nelle sue regole personali.
 
 ## 3. Invia
-- **Vedi la cartella condivisa `Claude Crew/libreria`** (manutentori: Google Drive sul computer, in Cowork come
-  cartella del progetto): leggi il suo `CLAUDE.md` e scrivi la skill lì seguendolo. Fine: si pubblica da sola.
+- **Hai un clone del repo della crew** (sei collaboratore): `git pull --ff-only`, leggi il suo `CLAUDE.md`, scrivi
+  la skill seguendolo, `sh check.sh`, commit e push.
 - **Altrimenti**: crea `<nome>.zip` con dentro la cartella della skill (`<nome>/SKILL.md`), salvalo sul Desktop
   (nell'app: come file da scaricare) e di' all'utente di mandarlo in chat a un manutentore della crew.
 

@@ -9,7 +9,7 @@ Obiettivo: nessuna skill utile resta chiusa in un solo progetto, e la crew non h
 scrive nella crew sono nel `CLAUDE.md` della libreria: leggilo prima di scrivere.
 
 ## 1. Allinea
-- Ultima versione della crew: cartella `Claude Crew/libreria` sincronizzata, oppure `git pull` nel clone, oppure
+- Ultima versione della crew: `git pull --ff-only` nel clone, oppure
   `claude plugin marketplace update claude-crew`. Leggi l'elenco dei plugin (`.claude-plugin/marketplace.json`).
 
 ## 2. Inventario completo (tutte le fonti, non solo il progetto aperto)

@@ -47,6 +47,8 @@ Ogni risposta di Claude rilegge tutto ciò che è sempre caricato; in una sessio
   Le 4–5 regole che non si possono mai dimenticare restano nel CLAUDE.md, una riga ciascuna.
 - **CLAUDE.md nelle sottocartelle** (es. `app/CLAUDE.md`): Claude Code lo legge solo quando lavora lì. Ci va ciò che
   vale solo per quella parte.
+- **Una skill grande = un indice**: `SKILL.md` sotto 6000 byte con una tabella "tema → file → leggilo prima di…";
+  il dettaglio in file accanto, che Claude apre solo quando il lavoro tocca quel tema.
 - **Skill invece di regole sempre caricate**: di una skill resta in contesto solo la descrizione; il resto si legge
   quando serve. Descrizione corta ma con i casi d'uso ("Usala prima di…").
 - **Hook d'avvio corti** (sotto ~8 KB): oltre ~10 KB Claude Code salva l'output in un file e ne mostra solo
@@ -78,14 +80,5 @@ Ogni risposta di Claude rilegge tutto ciò che è sempre caricato; in una sessio
 ```
 
 ## Riorganizzare un setup esistente
-1. **Inventario**: leggi `~/.claude/CLAUDE.md`, ogni file che importa, `~/.claude/skills`, `~/.claude/commands`, i
-   `CLAUDE.md` e `.claude/` dei progetti dell'utente (chiedi dove sono); nell'app chiedi di incollarti le
-   preferenze e l'elenco delle skill.
-2. **Proposta**: una tabella "cosa → dove va (crew / personale / progetto) → perché". Le cose generiche: proponi di
-   portarle nella crew con `raccogli-skill`.
-3. **Ok dell'utente**, poi **copia di sicurezza** (es. `~/.claude/CLAUDE.md.prima-di-organizzare`) prima di
-   spostare.
-4. **Sposta** senza riscrivere il contenuto (stesse parole, solo il posto cambia); niente doppioni.
-5. **Verifica**: apri una sessione nuova e controlla che le regole ci siano ("che regole hai?"); nell'app rileggi
-   le preferenze salvate.
-6. **Riepilogo**: cosa è andato dove, dove si trova la copia di sicurezza.
+Procedura in sei passi (inventario, proposta, ok, copia di sicurezza, sposta, verifica): leggi
+[`riorganizza.md`](riorganizza.md) quando l'utente chiede di riorganizzare.

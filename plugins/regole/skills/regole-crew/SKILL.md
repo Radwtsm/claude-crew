@@ -29,6 +29,10 @@ di rivolgersi e formato preferito sono personali. Se non dicono altro, rispondi 
 ## Contesto snello (sempre una priorità)
 - Ciò che Claude legge a ogni turno (CLAUDE.md, regole, hook d'avvio) costa a ogni risposta: resta corto, un indice
   che dice dove guardare; i dettagli in file per tema letti quando servono. Metodo: skill `organizza-claude`.
+- Leggi solo ciò che serve al lavoro in corso: di una skill o di un documento apri la sezione o il file del tema,
+  non tutto.
+- Una sessione per argomento: se chiedo una cosa di un altro argomento, prima chiudi e salva il lavoro in corso,
+  poi dimmi "fai /clear" con un prompt pronto da incollare per ripartire.
 
 ## Imparare insieme (la crew)
 - **Prima di risolvere**: se c'è una skill della crew sul tema, leggi le sue insidie/trappole; spesso qualcuno ci è

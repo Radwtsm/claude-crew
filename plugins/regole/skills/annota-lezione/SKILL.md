@@ -27,5 +27,5 @@ Se l'errore si riconosce in automatico (un valore, un formato, un file), proponi
 skill: una regola si dimentica, un controllo no.
 
 ## 5. Invia
-Chiedi all'utente l'ok con la riga già scritta. Poi: accesso alla cartella condivisa → scrivila lì seguendo il suo
-`CLAUDE.md`; altrimenti `condividi-skill`.
+Chiedi all'utente l'ok con la riga già scritta. Poi: clone del repo della crew → scrivila lì seguendo il suo
+`CLAUDE.md` (pull, `check.sh`, commit, push); altrimenti `condividi-skill`.

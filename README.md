@@ -10,9 +10,7 @@ così il prossimo parte già avanti. **In futuro** faremo progetti insieme che t
 sito, negozio online, campagna SEO e video promozionale): per quelli c'è il plugin `progetto-crew`, che tiene le
 scelte in una scheda `progetto.md` così ogni pezzo si incastra con gli altri.
 
-**Dove vive**: la cartella condivisa **Google Drive `Claude Crew/libreria`** è il centro, dove i Claude dei
-manutentori lavorano. Questo repo è la copia pubblicata (storia, backup, controlli) da cui si installano i plugin.
-Le due si allineano da sole ogni ~10 minuti.
+**Dove vive**: solo in questo repo. Chi contribuisce lavora con git (il suo Claude lo guida), tutti installano da qui.
 
 ## Mappa
 
@@ -55,7 +53,8 @@ Le stesse regole per la crew, i tuoi repo e quelli di progetto, controllate da `
   "Usala quando/prima di…"; un titolo `# …`; corpo corto, i dettagli in file per tema letti quando servono.
 - **Insidie e trappole**: una voce per errore, `sintomo → causa → cosa fare`, sotto un titolo "Insidie" o "Trappole".
 - **Righe** di massimo 120 caratteri (tabelle e link esclusi), niente spazi in fondo, a capo finale.
-- **Lunghezza** dei file letti a ogni sessione: `limiti-contesto.txt`.
+- **Lunghezza**: ogni `SKILL.md` sotto 6000 byte (una skill grande = indice + file per tema), gli altri file letti a
+  ogni sessione in `limiti-contesto.txt`.
 I problemi già presenti stanno in `lint-regole-baseline.txt`: bloccano solo quelli nuovi, e l'elenco può solo calare
 (rigeneralo con `--baseline` dopo averne sistemati).
 
@@ -64,39 +63,10 @@ I problemi già presenti stanno in `lint-regole-baseline.txt`: bloccano solo que
 Ognuno lo chiede al proprio Claude: **"aggiungi questo a crew"** (una skill) o **"raccogli le mie skill nella crew"**
 (inventario completo). Le regole che le istanze seguono sono in [`CLAUDE.md`](CLAUDE.md), la sola fonte.
 
-- **Manutentori**: il loro Claude scrive nella cartella condivisa `Claude Crew/libreria` (Google Drive); un job sul
-  Mac del manutentore principale la pubblica qui ogni ~10 minuti dopo il check. Script e hook aspettano il suo ok.
-- **Gli altri**: `condividi-skill` prepara uno zip da mandare a un manutentore, che lo importa con
+- **Collaboratori** (invitati al repo su GitHub: Settings → Collaborators): il loro Claude li guida a clonare il
+  repo e pubblica con git dopo `check.sh`. Skill e testi vanno diretti; script e hook in una pull request.
+- **Gli altri**: `condividi-skill` prepara uno zip da mandare a un collaboratore, che lo importa con
   `python3 tools/aggiungi.py <skill.zip> <categoria>`. Oppure un modulo in Issues.
-
-### Condividere la cartella (manutentore principale)
-Su drive.google.com (non il menu "Condividi" di macOS/Windows, che manda solo una copia): tasto destro su
-`Claude Crew` → **Condividi** → email → **Editor** per un manutentore, **Visualizzatore** per gli altri → Invia.
-
-### Setup di un manutentore con l'app Claude, Windows (una volta)
-1. **Google Drive per desktop** dal sito di Google; accedi con l'account a cui è condivisa la cartella. In Esplora
-   file compare il disco **Google Drive (G:)**.
-2. drive.google.com → **Condivisi con me** → tasto destro su `Claude Crew` → **Organizza → Aggiungi scorciatoia →
-   Il mio Drive**. Dopo poco è in `G:\Il mio Drive\Claude Crew`.
-3. Esplora file → tasto destro su `Claude Crew` → **Accesso offline → Disponibile offline** (obbligatorio, vedi
-   `CLAUDE.md` → "Cartella condivisa").
-4. Sul Desktop solo un collegamento: tasto destro → **Mostra altre opzioni → Invia a → Desktop (crea
-   collegamento)**. Mai trascinare o copiare la cartella.
-5. App Claude desktop → **Cowork** → nuovo progetto "Claude Crew" con la cartella vera
-   `G:\Il mio Drive\Claude Crew\libreria` (non il collegamento); istruzioni del progetto:
-   `Prima di ogni lavoro leggi e segui CLAUDE.md di questa cartella.`
-6. **Personalizza → Plugin → Aggiungi marketplace** `Radwtsm/claude-crew` → installa i plugin → **Sync
-   automatically**.
-7. La riga delle regole comuni nelle preferenze personali (sopra, "Installare"), poi nel progetto: "organizza il mio Claude e raccogli
-   le mie skill nella crew".
-
-Su Mac è uguale: Drive compare nel Finder sotto "Google Drive"; tasto destro → Google Drive → Disponibile offline.
-
-### Pubblicazione (lato manutentore principale)
-Un job sul suo computer sincronizza la cartella con questo repo ogni ~10 minuti, con le regole di `CLAUDE.md` →
-"Cartella condivisa" (due direzioni, conflitti fermati, script in attesa di ok, `check.sh` prima di ogni push). Se
-un giorno lo spostiamo su un altro computer, servono: Drive per desktop con la cartella offline, un clone di questo
-repo con permesso di push, e un Python che il sistema lasci accedere ai file di Drive in background.
 
 Regole per ciò che entra:
 - Repo **pubblico**: niente segreti, IP, nomi di PC, percorsi, email, dati di persone (`check.sh` + CI li bloccano;
