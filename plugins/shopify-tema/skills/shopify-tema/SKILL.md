@@ -26,6 +26,8 @@ Anteprima locale (chiede login e password del negozio, quindi va lanciata nel te
 shopify theme dev --store <negozio>.myshopify.com
 ```
 Su Windows, se PowerShell blocca gli script `.ps1`, usa il `.cmd`: `& "$env:APPDATA\npm\shopify.cmd" theme dev ...`.
+Dagli strumenti di Claude `theme dev` non parte (chiede la password in modo interattivo), e il terminale dell'utente
+può non vedere la CLI installata da Claude: dagli il comando con il percorso completo del `.cmd`.
 
 **Prima di ogni push, pull** dei file che l'editor modifica, poi confronta:
 ```
@@ -47,6 +49,15 @@ shopify theme push --store <negozio>.myshopify.com --theme <id>
 - Regole vecchie del tema con selettori più specifici vincono sulle tue: allunga il selettore invece di usare
   `!important` ovunque.
 - Le sezioni senza collezione collegata mostrano prodotti d'esempio: ricordalo all'utente prima di aprire il sito.
+- Elementi fuori dal contenitore delle tue sezioni (es. decorazioni dell'hero) non prendono gli stili con il tuo
+  prefisso: controllali a parte.
+- Prova di una modifica all'intestazione fuori dal tema: copia la **struttura vera** (colonne, doppia ricerca,
+  account nascosto, CSS di Horizon), non una versione semplificata, o la prova passa e il tema si rompe.
+
+## Admin Shopify dal browser di Claude
+- Dopo un clic su un campo aspetta ~2 s prima di scrivere, o il testo si perde.
+- Scorri con la rotella (azione di scroll): nell'admin `window.scrollY` resta 0, non usarlo per capire dove sei.
+- Il banner dei cookie del negozio copre la pagina: per i test nascondilo da JS solo nella tua vista, mai nel tema.
 
 ## Prodotti e collezioni
 - Catalogo da foglio Excel/annunci → **CSV di importazione Shopify** (una riga per variante e per foto in più);

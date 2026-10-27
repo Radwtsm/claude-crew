@@ -34,6 +34,10 @@ reg add "HKCU\Software\Adobe\CSXS.12" /v PlayerDebugMode /t REG_SZ /d 1 /f
 - Nessuna libreria: basta un wrapper su `window.__adobe_cep__.evalScript(script, callback)`. Fuori da AE quell'oggetto
   non esiste: gestiscilo, così il pannello si prova anche in un browser.
 
+## Windows e Mac
+Percorsi (`getSystemPath` restituisce un URL), font che su Mac non esistono, scorciatoie ⌘/Ctrl e pacchetto da
+distribuire: leggi [`windows-mac.md`](windows-mac.md) prima di toccarli.
+
 ## Architettura che funziona
 - Ogni funzione = **parametri + `build(valori)` → scena JSON** (layer, tracce di keyframe, effetti…). La stessa
   scena viene disegnata nell'anteprima su canvas e mandata ad AE: anteprima e risultato non divergono.

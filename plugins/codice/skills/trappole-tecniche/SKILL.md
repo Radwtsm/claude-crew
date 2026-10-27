@@ -1,6 +1,6 @@
 ---
 name: trappole-tecniche
-description: Trappole tecniche già incontrate dalla crew, con la soluzione - shell (bash, zsh), hook, ssh, SQLite, Python http.server, Swift, macOS (launchd, File Provider, sips), Playwright e test end-to-end, immagini ed EXIF, layout web (CLS), Node. Usala prima di scrivere script shell o hook, comandi ssh, test end-to-end, codice che tocca file di sistema, immagini o layout web, e quando qualcosa si comporta in modo strano o un test fallisce solo ogni tanto.
+description: Trappole tecniche già incontrate dalla crew, con la soluzione - shell (bash, zsh, Git Bash su Windows), hook, ssh, SQLite, Python http.server, Swift, macOS (launchd, File Provider, sips), Playwright e test end-to-end, immagini ed EXIF, layout web (CLS), Node. Usala prima di scrivere script shell o hook, comandi ssh, test end-to-end, codice che tocca file di sistema, immagini o layout web, e quando qualcosa si comporta in modo strano o un test fallisce solo ogni tanto.
 ---
 
 # Trappole tecniche
@@ -50,3 +50,7 @@ Ognuna è già costata tempo a qualcuno della crew. Una trappola nuova (sintomo 
 - Salto della pagina (CLS) all'apertura: ciò che sta sotto un contenuto caricato dopo viene spinto giù → compare
   solo con i dati (`hidden` finché non c'è) o ha lo spazio riservato; trova chi si sposta con le `sources` delle
   `layout-shift`, non a occhio.
+- Git Bash su Windows: un percorso `C:\…` scritto dentro `sed 's#…#…#'` o dentro una stringa Python/JS si rovina
+  in silenzio: `\b`, `\c`, `\t`, `\n` diventano caratteri di controllo (`cartella\blender` → `cartella⌫lender`) e il
+  file sembra a posto finché non lo apri. Usa barre `/`, stringhe raw (`r"C:\…"`) o uno strumento di modifica dei
+  file invece della shell; dopo, controlla con `grep -c $'\x08'` o `cat -A` che non ci siano caratteri strani.
