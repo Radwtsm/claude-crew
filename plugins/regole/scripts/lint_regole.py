@@ -3,6 +3,7 @@
 
   python3 lint_regole.py [cartella]           controlla e fallisce solo sui problemi NUOVI (exit 1)
   python3 lint_regole.py [cartella] --baseline  riscrive lint-regole-baseline.txt con i problemi di oggi
+  python3 lint_regole.py --hook                 hook PostToolUse: controlla il file appena scritto (JSON su stdin)
 
 Cosa controlla (README della crew → Formato):
 - SKILL.md: frontmatter con `name` uguale alla cartella e `description` di 80-1024 caratteri che dice quando usarla
@@ -13,7 +14,7 @@ Cosa controlla (README della crew → Formato):
 I problemi già presenti stanno in `lint-regole-baseline.txt` nella cartella controllata: possono solo calare.
 Solo libreria standard.
 """
-import os, re, sys
+import fnmatch, json, os, re, subprocess, sys
 
 MAX_RIGA = 120
 FILE = ("SKILL.md", "CLAUDE.md", "AGENTS.md")
@@ -94,33 +95,87 @@ def problemi(path, rel):
     return [f"{rel}: {p}" for p in out]
 
 
+def chiave(p):
+    """i numeri di riga cambiano a ogni modifica: la baseline confronta il problema senza la riga"""
+    return re.sub(r": riga \d+:", ":", p)
+
+
+def nuovi(root, trovati):
+    base_path = os.path.join(root, "lint-regole-baseline.txt")
+    noti = []
+    if os.path.exists(base_path):
+        noti = [r.rstrip("\n") for r in open(base_path, encoding="utf-8") if r.strip() and not r.startswith("#")]
+    out = []
+    for p in trovati:
+        if chiave(p) in noti:
+            noti.remove(chiave(p))
+        else:
+            out.append(p)
+    return out
+
+
+def troppo_lungo(root, rel, path):
+    """limiti-contesto.txt alla radice del repo (byte massimi per glob), se c'è"""
+    lim = os.path.join(root, "limiti-contesto.txt")
+    if not os.path.exists(lim):
+        return []
+    for r in open(lim, encoding="utf-8"):
+        parti = r.split()
+        if len(parti) >= 2 and parti[0].isdigit() and any(fnmatch.fnmatch(rel, g) for g in parti[1:]):
+            n = os.path.getsize(path)
+            if n > int(parti[0]):
+                return [f"{rel}: {n} byte > {parti[0]} (dettagli in un file per tema letto quando serve)"]
+    return []
+
+
+def hook():
+    """PostToolUse (Edit/Write) del plugin regole: controlla subito il file appena scritto, se è una regola o una
+    skill. Silenzioso se è a posto; exit 2 = Claude vede i problemi e li corregge prima di andare avanti."""
+    if "--se-manca-python3" in sys.argv:  # seconda voce dell'hook, per Windows dove c'è solo `python`
+        try:
+            if subprocess.run(["python3", "-c", "pass"], capture_output=True, timeout=10).returncode == 0:
+                return 0
+        except (OSError, subprocess.SubprocessError):
+            pass
+    try:
+        path = json.load(sys.stdin).get("tool_input", {}).get("file_path") or ""
+    except ValueError:
+        return 0
+    path = os.path.abspath(path)
+    nome, cartella = os.path.basename(path), os.path.dirname(path)
+    if not os.path.isfile(path) or not (nome in FILE or (nome.endswith(".md") and os.sep + "skills" + os.sep in cartella + os.sep)):
+        return 0
+    root = cartella
+    while not os.path.exists(os.path.join(root, ".git")) and os.path.dirname(root) != root:
+        root = os.path.dirname(root)
+    if not os.path.exists(os.path.join(root, ".git")):
+        root = cartella
+    rel = os.path.relpath(path, root)
+    trovati = nuovi(root, problemi(path, rel)) + troppo_lungo(root, rel, path)
+    if not trovati:
+        return 0
+    print("\n".join(trovati) + "\nlint_regole (plugin regole): sistemali ora, formato nel README della crew → Formato",
+          file=sys.stderr)
+    return 2
+
+
 def main():
+    if "--hook" in sys.argv:
+        return hook()
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     root = os.path.abspath(args[0] if args else ".")
-    base_path = os.path.join(root, "lint-regole-baseline.txt")
     trovati = sorted(p for f in da_controllare(root) for p in problemi(f, os.path.relpath(f, root)))
-    # i numeri di riga cambiano a ogni modifica: la baseline confronta il problema senza la riga
-    chiave = lambda p: re.sub(r": riga \d+:", ":", p)
     if "--baseline" in sys.argv:
-        open(base_path, "w", encoding="utf-8").write(
+        open(os.path.join(root, "lint-regole-baseline.txt"), "w", encoding="utf-8").write(
             "# Problemi già presenti (lint_regole.py --baseline): possono solo calare.\n"
             + "".join(chiave(p) + "\n" for p in trovati))
         print(f"baseline: {len(trovati)} problemi")
         return 0
-    noti = []
-    if os.path.exists(base_path):
-        noti = [r.rstrip("\n") for r in open(base_path, encoding="utf-8") if r.strip() and not r.startswith("#")]
-    nuovi = []
-    for p in trovati:
-        k = chiave(p)
-        if k in noti:
-            noti.remove(k)
-        else:
-            nuovi.append(p)
-    for p in nuovi:
+    da_sistemare = nuovi(root, trovati)
+    for p in da_sistemare:
         print(p)
-    if nuovi:
-        print(f"lint_regole: {len(nuovi)} problemi nuovi (formato: README della crew → Formato)", file=sys.stderr)
+    if da_sistemare:
+        print(f"lint_regole: {len(da_sistemare)} problemi nuovi (formato: README della crew → Formato)", file=sys.stderr)
         return 1
     return 0
 

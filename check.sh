@@ -35,5 +35,5 @@ if [ -n "$fuori" ]; then
 fi
 # Formato comune di regole e skill (README → Formato): solo i problemi nuovi bloccano, quelli noti in
 # lint-regole-baseline.txt possono solo calare
-python3 tools/lint_regole.py . || exit 1
+python3 plugins/regole/scripts/lint_regole.py . || exit 1
 exit 0

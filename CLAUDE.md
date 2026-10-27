@@ -36,7 +36,7 @@ installano i plugin da qui. Nessun'altra copia (la vecchia cartella Drive `Claud
 | Plugin di terzi consigliati, fissati a un commit | `esterni.json` |
 | Elenco dei plugin (GENERATO, non toccare) | `.claude-plugin/marketplace.json` ← `tools/elenco.py` (plugins/ + esterni.json) |
 | Installazione guidata per Claude Code | `INSTALLA.md` |
-| Controllo anti-fuga + formato | `check.sh` (pre-commit + CI) con `tools/lint_regole.py` |
+| Controllo anti-fuga + formato | `check.sh` (pre-commit + CI) con `plugins/regole/scripts/lint_regole.py` (anche hook mentre Claude scrive) |
 
 ## Dove si scrive
 - **Collaboratori del repo** (invitati su GitHub): il loro Claude li guida la prima volta: account GitHub,

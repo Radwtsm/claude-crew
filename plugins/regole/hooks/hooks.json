@@ -1,10 +1,19 @@
 {
-  "description": "Passa a Claude le regole comuni a ogni sessione",
+  "description": "Passa a Claude le regole comuni a ogni sessione; controlla subito ogni regola o skill appena scritta (lint_regole.py: python3, o python su Windows)",
   "hooks": {
     "SessionStart": [
       {
         "hooks": [
           { "type": "command", "command": "cat \"${CLAUDE_PLUGIN_ROOT}/skills/regole-crew/SKILL.md\"", "timeout": 10 }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/lint_regole.py\" --hook", "timeout": 15 },
+          { "type": "command", "command": "python \"${CLAUDE_PLUGIN_ROOT}/scripts/lint_regole.py\" --hook --se-manca-python3", "timeout": 15 }
         ]
       }
     ]
