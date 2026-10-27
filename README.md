@@ -48,6 +48,17 @@ errore. Come si fa: `CLAUDE.md` → "Strumenti: tutti qui" e "Lezioni".
    preferenze, sopra il blocco `regole crew`. Mai qui. Vince sulla crew.
 3. **Progetto**: il `CLAUDE.md` del repo su cui lavori.
 
+## Formato
+Le stesse regole per la crew, i tuoi repo e quelli di progetto, controllate da `tools/lint_regole.py` (lo lancia
+`check.sh`; nei tuoi repo: `python3 ~/claude-crew/tools/lint_regole.py .` nel pre-commit):
+- **Skill**: frontmatter con `name` uguale alla cartella e `description` di 80–1024 caratteri che dice cosa fa e
+  "Usala quando/prima di…"; un titolo `# …`; corpo corto, i dettagli in file per tema letti quando servono.
+- **Insidie e trappole**: una voce per errore, `sintomo → causa → cosa fare`, sotto un titolo "Insidie" o "Trappole".
+- **Righe** di massimo 120 caratteri (tabelle e link esclusi), niente spazi in fondo, a capo finale.
+- **Lunghezza** dei file letti a ogni sessione: `limiti-contesto.txt`.
+I problemi già presenti stanno in `lint-regole-baseline.txt`: bloccano solo quelli nuovi, e l'elenco può solo calare
+(rigeneralo con `--baseline` dopo averne sistemati).
+
 ## Contribuire
 
 Ognuno lo chiede al proprio Claude: **"aggiungi questo a crew"** (una skill) o **"raccogli le mie skill nella crew"**

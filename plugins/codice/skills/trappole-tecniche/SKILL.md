@@ -1,6 +1,6 @@
 ---
 name: trappole-tecniche
-description: Trappole tecniche già incontrate dalla crew, con la soluzione - shell (bash, zsh, Git Bash su Windows), hook, ssh, SQLite, Python http.server, Swift, macOS (launchd, File Provider, sips), Playwright e test end-to-end, immagini ed EXIF, layout web (CLS), Node. Usala prima di scrivere script shell o hook, comandi ssh, test end-to-end, codice che tocca file di sistema, immagini o layout web, e quando qualcosa si comporta in modo strano o un test fallisce solo ogni tanto.
+description: Trappole tecniche già incontrate dalla crew, con la soluzione - shell (bash, zsh, Git Bash su Windows), hook, ssh, Docker e firewall, Cloudflare Access, SQLite, Python http.server, Swift, macOS (launchd, File Provider, sips), Playwright e test end-to-end, immagini ed EXIF, layout web (CLS), Node. Usala prima di scrivere script shell o hook, comandi ssh, test end-to-end, codice che tocca file di sistema, immagini o layout web, e quando qualcosa si comporta in modo strano o un test fallisce solo ogni tanto.
 ---
 
 # Trappole tecniche
@@ -54,3 +54,17 @@ Ognuna è già costata tempo a qualcuno della crew. Una trappola nuova (sintomo 
   in silenzio: `\b`, `\c`, `\t`, `\n` diventano caratteri di controllo (`cartella\blender` → `cartella⌫lender`) e il
   file sembra a posto finché non lo apri. Usa barre `/`, stringhe raw (`r"C:\…"`) o uno strumento di modifica dei
   file invece della shell; dopo, controlla con `grep -c $'\x08'` o `cat -A` che non ci siano caratteri strani.
+- Script Python in `<<'EOF'` che contiene un altro heredoc → la prima riga `EOF` del testo chiude quello esterno e
+  la shell esegue il resto → delimitatore diverso fuori (`<<'PYEOF'`) o scrivi prima un file.
+- Regole nuove che non arrivano mai su una macchina → il blocco di config si aggiunge "solo se manca"
+  (`grep -q BEGIN || cat >>`) → riscrivi il blocco tra i marcatori a ogni esecuzione.
+- Container senza DNS dopo averli isolati dalla LAN (DROP verso le reti private in `DOCKER-USER`) → il DNS passa dal
+  router → `dns:` pubblici nel compose; con br_netfilter anche i container della stessa rete passano da
+  `DOCKER-USER`: prima un RETURN con sorgente e destinazione nella loro sottorete.
+- Calendario, Contatti o app (CalDAV/WebDAV) dietro Cloudflare Access che non si collegano → non sanno fare il login
+  da browser → application *Bypass* solo sui percorsi DAV/app, protetti dal login del servizio con 2FA; crea Access
+  prima di pubblicare l'hostname, così non resta mai aperto.
+- Versione "pubblicata da 2 settimane" che invece è nuova → la data di un tag su Docker Hub è l'ultima
+  ricompilazione, non il rilascio → guarda la data della release del progetto (GitHub releases).
+- Overpass/Nominatim (OpenStreetMap) che rispondono 429/502/504 → servizio pubblico carico → una richiesta al
+  secondo con un User-Agent, nuovi tentativi con attesa crescente, mai un loop stretto.

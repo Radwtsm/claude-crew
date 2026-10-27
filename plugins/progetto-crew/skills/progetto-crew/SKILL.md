@@ -47,6 +47,10 @@ Prima di dire "fatto" su un pezzo, e di nuovo a fine progetto:
 
 ## Progetto per un cliente esterno (negozio, bar, studio)
 Quando il progetto è per un'attività che paga o prova il nostro lavoro, oltre ai passi sopra:
+- **Trovare chi visitare**: le attività della zona da OpenStreetMap (Overpass, licenza ODbL), per tipo e distanza,
+  catene escluse; prima di andare controlla su Maps che esistano ancora e leggi le recensioni (lamentele = bisogno
+  da proporre). Mai raccogliere in automatico Maps, siti dei negozi o dei supermercati (termini d'uso). Nei file
+  la zona, mai l'indirizzo di casa di chi cerca.
 - **Prima del sì**: il problema detto dal cliente con parole sue, chi userà la cosa, orari di apertura, hardware e
   rete che ha già. Meglio una demo con il suo nome e dati finti che una presentazione.
 - **Si parte in piccolo**: un pilota con durata, cosa è incluso e cosa no scritti in una pagina, anche se gratis.

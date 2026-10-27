@@ -33,4 +33,7 @@ if [ -n "$fuori" ]; then
   echo "check.sh: file troppo lunghi; i dettagli in un file per tema letto quando serve (organizza-claude)" >&2
   exit 1
 fi
+# Formato comune di regole e skill (README → Formato): solo i problemi nuovi bloccano, quelli noti in
+# lint-regole-baseline.txt possono solo calare
+python3 tools/lint_regole.py . || exit 1
 exit 0
