@@ -1857,6 +1857,17 @@ def aggiorna(ui):
         with ui.attesa("aggiorno i plugin"):
             codice, _ = run("claude", "plugin", "marketplace", "update")
         ui.esito(Esito("plugin (marketplace)", codice == 0, "in Claude Code: /plugin → «Marketplaces» → «Update»"))
+        mk = {"claude-crew"} | {m for _, d in cartelle_progetti() for m in marketplace_del_progetto(config_progetto(d))}
+        inst = leggi_json(os.path.join(CASA, ".claude", "plugins", "installed_plugins.json"), {}).get("plugins", {})
+        tutti = [p for p in inst if p.split("@")[-1] in mk]
+        ko = []
+        with ui.attesa("porto i plugin all'ultima versione"):  # il catalogo da solo non li cambia (squadra)
+            for i, p in enumerate(tutti):
+                live(i / len(tutti), p)
+                if run("claude", "plugin", "update", p)[0] != 0:
+                    ko.append(p)
+        ui.esito(Esito(f"plugin installati ({len(tutti)})", not ko, "/plugin update " + " ".join(ko),
+                       nota="valgono dalla prossima sessione di Claude Code"))
     for repo in ([] if lavoro() else stato().get("progetti", [])):
         d = cartella_progetto(repo)
         if os.path.isdir(os.path.join(d, ".git")):
