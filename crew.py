@@ -58,8 +58,10 @@ REGOLE_USO = """Regole d'uso (1 minuto):
 
 class Esito:
     """cosa = cosa fare se non va (mostrato solo con ❌); nota = dettaglio mostrato con ✅ o ⏭."""
-    def __init__(self, nome, ok, cosa="", saltato=False, nota=""):
-        self.nome, self.ok, self.cosa, self.saltato, self.nota = nome, ok, cosa, saltato, nota
+    def __init__(self, nome, ok, cosa="", saltato=False, nota="", riprova=None):
+        """riprova = funzione che rifà il passo e torna True se ora va: la guida la offre sul posto (owner 28/10:
+        tutto in una volta, non rilanciare il comando)."""
+        self.nome, self.ok, self.cosa, self.saltato, self.nota, self.riprova = nome, ok, cosa, saltato, nota, riprova
 
 
 # ───────────────────────────── logica (niente stampa) ─────────────────────────────
@@ -692,6 +694,15 @@ class Terminale:
             print("  " + self.c("31", "✗") + f" {e.nome}")
             if e.cosa:
                 self.fai(e.cosa)
+            while e.riprova and sys.stdin.isatty() and self.conferma("Fatto?", "Riprova adesso", "Salta per ora"):
+                try:
+                    e.ok = bool(e.riprova())
+                except Exception as x:  # un errore nel riprovare non ferma la guida
+                    self.fai(f"non ancora: {x}")
+                if e.ok:
+                    print("  " + self.c("32", "✓") + f" {e.nome}")
+                    break
+                print("  " + self.c("31", "✗") + f" {e.nome} · ancora no")
         return e.ok
 
     def link(self, nome, url):
@@ -870,11 +881,12 @@ def passo_sistema(ui):
     if MAC and run("xcode-select", "-p")[0] != 0:
         run("xcode-select", "--install")
         return ui.esito(Esito("strumenti di Apple (git)", False, "si è aperta la finestra «Strumenti da riga di "
-                              "comando»: premi «Installa», aspetta la fine, poi rilancia la stessa riga"))
+                              "comando»: premi «Installa» e aspetta la fine",
+                              riprova=lambda: run("xcode-select", "-p")[0] == 0))
     if not ha("git"):
-        cosa = ("PowerShell: winget install --id Git.Git -e, poi chiudi e riapri PowerShell" if WIN
-                else "installa git (es. sudo apt install git) e rilancia")
-        return ui.esito(Esito("git", False, cosa))
+        cosa = ("in un'altra finestra di PowerShell: winget install --id Git.Git -e" if WIN
+                else "in un altro terminale: sudo apt install git")
+        return ui.esito(Esito("git", False, cosa, riprova=lambda: path_aggiornato() or ha("git")))
     return ui.esito(Esito(f"Python {platform.python_version()} e git", True))
 
 
@@ -884,8 +896,8 @@ def passo_claude(ui):
         return ui.esito(Esito("Claude Code", True, saltato=True, nota="già installato"))
     with ui.attesa("installo Claude Code dal sito ufficiale (claude.ai), 1-3 minuti"):
         ok, out = installa_claude()
-    return ui.esito(Esito("Claude Code", ok, "" if ok else "chiudi e riapri il terminale, poi rilancia `pleyades-cli`"
-                          + (f" (ultime righe: {out[-150:]})" if out else "")))
+    return ui.esito(Esito("Claude Code", ok, "" if ok else "controlla internet"
+                          + (f" (ultime righe: {out[-150:]})" if out else ""), riprova=lambda: installa_claude()[0]))
 
 
 def passo_github(ui):
@@ -907,8 +919,11 @@ def passo_github(ui):
     ui.fai(SPIEGA_GH)
     if ui.conferma("Colleghiamo GitHub?", "Sì, apri il browser", "Salta per ora"):
         run("gh", "auth", "login", "--hostname", "github.com", "--web", "--git-protocol", "https", vivo=True)
-    if not gh_collegato():
-        return ui.esito(Esito("GitHub", False, "accesso non completato: rilancia `pleyades-cli` e rifai i passi qui sopra"))
+    def accedi():
+        run("gh", "auth", "login", "--hostname", "github.com", "--web", "--git-protocol", "https", vivo=True)
+        return gh_collegato()
+    if not ui.esito(Esito("GitHub", gh_collegato(), "accesso non completato: rifai i passi qui sopra", riprova=accedi)):
+        return False
     run("gh", "auth", "setup-git")  # git usa lo stesso accesso: repo privati e marketplace privati
     return ui.esito(Esito(f"GitHub come {gh_utente()}", True))
 
@@ -976,11 +991,15 @@ def passo_studio(ui):
     if not server:
         return []
     ui.titolo(f"Studio {server.split('//')[-1]}")
-    cred = credenziali_note() or accedi_studio(ui, server)
-    if not ui.esito(Esito("accesso allo studio" + (f" come {cred['utente']}" if cred else ""), bool(cred),
-                          "rilancia `pleyades-cli` e premi «Concedi accesso» nel browser; senza utente: chiedilo a chi ti ha "
-                          "invitato")):
+    tieni = [credenziali_note() or accedi_studio(ui, server)]
+
+    def di_nuovo():
+        tieni[0] = accedi_studio(ui, server)
+        return tieni[0]
+    if not ui.esito(Esito("accesso allo studio", bool(tieni[0]), "premi «Concedi accesso» nel browser; senza utente: "
+                          "chiedilo a chi ti ha invitato", riprova=di_nuovo)):
         return []
+    cred = tieni[0]
     try:
         with ui.attesa("cerco i progetti condivisi con te"):
             trovati = progetti_studio(server, cred)
@@ -1002,12 +1021,16 @@ def passo_studio(ui):
             continue
         ui.titolo(f"Progetto {cfg.get('nome', cartella)} (dallo studio)")
         d = dir_studio(cartella)
-        try:
+        def scarica(cartella=cartella, d=d):
             with ui.attesa(f"scarico «{cartella}» dallo studio"):
-                n = scarica_cartella(server, cred, cartella, d)
+                return scarica_cartella(server, cred, cartella, d)
+        try:
+            n = scarica()
         except (OSError, ValueError) as e:
-            ui.esito(Esito(f"copia di «{cartella}»", False, f"download interrotto ({e}): rilancia `pleyades-cli`"))
-            continue
+            if not ui.esito(Esito(f"copia di «{cartella}»", False, f"download interrotto ({e}): controlla internet",
+                                  riprova=scarica)):
+                continue
+            n = sum(len(f) for _, _, f in os.walk(d))
         ui.esito(Esito(f"copia di «{cartella}» in {d.replace(CASA, '~')}", True, nota=f"{n} file, sola lettura"))
         copie.append(cartella)
         out.append((cartella, prepara(ui, d, config_progetto(d), cartella, cred, studio=True)))
@@ -1070,7 +1093,9 @@ def prepara(ui, d, c, etichetta, cred=None, studio=False):
                 if ui.conferma("Ti colleghi a mano?", "Sì, collegami", "Salta per ora"):
                     collega_stanza(d, c)
             conf = stanza_collegata(t, c.get("stanza"))
-        ui.esito(Esito(f"stanza Talk «{nome}»", bool(conf), "rilancia `pleyades-cli`: ti richiede utente e password per app"))
+        ui.esito(Esito(f"stanza Talk «{nome}»", bool(conf), "ti richiede utente e password per app",
+                       riprova=lambda: collega_stanza(d, c) or stanza_collegata(t, c.get("stanza"))))
+        conf = stanza_collegata(t, c.get("stanza"))
         if conf and c.get("cartelle"):
             manca = cartelle_mancanti(t, conf, c["cartelle"])
             if manca is not None:
@@ -1078,7 +1103,8 @@ def prepara(ui, d, c, etichetta, cred=None, studio=False):
                                f"non vedi {', '.join(manca)}: chiedi a chi ti ha invitato di condividerle col tuo utente"))
             ui.esito(Esito("app Nextcloud sul computer", app_nextcloud(),
                            "scaricala da nextcloud.com/install («Desktop»), accedi con il tuo utente, poi "
-                           "«⋯» → «Scegli cosa sincronizzare» → spunta " + ", ".join(f"«{x}»" for x in c["cartelle"])))
+                           "«⋯» → «Scegli cosa sincronizzare» → spunta " + ", ".join(f"«{x}»" for x in c["cartelle"]),
+                           riprova=app_nextcloud))
     if studio and c.get("proposte"):
         ui.fai(f"Questa è una copia di sola lettura: le tue proposte (skill, processi, modifiche) vanno nella cartella "
                f"«{c['proposte']}» dello studio; Claude le porta con la skill porta-proposte.")
@@ -1087,8 +1113,8 @@ def prepara(ui, d, c, etichetta, cred=None, studio=False):
         args = [sys.executable, os.path.join(d, c["passi"]), "--da-crew"]
         if conf:
             args.append(conf["utente"])
-        ui.esito(Esito("passi del progetto", run(*args, cwd=d, vivo=True)[0] == 0,
-                       f"rilancia `pleyades-cli entra {etichetta}` dopo aver fatto ciò che chiede"))
+        ui.esito(Esito("passi del progetto", run(*args, cwd=d, vivo=True)[0] == 0, "fai ciò che chiede qui sopra",
+                       riprova=lambda: run(*args, cwd=d, vivo=True)[0] == 0))
     return d, c, t, conf
 
 
