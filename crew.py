@@ -1052,7 +1052,10 @@ class Terminale:
             self.out(self.rientro() + self.c("31", "✗") + f" {e.nome}")
             if e.cosa:
                 self.fai(e.cosa)
-            while e.riprova and sys.stdin.isatty() and self.conferma("Fatto?", "Riprova adesso", "Salta per ora"):
+            tentativi = 0  # mai all'infinito: al massimo 3, e nessuno se non c'è chi risponde (28/10, Windows via Claude)
+            while (e.riprova and sys.stdin.isatty() and not getattr(self, "eof", False) and tentativi < 3
+                   and self.conferma("Fatto?", "Riprova adesso", "Salta per ora")):
+                tentativi += 1
                 try:
                     e.ok = bool(e.riprova())
                 except Exception as x:  # un errore nel riprovare non ferma la guida
@@ -1072,8 +1075,8 @@ class Terminale:
         try:
             r = input("\n  " + self.acc("?") + " " + self.c("1", domanda) + self.c("2", f" [{base}]" if base else "")
                       + "\n  " + self.acc("❯") + " ").strip()
-        except EOFError:
-            r = ""
+        except EOFError:  # nessuno risponde (lanciato da Claude o da uno script): si va avanti con la scelta base
+            self.eof, r = True, ""
         return r or base
 
     def scegli(self, domanda, opzioni):
