@@ -5,8 +5,8 @@ Claude Code, GitHub con o senza account, plugin, progetti con la loro stanza Tal
 Mac/Linux (Terminale): `curl -fsSL https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.sh | bash`
 (con un progetto: `| bash -s -- PROPRIETARIO/REPO`).
 Windows (PowerShell, provato ancora su nessun PC): `irm https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.ps1 | iex`
-(con un progetto: prima `$env:PROGETTO='PROPRIETARIO/REPO';` sulla stessa riga). Dopo: `pleyades-cli` (menu, aggiorna,
-controlla, entra in un progetto). Un progetto dice cosa gli serve in `.claude/progetto.json` (vedi `crew.py`).
+(con un progetto: prima `$env:PROGETTO='PROPRIETARIO/REPO';` sulla stessa riga; con uno studio Nextcloud anche
+`$env:STUDIO='studio.nome.org';`). Dopo: `pleyades-cli` o `pley` (menu, aggiorna, controlla, kit, entra in un progetto). Un progetto dice cosa gli serve in `.claude/progetto.json` (vedi `crew.py`).
 
 Queste istruzioni sono per Claude: l'utente ha incollato una frase come "installa Pleyades seguendo INSTALLA.md".
 Fai tu i passi, spiegando in breve cosa fai; chiedi solo le scelte. Funziona su Windows, Mac e Linux.
