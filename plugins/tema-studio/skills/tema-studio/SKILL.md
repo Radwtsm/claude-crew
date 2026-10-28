@@ -8,8 +8,12 @@ description: I temi di Claude Code con i colori dello studio (blu notte o rosso 
 ## Scegliere il tema
 1. In Claude Code (terminale): scrivi `/theme` e scegli «Pleyades Studio» o «Pleiad Fire Red».
 2. Vale per quel computer; per tornare indietro, `/theme` e un tema di base.
-Il rosso è pensato per un terminale a sfondo nero: lo sfondo lo decide il programma del terminale (Terminale,
-iTerm, Windows Terminal → Impostazioni → Profilo → Colori), non Claude.
+Il rosso vuole uno sfondo nero pieno: lo decide il programma del terminale, non Claude.
+- Mac: `pleyades-cli tema` installa il profilo «Pleiad Fire Red» del Terminale (nero, colori intonati, intro con le
+  Pleiadi a ogni finestra) e lo rende predefinito. Per toglierlo: Terminale → Impostazioni → Profili → un altro →
+  Predefinito.
+- Windows Terminal / iTerm: Impostazioni → Profilo → Colori → sfondo `#000000`, opacità piena.
+- L'intro da sola: `pleyades-cli intro` (un tasto la salta).
 
 ## Parole della rotella (facoltativo)
 Sono un'impostazione personale, non del plugin: aggiungile in `~/.claude/settings.json` (con l'ok dell'utente):
@@ -25,5 +29,7 @@ blu vengono dal marchio dello studio: se cambia il marchio, cambiali qui insieme
 `/theme` → «New custom theme» (resta sul proprio computer).
 
 ## Insidie
+- Righe sottili fra i pixel dell'intro nel Terminale del Mac → ▀/▄ del font non sono metà esatte della cella →
+  normale; non cambiare interlinea (0,82–0,9 provate: peggio).
 - Tema non nell'elenco di `/theme` → plugin installato con Claude aperto → `/reload-plugins`.
 - Colori invariati nell'app desktop di Claude → i temi valgono solo nel terminale → lì si usano i colori dell'app.
