@@ -399,6 +399,36 @@ def app_nextcloud():
     return ha("nextcloud")
 
 
+NEXTCLOUD_RELEASE = "https://api.github.com/repos/nextcloud-releases/desktop/releases/latest"
+NEXTCLOUD_TEAM = "Developer ID Installer: Nextcloud GmbH (NKUJUXUJ3B)"  # dalla firma del pacchetto ufficiale, 28/10
+
+
+def installa_nextcloud():
+    """L'app Nextcloud ufficiale: Mac = .pkg delle release di Nextcloud, aperto solo se firmato dal team di Nextcloud e
+    notarizzato da Apple (l'installer chiede «Continua/Installa»); Windows = winget. (ok, cosa fare)."""
+    if WIN:
+        ok = run("winget", "install", "-e", "--id", "Nextcloud.NextcloudDesktop", "--accept-package-agreements",
+                 "--accept-source-agreements", timeout=900)[0] == 0
+        return ok, "" if ok else "scaricala da nextcloud.com/install («Desktop»)"
+    if not MAC:
+        return False, "installala con il gestore pacchetti (es. sudo apt install nextcloud-desktop)"
+    try:
+        rel = json.loads(scarica(NEXTCLOUD_RELEASE))
+        url = next(a["browser_download_url"] for a in rel["assets"] if re.fullmatch(r"Nextcloud-[\d.]+\.pkg", a["name"]))
+        pkg = os.path.join(CARTELLA, "Nextcloud.pkg")
+        os.makedirs(CARTELLA, exist_ok=True)
+        with open(pkg, "wb") as f:
+            f.write(scarica(url, timeout=900))
+    except (OSError, ValueError, StopIteration) as e:
+        return False, f"download non riuscito ({e}): controlla internet"
+    firma = run("pkgutil", "--check-signature", pkg)[1]
+    if NEXTCLOUD_TEAM not in firma or "trusted by the Apple notary service" not in firma:
+        os.remove(pkg)
+        return False, "il pacchetto scaricato non ha la firma di Nextcloud: non lo apro (scaricala da nextcloud.com/install)"
+    run("open", pkg)
+    return True, ""
+
+
 def link_progetto(t, conf, c, d):
     out = [("Cartella del progetto", d)]
     if not t:
@@ -1232,10 +1262,16 @@ def prepara(ui, d, c, etichetta, cred=None, studio=False):
             if manca is not None:
                 ui.esito(Esito("cartelle condivise del progetto", not manca,
                                f"non vedi {', '.join(manca)}: chiedi a chi ti ha invitato di condividerle col tuo utente"))
-            ui.esito(Esito("app Nextcloud sul computer", app_nextcloud(),
-                           "scaricala da nextcloud.com/install («Desktop»), accedi con il tuo utente, poi "
-                           "«⋯» → «Scegli cosa sincronizzare» → spunta " + ", ".join(f"«{x}»" for x in c["cartelle"]),
-                           riprova=app_nextcloud))
+            spunta = ", ".join(f"«{x}»" for x in c["cartelle"])
+            cosa = f"apri Nextcloud, accedi con il tuo utente ({t.SERVER.split('//')[-1]}), poi spunta {spunta}"
+            if not app_nextcloud() and ui.conferma("Installo l'app Nextcloud (sincronizza le cartelle del progetto)?",
+                                                   "Sì, installala", "Dopo"):
+                with ui.attesa("scarico l'app Nextcloud ufficiale (circa 150 MB)"):
+                    ok, perche = installa_nextcloud()
+                if ok and MAC:
+                    ui.fai("Si è aperto l'installer di Apple: premi «Continua» e «Installa» (chiede la password del Mac)")
+                cosa = perche or cosa
+            ui.esito(Esito("app Nextcloud sul computer", app_nextcloud(), cosa, riprova=app_nextcloud))
     if studio and c.get("proposte"):
         ui.fai(f"Questa è una copia di sola lettura: le tue proposte (skill, processi, modifiche) vanno nella cartella "
                f"«{c['proposte']}» dello studio; Claude le porta con la skill porta-proposte.")
