@@ -42,8 +42,9 @@ Il profilo e i plugin presi stanno solo in ~/.config/crew/stato.json di questo c
 Mac, Linux e Windows (python3 o python). Solo libreria standard. Le funzioni non stampano: la stampa è in
 `Terminale`, così un'app con finestra può riusare le stesse funzioni con un'altra interfaccia.
 """
-import hashlib, importlib.util, io, json, os, platform, plistlib, re, shutil, subprocess, sys, tarfile, textwrap, threading, time
-import urllib.error, urllib.parse, urllib.request, webbrowser, xml.etree.ElementTree as ET, zipfile
+import hashlib, importlib.util, io, json, os, platform, plistlib, re, shutil, subprocess, sys, tarfile, tempfile
+import textwrap, threading, time, urllib.error, urllib.parse, urllib.request, uuid, webbrowser
+import xml.etree.ElementTree as ET, zipfile
 from concurrent.futures import ThreadPoolExecutor
 
 CREW = "Radwtsm/claude-crew"
@@ -470,6 +471,125 @@ def installa_nextcloud():
         return False, "il pacchetto scaricato non ha la firma di Nextcloud: non lo apro (scaricala da nextcloud.com/install)"
     run("open", pkg)
     return True, ""
+
+
+# Le altre app native della suite (29/10, owner: «app native per tutti»): Talk sul computer, Calendario e Contatti
+# del sistema (CalDAV/CardDAV), le app ufficiali sul telefono
+TALK_RELEASE = "https://api.github.com/repos/nextcloud-releases/talk-desktop/releases/latest"
+TALK_MAC = "/Applications/Nextcloud Talk.app"
+DAV_PROFILO = "org.pleyades.studio.dav"
+APP_TELEFONO = [  # verificati 29/10: App Store (Nextcloud GmbH) e Google Play
+    ("Nextcloud (file)", "https://apps.apple.com/app/id1125420102", "com.nextcloud.client"),
+    ("Nextcloud Talk", "https://apps.apple.com/app/id1296825574", "com.nextcloud.talk2"),
+    ("Nextcloud Notes", "https://apps.apple.com/app/id813973264", "it.niedermann.owncloud.notes"),
+    ("Deck (solo Android)", None, "it.niedermann.nextcloud.deck.play"),
+    ("DAVx⁵ (calendario, Android)", None, "at.bitfire.davdroid"),
+]
+
+
+def app_talk():
+    if MAC:
+        return os.path.isdir(TALK_MAC)
+    if WIN:
+        return run("winget", "list", "-e", "--id", "Nextcloud.Talk", "--accept-source-agreements")[0] == 0
+    return True  # Linux: flatpak a mano, la guida non la propone
+
+
+def installa_talk():
+    """Nextcloud Talk per il computer: Mac = .dmg delle release, copiato in Applicazioni solo se firmato dal team di
+    Nextcloud e notarizzato da Apple; Windows = winget. (ok, cosa fare)."""
+    if WIN:
+        ok = run("winget", "install", "-e", "--id", "Nextcloud.Talk", "--accept-package-agreements",
+                 "--accept-source-agreements", timeout=900)[0] == 0
+        return ok, "" if ok else "scaricala da nextcloud.com/talk («Desktop»)"
+    dmg = os.path.join(CARTELLA, "Talk.dmg")
+    try:
+        rel = json.loads(scarica(TALK_RELEASE))
+        url = next(a["browser_download_url"] for a in rel["assets"] if a["name"] == "Nextcloud.Talk-macos-universal.dmg")
+        os.makedirs(CARTELLA, exist_ok=True)
+        with open(dmg, "wb") as f:
+            f.write(scarica(url, timeout=900))
+    except (OSError, ValueError, StopIteration) as e:
+        return False, f"download non riuscito ({e}): controlla internet"
+    disco = tempfile.mkdtemp(prefix="talk-")
+    try:
+        if run("hdiutil", "attach", "-nobrowse", "-readonly", "-mountpoint", disco, dmg)[0] != 0:
+            return False, "il .dmg non si apre: scaricala da nextcloud.com/talk"
+        app = os.path.join(disco, "Nextcloud Talk.app")
+        firma = run("codesign", "-dv", app)[1] + run("spctl", "-a", "-vv", "-t", "exec", app)[1]
+        if "TeamIdentifier=NKUJUXUJ3B" not in firma or "Notarized Developer ID" not in firma:
+            return False, "l'app scaricata non ha la firma di Nextcloud: non la installo (scaricala da nextcloud.com/talk)"
+        if run("ditto", app, TALK_MAC)[0] != 0:
+            return False, "non riesco a copiarla in Applicazioni: apri ~/.crew/Talk.dmg e trascinala tu"
+    finally:
+        run("hdiutil", "detach", disco)
+        if os.path.isdir(TALK_MAC) and os.path.isfile(dmg):
+            os.remove(dmg)
+    return True, ""
+
+
+def profilo_dav_installato():
+    return DAV_PROFILO in run("profiles", "list")[1]
+
+
+def apri_profilo_dav(server, utente):
+    """Calendario e Contatti del Mac collegati allo studio: profilo CalDAV + CardDAV SENZA password (la chiede
+    Impostazioni di Sistema quando lo installi: una password per app nuova, mai scritta in un file)."""
+    host = server.split("//")[-1].rstrip("/")
+    principal = f"https://{host}/remote.php/dav/principals/users/{urllib.parse.quote(utente)}/"
+    comune = {"PayloadVersion": 1, "PayloadOrganization": "Pleyades Studio"}
+
+    def uid(x):
+        return str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{x}.{utente}.{host}")).upper()
+
+    dav = [dict(comune, PayloadType="com.apple.caldav.account", PayloadIdentifier=DAV_PROFILO + ".caldav",
+                PayloadUUID=uid("caldav"), PayloadDisplayName="Calendario dello studio",
+                CalDAVAccountDescription="Pleyades Studio", CalDAVHostName=host, CalDAVPort=443, CalDAVUseSSL=True,
+                CalDAVUsername=utente, CalDAVPrincipalURL=principal),
+           dict(comune, PayloadType="com.apple.carddav.account", PayloadIdentifier=DAV_PROFILO + ".carddav",
+                PayloadUUID=uid("carddav"), PayloadDisplayName="Contatti dello studio",
+                CardDAVAccountDescription="Pleyades Studio", CardDAVHostName=host, CardDAVPort=443,
+                CardDAVUseSSL=True, CardDAVUsername=utente, CardDAVPrincipalURL=principal)]
+    profilo = dict(comune, PayloadType="Configuration", PayloadIdentifier=DAV_PROFILO, PayloadContent=dav,
+                   PayloadUUID=uid("profilo"), PayloadDisplayName="Pleyades Studio: calendario e contatti",
+                   PayloadScope="User")
+    p = os.path.join(CARTELLA, "studio-calendario.mobileconfig")
+    os.makedirs(CARTELLA, exist_ok=True)
+    with open(p, "wb") as f:
+        plistlib.dump(profilo, f)
+    run("open", p)
+    return p
+
+
+def app_native(ui, t, conf):
+    """Talk, Calendario/Contatti e app del telefono: ognuno chiesto una volta, saltato se c'è già."""
+    if (MAC or WIN) and not app_talk() and ui.conferma("Installo l'app Nextcloud Talk (chat e chiamate del team)?",
+                                                         "Sì, installala", "Dopo"):
+        with ui.attesa("scarico Nextcloud Talk ufficiale (circa 250 MB)"):
+            ok, perche = installa_talk()
+        ui.esito(Esito("app Nextcloud Talk", ok, perche, riprova=app_talk))
+    elif MAC or WIN:
+        ui.esito(Esito("app Nextcloud Talk", app_talk(), "pleyades-cli guida (la installa)"))
+    if MAC and not profilo_dav_installato() and ui.conferma(
+            "Collego Calendario e Contatti del Mac allo studio?", "Sì, collegali", "Dopo"):
+        apri_profilo_dav(t.SERVER, conf["utente"])
+        ui.fai("Impostazioni di Sistema → Generali → Gestione dispositivi → «Pleyades Studio: calendario e contatti» "
+               "→ «Installa»; quando chiede la password, crea una password per app nuova (Nextcloud → Impostazioni "
+               "personali → Sicurezza, nome: Calendario Mac)")
+        ui.esito(Esito("Calendario e Contatti del Mac", profilo_dav_installato(), "installa il profilo come sopra",
+                       riprova=profilo_dav_installato))
+    elif MAC:
+        ui.esito(Esito("Calendario e Contatti del Mac", True))
+    if WIN:
+        ui.info("Calendario su Windows: Outlook non legge CalDAV da solo; usa Thunderbird o il calendario nel browser.")
+    ui.info(ui.c("2", "sul telefono (cerca il nome nello store o apri il link):"))
+    for nome, ios, android in APP_TELEFONO:
+        if ios:
+            ui.link(nome + " · iPhone", ios)
+        ui.link(nome + " · Android", f"https://play.google.com/store/apps/details?id={android}")
+    ui.fai(f"iPhone, calendario e contatti: Impostazioni → App → Calendario → Account calendario → Aggiungi account → "
+           f"Altro → «Aggiungi account CalDAV»: server {t.SERVER.split('//')[-1]}, utente {conf['utente']}, password "
+           f"per app nuova; poi lo stesso con «Aggiungi account CardDAV» (Contatti). Android: DAVx⁵, stesso server.")
 
 
 def link_progetto(t, conf, c, d):
@@ -1677,6 +1797,8 @@ def prepara(ui, d, c, etichetta, cred=None, studio=False):
                     ui.fai("Si è aperto l'installer di Apple: premi «Continua» e «Installa» (chiede la password del Mac)")
                 cosa = perche or cosa
             ui.esito(Esito("app Nextcloud sul computer", app_nextcloud(), cosa, riprova=app_nextcloud))
+        if conf:
+            app_native(ui, t, conf)
     if studio and c.get("proposte"):
         ui.fai(f"Questa è una copia di sola lettura: le tue proposte (skill, processi, modifiche) vanno nella cartella "
                f"«{c['proposte']}» dello studio; Claude le porta con la skill porta-proposte.")
@@ -1826,6 +1948,10 @@ def controlla(ui):
                            "apri Claude nella cartella del progetto e chiedi «prepara la mia scheda»"))
         if c.get("cartelle"):
             ui.esito(Esito("app Nextcloud", app_nextcloud(), "pleyades-cli guida (la installa)"))
+        if t and (MAC or WIN):
+            ui.esito(Esito("app Nextcloud Talk", app_talk(), "pleyades-cli guida (la installa)"))
+        if t and MAC:
+            ui.esito(Esito("Calendario e Contatti del Mac", profilo_dav_installato(), "pleyades-cli guida (li collega)"))
     if ha("claude") and not lavoro():
         ui.esito(Esito("accesso a Claude", claude_collegato(), "apri `claude` e scrivi /login; se il login è già "
                        "riuscito: `claude auth status` nello stesso terminale e manda la risposta (senza email)"))

@@ -5,7 +5,7 @@
 cd "$(dirname "$0")" || exit 1
 p='([0-9]{1,3}\.){3}[0-9]{1,3}|https?://|[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+\.[A-Za-z.]{2,}'
 p="$p|-----BEGIN|(api[_-]?key|token|password|secret)[\"' ]*[:=][\"' ]*[A-Za-z0-9/+_-]{8,}"
-ok="https://(github\.com|raw\.githubusercontent\.com)/(\{\{REPO\}\}|Radwtsm/claude-crew|\{REPO\})|https://claude\.ai/install\.(sh|ps1)|https://raw\.githubusercontent\.com/Homebrew/install/|https://api\.github\.com/repos/cli/cli/|https://github\.com/\{repo\}|https://api\.github\.com/repos/nextcloud-releases/desktop/"
+ok="https://(github\.com|raw\.githubusercontent\.com)/(\{\{REPO\}\}|Radwtsm/claude-crew|\{REPO\})|https://claude\.ai/install\.(sh|ps1)|https://raw\.githubusercontent\.com/Homebrew/install/|https://api\.github\.com/repos/cli/cli/|https://github\.com/\{repo\}|https://api\.github\.com/repos/nextcloud-releases/(desktop|talk-desktop)/|https://apps\.apple\.com/app/id[0-9]+|https://play\.google\.com/store/apps/details\?id=|https://\{host\}/"
 files=$(git ls-files 2>/dev/null; git ls-files -o --exclude-standard 2>/dev/null)
 [ -n "$files" ] || files=$(find . -type f -not -path './.git/*' -not -path './dist/*')
 hits=$(echo "$files" | grep -vE '^(\./)?(\.github/workflows/|check\.sh$)' | xargs grep -nIE "$p" 2>/dev/null | grep -vE "$ok")
