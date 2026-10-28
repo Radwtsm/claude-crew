@@ -25,3 +25,5 @@ Letto da `SKILL.md` prima di: script bash/zsh/Git Bash, comandi ssh, hook, hered
   dello Store in `WindowsApps` → negli script prova `python3 -c pass` e ripiega su `python` (o `py`).
 - CLI a schermo intero (`\033[?1049h`) provata solo da Claude (niente terminale vero) → all'uscita lo schermo
   sparisce e il comando sembra muto → provala anche in un terminale finto: `script -q /dev/null comando`.
+- Limite in byte (`wc -c`) su un file del repo: su Windows (Git, CRLF) pesa un byte in più per riga e il controllo
+  fallisce solo lì → conta senza CR: `tr -d '\r' < f | wc -c` (in Python: `.replace(b"\r", b"")`).
