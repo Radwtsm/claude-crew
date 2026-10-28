@@ -49,6 +49,8 @@ Dopo ogni aggiornamento dei plugin: chiudi e riapri Claude (`/clear` non basta).
   (o `pleyades-cli entra PROPRIETARIO/REPO` se non è ancora entrato).
 - «accesso a Claude» ✗ ma il login è riuscito → `claude auth status` nello stesso terminale: se dice logged in,
   pleyades-cli è vecchio (`aggiorna`); se no il login era in un altro programma (app desktop ≠ Claude Code).
+- Accesso allo studio che «ricomincia» → «Concedi accesso» chiede di confermare la password e riceve il codice della
+  mail (403 su /login/confirm nel log) → password di Nextcloud, o il link in una finestra in incognito.
 - `auto` «mai partito» → manca il plugin `regole` o il suo hook non trova python → `pleyades-cli controlla`;
   Windows: `python --version` deve rispondere (non lo Store).
 - `auto` «interrotto» o «da sistemare: …» → le righe di log in `diagnosi` dicono quale passo; rilancia quel passo a

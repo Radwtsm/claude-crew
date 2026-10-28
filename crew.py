@@ -1501,7 +1501,9 @@ def scegli_progetti(ui, richiesti):
 SPIEGA_ACCESSO = """Accesso allo studio: si apre il browser su Nextcloud.
   1. se chiede un codice: scrivi la tua mail, poi incolla il codice che ti arriva
   2. «Accedi» con il tuo utente e la tua password (e il codice dell'app di verifica, se ce l'hai)
-  3. premi «Concedi accesso»: la password per questo computer si salva da sola, non la vedi mai"""
+  3. premi «Concedi accesso»: la password per questo computer si salva da sola, non la vedi mai
+  Se chiede di «confermare la password»: è la tua password di Nextcloud, non il codice della mail; non la ricordi →
+  apri il link in una finestra in incognito e accedi da capo"""
 
 
 def accedi_studio(ui, server):
