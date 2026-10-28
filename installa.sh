@@ -9,13 +9,18 @@ set -u
 if [ "$(uname)" = Darwin ] && ! xcode-select -p >/dev/null 2>&1; then
   # come Homebrew: gli strumenti di Apple da softwareupdate (minuti) invece della finestra (che stima anche 35 h)
   printf '→ Installo gli strumenti di Apple (git e python3, circa 1 GB, qualche minuto).\n'
-  printf '  Ti chiede la password del Mac (quella con cui accendi il computer): mentre la scrivi non si vede niente.\n'
+  printf '  NON scrivere niente finché non compare «Password del Mac»: quello che scrivi prima resta visibile.\n'
   segnale=/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
   touch "$segnale"
   printf '  Cerco il pacchetto di Apple (1-2 minuti, senza scritte: non è bloccato)…\n'
   printf '  Se è aperta la finestra «Scarico il software» di un tentativo precedente, premi «Interrompi»: ne basta uno.\n'
+  trap 'stty echo </dev/tty 2>/dev/null' EXIT INT
+  stty -echo 2>/dev/null </dev/tty  # 28/10: chi scrive la password in anticipo non la lascia sullo schermo
   nome=$(softwareupdate -l 2>/dev/null | sed -n 's/^ *\* Label: //p' | grep 'Command Line Tools' | tail -1)
-  if [ -n "$nome" ] && sudo softwareupdate -i "$nome" --verbose; then
+  perl -MPOSIX -e 'tcflush(0, TCIFLUSH)' </dev/tty 2>/dev/null  # butta ciò che è stato scritto in anticipo
+  stty echo 2>/dev/null </dev/tty
+  if [ -n "$nome" ] && sudo -k && sudo -p '→ Password del Mac (quella con cui accendi il computer; mentre scrivi non si vede niente): ' \
+      softwareupdate -i "$nome" --verbose; then
     rm -f "$segnale"
   else
     rm -f "$segnale"
