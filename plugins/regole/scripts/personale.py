@@ -10,7 +10,8 @@ privato, una sola memoria per tutti i progetti, sincronizzazione automatica, bar
   personale.py fine         hook Stop: commit + push di regole e memoria cambiate
   personale.py statusline   barra di stato: modello · contesto · uso 5h/7g con reset · durata
   personale.py avviso       hook UserPromptSubmit: una riga a Claude quando l'uso 5h o 7g passa il 50% (risposte
-                            corte) o SOGLIA (chiudi e salva); solo al cambio di livello
+                            corte) o SOGLIA (chiudi e salva); solo al cambio di livello. Suggerisce anche un plugin
+                            non installato quando le parole della richiesta corrispondono ai suoi `keywords`
 
 Senza ~/claude-personale gli hook non fanno niente. Mac, Linux e Windows (python o python3); solo libreria standard.
 """
@@ -24,6 +25,7 @@ CACHE = os.path.join(CONFIG, "uso-cache.json")
 IMPORT = "@~/claude-personale/regole.md"
 SOGLIA = 85
 AVVISO = os.path.join(CONFIG, "uso-avviso.json")
+SUGGERITI = os.path.join(CONFIG, "plugin-suggeriti.json")
 LIVELLI = ((SOGLIA, "niente lavori nuovi grandi: chiudi il passo in corso, salva lo stato (commit, backlog, prompt per "
                     "ripartire) e dillo all'utente."),
            (50, "risposte corte, letture mirate (grep, sezioni), niente subagent né ricerche larghe; a fine argomento "
@@ -351,8 +353,32 @@ def statusline():
     return 0
 
 
+def suggerisci(prompt):
+    """Plugin non installato che fa al caso della richiesta (parole `keywords` dei marketplace installati): una riga a
+    Claude, una volta a settimana per plugin. Niente output se non c'è (0 token)."""
+    testo = " " + re.sub(r"[^\w+-]+", " ", (prompt or "").lower()) + " "
+    if len(testo) < 4:
+        return
+    inst = set((leggi_json(os.path.join(CONFIG, "plugins", "installed_plugins.json")) or {}).get("plugins", {}))
+    stato, ora, righe = leggi_json(SUGGERITI) or {}, time.time(), []
+    for mk in glob.glob(os.path.join(CONFIG, "plugins", "marketplaces", "*", ".claude-plugin", "marketplace.json")):
+        nome_mk = os.path.basename(os.path.dirname(os.path.dirname(mk)))
+        for p in (leggi_json(mk) or {}).get("plugins", []):
+            pid = f"{p.get('name')}@{nome_mk}"
+            if pid in inst or ora - stato.get(pid, 0) < 7 * 86400:
+                continue
+            if any(f" {k.lower()} " in testo for k in p.get("keywords", [])):
+                righe.append(f"`{pid}` ({p.get('description', '')[:90]})")
+                stato[pid] = ora
+    if righe:
+        scrivi_json(SUGGERITI, stato)
+        print("Per questa richiesta c'è un plugin non installato: " + "; ".join(righe[:2]) + ". Proponilo all'utente in "
+              "una riga (`claude plugin install <nome>`, vale dalla prossima sessione o con /reload-plugins); se non "
+              "serve davvero al lavoro, non dirlo.")
+
+
 def avviso():
-    hook_input()
+    suggerisci(hook_input().get("prompt"))
     c = leggi_json(CACHE)
     ora = time.time()
     if not c or ora - c.get("ts", 0) > 6 * 3600:

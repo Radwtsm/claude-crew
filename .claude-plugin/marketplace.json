@@ -9,67 +9,154 @@
       "name": "regole",
       "source": "./plugins/regole",
       "description": "Base per tutti: skill regole-crew (regole comuni, sempre attive), annota-lezione (un problema risolto diventa lezione per tutti), organizza-claude (struttura comune), raccogli-skill (inventario di tutti i tuoi strumenti), condividi-skill e installa-crew",
-      "category": "regole"
+      "category": "regole",
+      "keywords": [
+        "regole",
+        "skill",
+        "crew"
+      ]
     },
     {
       "name": "codice",
       "source": "./plugins/codice",
       "description": "Per chi programma (solo Claude Code): regole sempre attive su stile, commenti, segreti, test, git, codice di terzi, trappole tecniche, architettura",
-      "category": "regole"
+      "category": "regole",
+      "keywords": [
+        "programmare",
+        "script",
+        "codice",
+        "bash",
+        "hook",
+        "ssh",
+        "docker",
+        "sqlite",
+        "playwright",
+        "python",
+        "node",
+        "debug",
+        "git"
+      ]
     },
     {
       "name": "blender-riga-di-comando",
       "source": "./plugins/blender-riga-di-comando",
       "description": "Blender guidato da script Python senza interfaccia: lancio in background, scena da zero, luci e camere, Cycles su GPU (OptiX/CUDA), materiali, render e insidie dei render realistici",
-      "category": "3d"
+      "category": "3d",
+      "keywords": [
+        "blender",
+        "render 3d",
+        "modello 3d",
+        "scena 3d",
+        "cycles"
+      ]
     },
     {
       "name": "grafica",
       "source": "./plugins/grafica",
       "description": "Grafica: formati di export, dimensioni per YouTube/Instagram/TikTok/Discord, texture e skin Minecraft, regole di qualità, diritti su font e immagini",
-      "category": "grafica"
+      "category": "grafica",
+      "keywords": [
+        "logo",
+        "miniatura",
+        "thumbnail",
+        "banner",
+        "poster",
+        "volantino",
+        "photoshop",
+        "illustrator",
+        "texture",
+        "skin"
+      ]
     },
     {
       "name": "indesign-script",
       "source": "./plugins/indesign-script",
       "description": "Costruire impaginati InDesign da script ExtendScript (griglia, stili di paragrafo, immagini, esportazione PDF) lanciati da Claude via COM su Windows, con le trappole già incontrate.",
-      "category": "grafica"
+      "category": "grafica",
+      "keywords": [
+        "indesign",
+        "impaginato",
+        "impaginazione",
+        "impaginare"
+      ]
     },
     {
       "name": "server-minecraft",
       "source": "./plugins/server-minecraft",
       "description": "Server Minecraft Java (Paper, Purpur, Fabric, Forge): installazione, flag JVM, plugin e mod, sicurezza, backup, lag con spark, crash log, aggiornamenti",
-      "category": "minecraft"
+      "category": "minecraft",
+      "keywords": [
+        "minecraft",
+        "purpur",
+        "spigot",
+        "neoforge"
+      ]
     },
     {
       "name": "progetto-crew",
       "source": "./plugins/progetto-crew",
       "description": "Per quando la crew fa un progetto insieme che tocca più settori (es. server + sito + negozio + SEO + video): scheda di progetto progetto.md come sola fonte delle scelte, piano per settori, consegne tra le skill, controllo di coerenza, lezioni a fine progetto",
-      "category": "progetti"
+      "category": "progetti",
+      "keywords": [
+        "progetto insieme",
+        "più settori",
+        "lancio di un progetto"
+      ]
     },
     {
       "name": "after-effects-pannelli",
       "source": "./plugins/after-effects-pannelli",
       "description": "Creare pannelli/plugin CEP per After Effects (HTML/JS + ExtendScript): setup e modalità debug, architettura con anteprima, trappole dell'API (forme, keyframe, testo, effetti, maschere, 3D), test e checklist",
-      "category": "video"
+      "category": "video",
+      "keywords": [
+        "after effects",
+        "aftereffects",
+        "extendscript",
+        "pannello cep",
+        "plugin ae"
+      ]
     },
     {
       "name": "motion-design-codice",
       "source": "./plugins/motion-design-codice",
       "description": "Animazioni e reel generati in codice (Node + canvas + ffmpeg): fotogrammi come funzione del tempo, molle, motion blur, forme che si trasformano senza stacchi, export MP4/ProRes, controllo dei fotogrammi e aree sicure Instagram",
-      "category": "video"
+      "category": "video",
+      "keywords": [
+        "motion design",
+        "animazione",
+        "reel animato",
+        "intro del logo",
+        "logo animato"
+      ]
     },
     {
       "name": "video-ffmpeg",
       "source": "./plugins/video-ffmpeg",
       "description": "Video con ffmpeg: tagliare, comprimere, verticale per TikTok/Reels, solo audio, unire clip, sottotitoli; consigli OBS, YouTube, Discord",
-      "category": "video"
+      "category": "video",
+      "keywords": [
+        "ffmpeg",
+        "video",
+        "comprimere",
+        "sottotitoli",
+        "reel",
+        "tiktok",
+        "obs",
+        "montaggio"
+      ]
     },
     {
       "name": "shopify-tema",
       "source": "./plugins/shopify-tema",
       "description": "Personalizzare un tema Shopify (Horizon/Online Store 2.0) con la Shopify CLI: anteprima locale, pull prima del push, sezioni modificabili dall'editor, tema live, trappole dell'intestazione Horizon e import prodotti da CSV",
-      "category": "web"
+      "category": "web",
+      "keywords": [
+        "shopify",
+        "liquid",
+        "ecommerce",
+        "e-commerce",
+        "negozio online"
+      ]
     }
   ]
 }

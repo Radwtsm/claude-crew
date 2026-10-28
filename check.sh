@@ -36,4 +36,10 @@ fi
 # Formato comune di regole e skill (README → Formato): solo i problemi nuovi bloccano, quelli noti in
 # lint-regole-baseline.txt possono solo calare
 python3 plugins/regole/scripts/lint_regole.py . || exit 1
+# Every plugin needs `keywords` in the catalog: the prompt hook suggests a missing plugin from them (personale.py)
+senza=$(python3 -c "import json;print(' '.join(p['name'] for p in json.load(open('.claude-plugin/marketplace.json'))['plugins'] if not p.get('keywords')))")
+if [ -n "$senza" ]; then
+  echo "check.sh: plugin senza keywords in .claude-plugin/marketplace.json: $senza (le parole e i programmi del mestiere)" >&2
+  exit 1
+fi
 exit 0
