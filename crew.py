@@ -28,7 +28,7 @@ Il profilo e i plugin presi stanno solo in ~/.config/crew/stato.json di questo c
 Mac, Linux e Windows (python3 o python). Solo libreria standard. Le funzioni non stampano: la stampa è in
 `Terminale`, così un'app con finestra può riusare le stesse funzioni con un'altra interfaccia.
 """
-import hashlib, importlib.util, io, json, os, platform, re, shutil, subprocess, sys, tarfile, threading, time
+import hashlib, importlib.util, io, json, os, platform, re, shutil, subprocess, sys, tarfile, textwrap, threading, time
 import urllib.error, urllib.parse, urllib.request, webbrowser, xml.etree.ElementTree as ET, zipfile
 from concurrent.futures import ThreadPoolExecutor
 
@@ -42,6 +42,9 @@ STATO = os.path.join(CASA, ".config", "crew", "stato.json")  # scelte della pers
 BIN = os.path.join(CASA, ".local", "bin")
 CODICE = os.path.join(CASA, "code")
 WIN, MAC = os.name == "nt", sys.platform == "darwin"
+# senza schermo: collegati via ssh, o Linux senza grafica (es. un server): niente browser da aprire qui
+SENZA_SCHERMO = bool(os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY")) or \
+    (not WIN and not MAC and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")))
 SPIEGA_APP_E_CLI = """Claude ha due porte, con le stesse regole, skill e progetti:
   · nel terminale: `claude` nella cartella del progetto (comandi, file, i tool del progetto)
   · nell'app Claude (claude.ai/download), scheda «Code»: scegli la stessa cartella; comoda per leggere e guardare
@@ -837,13 +840,29 @@ class Terminale:
         self.attacco = False
         return self.c("2", r)
 
+    def largo_testo(self):
+        return max(40, min(shutil.get_terminal_size((80, 24)).columns - 1, 100))
+
+    def pulisci(self):
+        """Schermo pulito all'avvio, come Claude Code (solo in un terminale vero)."""
+        if self.colori and sys.stdout.isatty():
+            sys.stdout.write("\033[2J\033[3J\033[H")
+            sys.stdout.flush()
+
     def info(self, t):
-        print("    " + t)
+        if "\033" in t:  # già colorato: niente a capo calcolati sui codici
+            print("    " + t)
+            return
+        print(textwrap.fill(t, self.largo_testo(), initial_indent="    ", subsequent_indent="    ",
+                            break_on_hyphens=False, break_long_words=False))
 
     def fai(self, t):
         """Cosa deve fare la persona: in giallo, con il nome esatto di pulsanti e menu."""
         for r in t.split("\n"):
-            print("    " + self.acc("→") + " " + r)
+            righe = textwrap.wrap(r, self.largo_testo() - 6, break_on_hyphens=False, break_long_words=False) or [""]
+            print("    " + self.acc("→") + " " + righe[0])
+            for x in righe[1:]:
+                print("      " + x)
 
     def esito(self, e):
         self.esiti.append(e)
@@ -895,7 +914,9 @@ class Terminale:
 
     def _menu(self, opzioni):
         def riga(i, o):
-            nota = self.c("2", "  (consigliata)") if i == 0 else ""
+            w = self.largo_testo() - 8
+            o = o if len(o) <= w else o[:w - 1] + "…"  # una riga per scelta, anche su uno schermo stretto
+            nota = self.c("2", "  (consigliata)") if i == 0 and len(o) + 15 <= w else ""
             return (self.acc(f"  ❯ {i + 1}. {o}") if i == sel else f"    {i + 1}. {o}") + nota
         sel, n = 0, len(opzioni)
         sys.stdout.write("\033[?25l")  # cursore nascosto mentre si sceglie
@@ -1120,6 +1141,9 @@ def passo_claude(ui):
             return False
     if claude_collegato():
         return ui.esito(Esito("accesso a Claude", True, saltato=True, nota="già fatto"))
+    if SENZA_SCHERMO:  # niente browser qui: il link lungo non si apre né si copia bene da un terminale remoto
+        return ui.esito(Esito("accesso a Claude", True, saltato=True,
+                              nota="dopo: apri `claude` e scrivi /login (computer senza schermo)"))
     ui.fai(SPIEGA_CLAUDE)
 
     def accedi():
@@ -1362,9 +1386,9 @@ def prepara(ui, d, c, etichetta, cred=None, studio=False):
 
 def guida(ui, richiesti, solo_progetti=False):
     inizio = time.time()
+    ui.pulisci()
     ui.intestazione("la guida da zero a pronto")
-    ui.info("Faccio io quello che posso; quando serve te, te lo dico in giallo con 👉.")
-    ui.info("Si può interrompere (Ctrl+C) e rilanciare quando vuoi: salta ciò che è già fatto.")
+    ui.info("Faccio io quello che posso; quando serve te, te lo dico con →.")
     if solo_progetti and lavoro():
         ui.esito(Esito("progetti", False, "computer di lavoro: i progetti non si installano qui "
                        "(se è davvero tuo: `pleyades-cli profilo casa`)"))
@@ -1539,6 +1563,7 @@ def hook():
 
 
 def menu(ui):
+    ui.pulisci()
     voci = [("Controlla che sia tutto a posto", controlla), ("Aggiorna pleyades-cli, plugin e progetti", aggiorna),
             ("Il mio kit: skill, cosa leggere, a chi chiedere", mio_kit),
             ("I miei progetti", progetti), ("Entra in un nuovo progetto", None), ("I link", link),
