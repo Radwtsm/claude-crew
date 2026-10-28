@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-"""crew: la guida unica per entrare nella crew e nei suoi progetti, anche per chi non programma.
+"""pleyades-cli (Pleyades tools): la guida unica per entrare nei progetti, anche per chi non programma.
 
-    crew                    la prima volta la guida; poi un menu
-    crew guida [OWNER/REPO …] [--studio=INDIRIZZO]   dall'inizio a tutto pronto: Claude Code, GitHub (con o senza
+    pleyades-cli                    la prima volta la guida; poi un menu
+    pleyades-cli guida [OWNER/REPO …] [--studio=INDIRIZZO]   dall'inizio a tutto pronto: Claude Code, GitHub (con o senza
                             account), plugin, progetti, Nextcloud e la stanza Talk; si può rilanciare: salta il fatto.
                             Con --studio: accesso allo studio Nextcloud dal browser («Concedi accesso», la password
                             per app si salva da sola) e i progetti condivisi lì, anche senza GitHub
-    crew entra OWNER/REPO   entra in un progetto (clone, plugin, stanza, cartelle)
-    crew controlla          solo i controlli, senza installare niente
-    crew aggiorna           crew, plugin e progetti all'ultima versione
-    crew progetti           i tuoi progetti e a che punto sono
-    crew link               i link giusti (studio, Talk, Dashboard, cartelle)
-    crew hook               (per un hook SessionStart) installa i plugin che il progetto aperto chiede e mancano
-    crew profilo casa|lavoro   che computer è: «lavoro» = solo le regole comuni, niente progetti, Talk o Nextcloud
-    crew prendi NOME ["perché"] / crew togli NOME   un plugin della crew solo su questo computer (per il lavoro),
-                            segnato in locale con data e motivo; `crew aggiorna` non ne aggiunge mai altri
+    pleyades-cli entra OWNER/REPO   entra in un progetto (clone, plugin, stanza, cartelle)
+    pleyades-cli controlla          solo i controlli, senza installare niente
+    pleyades-cli aggiorna           pleyades-cli, plugin e progetti all'ultima versione
+    pleyades-cli progetti           i tuoi progetti e a che punto sono
+    pleyades-cli link               i link giusti (studio, Talk, Dashboard, cartelle)
+    pleyades-cli hook               (per un hook SessionStart) installa i plugin che il progetto aperto chiede e mancano
+    pleyades-cli profilo casa|lavoro   che computer è: «lavoro» = solo le regole comuni, niente progetti, Talk o Nextcloud
+    pleyades-cli prendi NOME ["perché"] / pleyades-cli togli NOME   un plugin di Pleyades tools solo su questo computer (per il lavoro),
+                            segnato in locale con data e motivo; `pleyades-cli aggiorna` non ne aggiunge mai altri
 
 Un progetto dice cosa gli serve in `.claude/progetto.json` del suo repo (stanza, talk, cartelle, plugin,
 marketplace, passi, dopo, primo_prompt, moduli, marchio, comando); i plugin di `.claude/settings.json` con valore true contano anche loro.
@@ -32,6 +32,7 @@ import urllib.error, urllib.parse, urllib.request, webbrowser, xml.etree.Element
 from concurrent.futures import ThreadPoolExecutor
 
 CREW = "Radwtsm/claude-crew"
+NOME_CLI = "pleyades-cli"  # il nome che si vede (owner 28/10: tutto Pleyades tools, niente «crew»)
 CREW_PY = "https://raw.githubusercontent.com/Radwtsm/claude-crew/main/crew.py"
 GH_RELEASE = "https://api.github.com/repos/cli/cli/releases/latest"
 CASA = os.path.expanduser("~")
@@ -114,7 +115,7 @@ def ha(prog):
 
 
 def scarica(url, timeout=60):
-    req = urllib.request.Request(url, headers={"User-Agent": "crew/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "pleyades-cli/1.0"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
 
@@ -334,7 +335,7 @@ def cartelle_mancanti(t, conf, cartelle):
     for x in cartelle:
         url = f"{t.SERVER}/remote.php/dav/files/{urllib.parse.quote(conf['utente'])}/{urllib.parse.quote(x)}/"
         req = urllib.request.Request(url, method="PROPFIND", headers={
-            "Authorization": "Basic " + auth, "Depth": "0", "User-Agent": getattr(t, "AGENTE", "crew/1.0")})
+            "Authorization": "Basic " + auth, "Depth": "0", "User-Agent": getattr(t, "AGENTE", "pleyades-cli/1.0")})
         try:
             urllib.request.urlopen(req, timeout=15).close()
         except urllib.error.HTTPError:
@@ -375,7 +376,7 @@ def scrivi_in_stanza(d, c, testo):
 
 # Studio (Nextcloud) senza GitHub: Login Flow v2 e WebDAV
 
-AGENTE_STUDIO = f"crew ({platform.system()})"  # il nome del dispositivo nella pagina «Sicurezza» di Nextcloud
+AGENTE_STUDIO = f"pleyades-cli ({platform.system()})"  # il nome del dispositivo nella pagina «Sicurezza» di Nextcloud
 STUDIO_DIR = os.path.join(CARTELLA, "studio")
 
 
@@ -501,9 +502,9 @@ def credenziali_note():
     return None
 
 
-# Il comando crew stesso
+# Il comando pleyades-cli stesso
 
-def installa_comando(nome="crew"):
+def installa_comando(nome=NOME_CLI):
     """~/.crew/crew.py + il comando `nome` in ~/.local/bin (nome.cmd su Windows), nel PATH."""
     os.makedirs(CARTELLA, exist_ok=True)
     qui, dest = os.path.abspath(__file__), os.path.join(CARTELLA, "crew.py")
@@ -527,7 +528,7 @@ def installa_comando(nome="crew"):
             testo = open(p, encoding="utf-8").read() if os.path.exists(p) else ""
             if ".local/bin" not in testo:
                 with open(p, "a", encoding="utf-8") as f:
-                    f.write(f"\n# crew: i comandi in ~/.local/bin (crew, claude, gh)\n{riga}\n")
+                    f.write(f"\n# pleyades-cli: i comandi in ~/.local/bin (pleyades-cli, claude, gh)\n{riga}\n")
     path_aggiornato()
     return ha(nome)
 
@@ -566,7 +567,7 @@ def catalogo_crew():
 
 def prendi(nome, perche=""):
     if nome not in catalogo_crew():
-        return False, "non è un plugin della crew (elenco: `crew prendi` senza nome)"
+        return False, "non è un plugin di Pleyades tools (elenco: `pleyades-cli prendi` senza nome)"
     codice, out = run("claude", "plugin", "install", f"{nome}@claude-crew")
     if codice != 0 and f"{nome}@claude-crew" not in plugin_installati():
         return False, out[-200:]
@@ -579,7 +580,7 @@ def prendi(nome, perche=""):
 def togli(nome):
     presi = stato().get("presi", [])
     if not any(x["cosa"] == nome for x in presi):
-        return False, "non l'hai preso con `crew prendi` (quelli presi: `crew controlla`)"
+        return False, "non l'hai preso con `pleyades-cli prendi` (quelli presi: `pleyades-cli controlla`)"
     codice, out = run("claude", "plugin", "uninstall", f"{nome}@claude-crew")
     salva_stato(presi=[x for x in presi if x["cosa"] != nome])
     return codice == 0 or f"{nome}@claude-crew" not in plugin_installati(), out[-200:]
@@ -601,7 +602,7 @@ def file_marchio():
     for _, d in cartelle_progetti():
         c = config_progetto(d)
         if c.get("marchio") and os.path.isfile(os.path.join(d, c["marchio"])):
-            return os.path.join(d, c["marchio"]), c.get("comando") or "crew"
+            return os.path.join(d, c["marchio"]), c.get("comando") or NOME_CLI
     return None
 
 
@@ -654,7 +655,7 @@ class Terminale:
             except (OSError, AttributeError):
                 self.colori = False
         self.esiti = []
-        self.nome = "crew"
+        self.nome = NOME_CLI
 
     def intestazione(self, t):
         self.titolo(f"{self.nome} · {t}")
@@ -857,12 +858,12 @@ def passo_profilo(ui):
         salva_stato(profilo="lavoro" if i == 1 else "casa")
     if lavoro():
         ui.fai("Computer di lavoro: prima di installare qualcosa controlla le regole della tua azienda (policy IT)\n"
-               "su programmi e servizi esterni. Qui installo solo Claude Code e le regole comuni della crew;\n"
-               "niente progetti, Talk o Nextcloud. Un plugin in più: `crew prendi NOME`.")
+               "su programmi e servizi esterni. Qui installo solo Claude Code e le regole comuni;\n"
+               "niente progetti, Talk o Nextcloud. Un plugin in più: `pleyades-cli prendi NOME`.")
         if ui.conferma("Le regole dell'azienda lo permettono?", "No, mi fermo qui", "Sì, continua"):
-            return ui.esito(Esito("profilo lavoro", False, "rilancia `crew` quando hai controllato"))
+            return ui.esito(Esito("profilo lavoro", False, "rilancia `pleyades-cli` quando hai controllato"))
         return ui.esito(Esito("profilo: lavoro", True, nota="solo il minimo"))
-    return ui.esito(Esito("profilo: casa", True, saltato=True, nota="cambia con `crew profilo lavoro`"))
+    return ui.esito(Esito("profilo: casa", True, saltato=True, nota="cambia con `pleyades-cli profilo lavoro`"))
 
 
 def passo_sistema(ui):
@@ -883,7 +884,7 @@ def passo_claude(ui):
         return ui.esito(Esito("Claude Code", True, saltato=True, nota="già installato"))
     with ui.attesa("installo Claude Code dal sito ufficiale (claude.ai), 1-3 minuti"):
         ok, out = installa_claude()
-    return ui.esito(Esito("Claude Code", ok, "" if ok else "chiudi e riapri il terminale, poi rilancia `crew`"
+    return ui.esito(Esito("Claude Code", ok, "" if ok else "chiudi e riapri il terminale, poi rilancia `pleyades-cli`"
                           + (f" (ultime righe: {out[-150:]})" if out else "")))
 
 
@@ -894,7 +895,7 @@ def passo_github(ui):
     # chiesto a ogni guida finché non sei collegato: si può cambiare idea
     i = ui.scegli("Hai (o vuoi creare) un account GitHub? Serve per i progetti privati e per mandare modifiche.",
                   ["Sì, ho un account o lo creo adesso (gratis)",
-                   "No, per ora senza: solo le cose pubbliche (puoi cambiare idea con `crew guida`)"])
+                   "No, per ora senza: solo le cose pubbliche (puoi cambiare idea con `pleyades-cli guida`)"])
     salva_stato(github=(i == 0))
     if i != 0:
         return ui.esito(Esito("GitHub", True, saltato=True, nota="senza account: solo repo pubblici"))
@@ -907,21 +908,21 @@ def passo_github(ui):
     if ui.conferma("Colleghiamo GitHub?", "Sì, apri il browser", "Salta per ora"):
         run("gh", "auth", "login", "--hostname", "github.com", "--web", "--git-protocol", "https", vivo=True)
     if not gh_collegato():
-        return ui.esito(Esito("GitHub", False, "accesso non completato: rilancia `crew` e rifai i passi qui sopra"))
+        return ui.esito(Esito("GitHub", False, "accesso non completato: rilancia `pleyades-cli` e rifai i passi qui sopra"))
     run("gh", "auth", "setup-git")  # git usa lo stesso accesso: repo privati e marketplace privati
     return ui.esito(Esito(f"GitHub come {gh_utente()}", True))
 
 
 def passo_crew(ui):
     impostazioni_utente()
-    with ui.attesa("aggiungo la crew (regole comuni) a Claude Code"):
+    with ui.attesa("aggiungo le regole comuni a Claude Code"):
         manca, auto = assicura_plugin({"claude-crew": CREW}, ["regole@claude-crew"])
-    ui.esito(Esito("crew: regole comuni", not manca, "in Claude Code: /plugin install regole@claude-crew"))
-    ui.esito(Esito("aggiornamento automatico della crew", auto,
+    ui.esito(Esito("regole comuni", not manca, "in Claude Code: /plugin install regole@claude-crew"))
+    ui.esito(Esito("aggiornamento automatico delle regole comuni", auto,
                    "in Claude Code: /plugin → «Marketplaces» → claude-crew → «Enable auto-update»"))
     ok = installa_comando()
-    return ui.esito(Esito("comando `crew` (per la prossima volta)", ok,
-                          "chiudi e riapri il terminale: poi `crew` funziona da ogni cartella"))
+    return ui.esito(Esito("comando `pleyades-cli` (per la prossima volta)", ok,
+                          "chiudi e riapri il terminale: poi `pleyades-cli` funziona da ogni cartella"))
 
 
 def scegli_progetti(ui, richiesti):
@@ -977,14 +978,14 @@ def passo_studio(ui):
     ui.titolo(f"Studio {server.split('//')[-1]}")
     cred = credenziali_note() or accedi_studio(ui, server)
     if not ui.esito(Esito("accesso allo studio" + (f" come {cred['utente']}" if cred else ""), bool(cred),
-                          "rilancia `crew` e premi «Concedi accesso» nel browser; senza utente: chiedilo a chi ti ha "
+                          "rilancia `pleyades-cli` e premi «Concedi accesso» nel browser; senza utente: chiedilo a chi ti ha "
                           "invitato")):
         return []
     try:
         with ui.attesa("cerco i progetti condivisi con te"):
             trovati = progetti_studio(server, cred)
     except urllib.error.HTTPError as e:
-        ui.esito(Esito("progetti dello studio", False, f"lo studio ha risposto {e.code}: rilancia `crew`; se si ripete, "
+        ui.esito(Esito("progetti dello studio", False, f"lo studio ha risposto {e.code}: rilancia `pleyades-cli`; se si ripete, "
                        "dillo a chi ti ha invitato"))
         return []
     if not trovati:
@@ -1005,7 +1006,7 @@ def passo_studio(ui):
             with ui.attesa(f"scarico «{cartella}» dallo studio"):
                 n = scarica_cartella(server, cred, cartella, d)
         except (OSError, ValueError) as e:
-            ui.esito(Esito(f"copia di «{cartella}»", False, f"download interrotto ({e}): rilancia `crew`"))
+            ui.esito(Esito(f"copia di «{cartella}»", False, f"download interrotto ({e}): rilancia `pleyades-cli`"))
             continue
         ui.esito(Esito(f"copia di «{cartella}» in {d.replace(CASA, '~')}", True, nota=f"{n} file, sola lettura"))
         copie.append(cartella)
@@ -1021,14 +1022,14 @@ def passo_progetto(ui, repo, cred=None):
     acc = repo_accessibile(repo)
     if acc != "si" and not os.path.isdir(os.path.join(cartella_progetto(repo), ".git")):
         if acc == "rete":
-            ui.esito(Esito(repo, False, "GitHub non risponde: controlla internet e rilancia `crew`"))
+            ui.esito(Esito(repo, False, "GitHub non risponde: controlla internet e rilancia `pleyades-cli`"))
         elif not gh_collegato():
-            ui.esito(Esito(repo, False, "è privato: serve un account GitHub. Rilancia `crew guida`, scegli «Sì», poi "
+            ui.esito(Esito(repo, False, "è privato: serve un account GitHub. Rilancia `pleyades-cli guida`, scegli «Sì», poi "
                            "manda il tuo nome GitHub a chi ti ha invitato"))
         else:
             ui.esito(Esito(repo, False, f"non hai accesso: manda il tuo nome GitHub «{gh_utente()}» a chi ti ha "
                            "invitato, accetta l'invito che arriva per mail (o su github.com → «Notifications»), "
-                           "poi rilancia `crew`"))
+                           "poi rilancia `pleyades-cli`"))
         return None
     with ui.attesa("scarico il progetto"):
         ok, d, out = clona(repo)
@@ -1065,11 +1066,11 @@ def prepara(ui, d, c, etichetta, cred=None, studio=False):
                 collega_stanza(d, c)  # le credenziali ci sono: non chiede niente
             else:
                 ui.fai(SPIEGA_APP.format(s=t.SERVER) + "\nNon hai ancora un utente Nextcloud? Chiedilo a chi ti ha "
-                       "invitato e rilancia `crew` quando ce l'hai.")
+                       "invitato e rilancia `pleyades-cli` quando ce l'hai.")
                 if ui.conferma("Ti colleghi a mano?", "Sì, collegami", "Salta per ora"):
                     collega_stanza(d, c)
             conf = stanza_collegata(t, c.get("stanza"))
-        ui.esito(Esito(f"stanza Talk «{nome}»", bool(conf), "rilancia `crew`: ti richiede utente e password per app"))
+        ui.esito(Esito(f"stanza Talk «{nome}»", bool(conf), "rilancia `pleyades-cli`: ti richiede utente e password per app"))
         if conf and c.get("cartelle"):
             manca = cartelle_mancanti(t, conf, c["cartelle"])
             if manca is not None:
@@ -1087,7 +1088,7 @@ def prepara(ui, d, c, etichetta, cred=None, studio=False):
         if conf:
             args.append(conf["utente"])
         ui.esito(Esito("passi del progetto", run(*args, cwd=d, vivo=True)[0] == 0,
-                       f"rilancia `crew entra {etichetta}` dopo aver fatto ciò che chiede"))
+                       f"rilancia `pleyades-cli entra {etichetta}` dopo aver fatto ciò che chiede"))
     return d, c, t, conf
 
 
@@ -1098,14 +1099,14 @@ def guida(ui, richiesti, solo_progetti=False):
     ui.info("Si può interrompere (Ctrl+C) e rilanciare quando vuoi: salta ciò che è già fatto.")
     if solo_progetti and lavoro():
         ui.esito(Esito("progetti", False, "computer di lavoro: i progetti non si installano qui "
-                       "(se è davvero tuo: `crew profilo casa`)"))
+                       "(se è davvero tuo: `pleyades-cli profilo casa`)"))
         return 1
     if not solo_progetti:
         passi = [("Questo computer", "tuo o dell'azienda: decide cosa installo", passo_profilo),
                  ("Sistema", "controllo che ci siano Python e git", passo_sistema),
                  ("Claude Code", "il programma di Claude nel terminale", passo_claude),
                  ("GitHub", "dove stanno i progetti: con o senza account", passo_github),
-                 ("Crew", "le regole comuni e il comando `crew`", passo_crew)]
+                 ("Pleyades tools", "le regole comuni e il comando `pleyades-cli`", passo_crew)]
         for n, (t, spiega, f) in enumerate(passi, 1):
             ui.passo(n, len(passi) + 1, t, spiega)
             if not f(ui) and f in (passo_profilo, passo_sistema, passo_claude):
@@ -1142,7 +1143,7 @@ def guida(ui, richiesti, solo_progetti=False):
     verdi = sum(e.ok or e.saltato for e in ui.esiti)
     for etichetta, (d, c, t, conf) in pronti:
         if t and stanza_collegata(t, c.get("stanza")):
-            scrivi_in_stanza(d, c, f"🆕 crew guida su {platform.system()}: {verdi}/{len(ui.esiti)} a posto in "
+            scrivi_in_stanza(d, c, f"🆕 pleyades-cli guida su {platform.system()}: {verdi}/{len(ui.esiti)} a posto in "
                              f"{minuti} min ({etichetta.split('/')[-1]})")
     primo = pronti[0][1][0] if pronti else CASA
     ui.titolo("E adesso")
@@ -1170,25 +1171,25 @@ def controlla(ui):
     ui.titolo(f"{ui.nome} · controllo (non installo niente)")
     ui.info(f"Profilo di questo computer: {stato().get('profilo', 'non scelto')}")
     ui.esito(Esito("git", ha("git"), "rilancia la riga di installazione"))
-    ui.esito(Esito("Claude Code", ha("claude"), "rilancia `crew guida`"))
-    ui.esito(Esito("GitHub", gh_collegato(), "rilancia `crew guida` (o va bene così se lavori senza account)",
+    ui.esito(Esito("Claude Code", ha("claude"), "rilancia `pleyades-cli guida`"))
+    ui.esito(Esito("GitHub", gh_collegato(), "rilancia `pleyades-cli guida` (o va bene così se lavori senza account)",
                    saltato=not stato().get("github") and not gh_collegato()))
     inst = plugin_installati() if ha("claude") else ""
     if inst:
-        ui.esito(Esito("crew: regole comuni", "regole@claude-crew" in inst, "rilancia `crew guida`"))
+        ui.esito(Esito("regole comuni", "regole@claude-crew" in inst, "rilancia `pleyades-cli guida`"))
         for x in stato().get("presi", []):
             ui.esito(Esito(f"preso: {x['cosa']}", f"{x['cosa']}@claude-crew" in inst, f"crew prendi {x['cosa']}",
                            nota=f"dal {x['quando']}" + (f", {x['perche']}" if x.get("perche") else "")))
     for repo in stato().get("progetti", []):
         if not os.path.isdir(os.path.join(cartella_progetto(repo), ".git")):
-            ui.esito(Esito(repo, False, f"rilancia `crew entra {repo}`"))
+            ui.esito(Esito(repo, False, f"rilancia `pleyades-cli entra {repo}`"))
     for repo, d in cartelle_progetti():
         c = config_progetto(d)
         manca = [p for p in c["plugin"] if ha("claude") and p not in inst]
-        ui.esito(Esito(f"{repo}: plugin", not manca, "crew aggiorna"))
+        ui.esito(Esito(f"{repo}: plugin", not manca, "pleyades-cli aggiorna"))
         t = modulo_talk(d, c)
         if t:
-            ui.esito(Esito(f"{repo}: stanza Talk", bool(stanza_collegata(t, c.get("stanza"))), f"crew entra {repo}"))
+            ui.esito(Esito(f"{repo}: stanza Talk", bool(stanza_collegata(t, c.get("stanza"))), f"pleyades-cli entra {repo}"))
     ui.riepilogo(0)
     return 0 if all(e.ok or e.saltato for e in ui.esiti) else 1
 
@@ -1196,7 +1197,7 @@ def controlla(ui):
 def aggiorna(ui):
     ui.titolo(f"{ui.nome} · aggiorno ciò che c'è già")
     ok, cosa = aggiorna_comando()
-    ui.esito(Esito("comando crew", ok, cosa, nota=cosa))
+    ui.esito(Esito("comando pleyades-cli", ok, cosa, nota=cosa))
     server, cred = stato().get("studio"), credenziali_note()
     for cartella in ([] if lavoro() or not (server and cred) else stato().get("studio_progetti", [])):
         try:
@@ -1204,7 +1205,7 @@ def aggiorna(ui):
                 n = scarica_cartella(server, cred, cartella, dir_studio(cartella))
             ui.esito(Esito(f"copia di «{cartella}»", True, nota=f"{n} file"))
         except (OSError, ValueError) as e:
-            ui.esito(Esito(f"copia di «{cartella}»", False, f"{e}: rilancia `crew aggiorna`"))
+            ui.esito(Esito(f"copia di «{cartella}»", False, f"{e}: rilancia `pleyades-cli aggiorna`"))
     if ha("claude"):
         with ui.attesa("aggiorno i plugin"):
             codice, _ = run("claude", "plugin", "marketplace", "update")
@@ -1226,7 +1227,7 @@ def progetti(ui):
     ui.titolo(f"{ui.nome} · i tuoi progetti")
     elenco = cartelle_progetti()
     if not elenco:
-        ui.info("Nessuno ancora: `crew entra PROPRIETARIO/NOME` o `crew guida`.")
+        ui.info("Nessuno ancora: `pleyades-cli entra PROPRIETARIO/NOME` o `pleyades-cli guida`.")
     for repo, d in elenco:
         ui.info(f"{ui.c('1', repo)}  {config_progetto(d).get('nome', '')}  ·  {d.replace(CASA, '~')}")
     return 0
@@ -1254,12 +1255,12 @@ def hook():
         manca, _ = assicura_plugin(marketplace_del_progetto(c), serve)
         fatti = [p for p in serve if p not in manca]
         if fatti:
-            print(f"crew: installati i plugin del progetto {', '.join(fatti)} (validi dalla prossima sessione)")
+            print(f"pleyades-cli: installati i plugin del progetto {', '.join(fatti)} (validi dalla prossima sessione)")
     return 0
 
 
 def menu(ui):
-    voci = [("Controlla che sia tutto a posto", controlla), ("Aggiorna crew, plugin e progetti", aggiorna),
+    voci = [("Controlla che sia tutto a posto", controlla), ("Aggiorna pleyades-cli, plugin e progetti", aggiorna),
             ("I miei progetti", progetti), ("Entra in un nuovo progetto", None), ("I link", link),
             ("Rifai la guida da capo", lambda u: guida(u, []))]
     ui.intestazione("cosa c'è e cosa manca")
@@ -1310,7 +1311,7 @@ def main():
             return 0
         if cmd in ("prendi", "togli"):
             if len(a) < 2:
-                ui.titolo("Plugin della crew che puoi prendere su questo computer")
+                ui.titolo("Plugin di Pleyades tools che puoi prendere su questo computer")
                 for nome, descr in catalogo_crew().items():
                     ui.info(f"{ui.c('1', nome)}  {descr[:90]}")
                 return 0
@@ -1321,10 +1322,10 @@ def main():
         f = {"controlla": controlla, "aggiorna": aggiorna, "progetti": progetti, "link": link}.get(cmd)
         if f:
             return f(ui)
-        print(f"crew: comando «{cmd}» sconosciuto. `crew --help` per l'elenco.")
+        print(f"pleyades-cli: comando «{cmd}» sconosciuto. `pleyades-cli --help` per l'elenco.")
         return 2
     except KeyboardInterrupt:
-        print("\n   Interrotto. Rilancia `crew` quando vuoi: riparte da dove eri.")
+        print("\n   Interrotto. Rilancia `pleyades-cli` quando vuoi: riparte da dove eri.")
         return 130
 
 

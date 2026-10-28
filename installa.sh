@@ -1,5 +1,5 @@
 #!/bin/bash
-# La riga unica (Mac, Linux): scarica la guida `crew` e la lancia. Si può rilanciare: salta ciò che c'è già.
+# La riga unica (Mac, Linux): scarica la guida `pleyades-cli` (Pleyades tools) e la lancia. Si può rilanciare: salta ciò che c'è già.
 #   curl -fsSL https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.sh | bash
 # Con un progetto a cui sei stato invitato:
 #   curl -fsSL https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.sh | bash -s -- PROPRIETARIO/REPO

@@ -1,4 +1,4 @@
-# La riga unica su Windows (PowerShell): installa Git e Python se mancano, scarica la guida `crew` e la lancia.
+# La riga unica su Windows (PowerShell): installa Git e Python se mancano, scarica la guida `pleyades-cli` (Pleyades tools) e la lancia.
 #   irm https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.ps1 | iex
 # Con un progetto a cui sei stato invitato:
 #   $env:PROGETTO='PROPRIETARIO/REPO'; $env:STUDIO='studio.nome.org'; irm https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.ps1 | iex
