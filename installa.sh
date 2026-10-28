@@ -62,12 +62,18 @@ if ! command -v gh >/dev/null; then
   command -v brew >/dev/null && brew install gh >/dev/null
 fi
 command -v gh >/dev/null || stop "installa GitHub CLI (cli.github.com)"
-gh auth status >/dev/null 2>&1 || gh auth login --web --git-protocol https <$tty || stop "accesso a GitHub non riuscito"
+if ! gh auth status >/dev/null 2>&1; then
+  echo "Accesso a GitHub: premi Invio, si apre il browser. Senza account: nella pagina premi «Create an account»,"
+  echo "crealo (gratis), poi torna qui e rilancia la stessa riga."
+  gh auth login --web --git-protocol https <$tty || stop "accesso a GitHub non riuscito"
+fi
 ok "GitHub"
 
 dir="$HOME/code/${PROGETTO#*/}"
 if [ ! -d "$dir/.git" ]; then
-  gh repo clone "$PROGETTO" "$dir" >/dev/null 2>&1 || stop "non vedo $PROGETTO: accetta l'invito su GitHub (mail o notifiche)"
+  gh repo clone "$PROGETTO" "$dir" >/dev/null 2>&1 \
+    || stop "non vedo $PROGETTO. Manda il tuo nome GitHub «$(gh api user -q .login 2>/dev/null)» a chi ti ha invitato,
+   poi accetta l'invito che ti arriva per mail"
 fi
 ok "progetto in ${dir/#$HOME/~}"
 onb=$(find "$dir" -maxdepth 4 -name onboarding.py -not -path '*/.git/*' | head -1)
