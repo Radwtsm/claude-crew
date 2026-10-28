@@ -1,7 +1,7 @@
 # La riga unica su Windows (PowerShell): installa Git e Python se mancano, scarica la guida `crew` e la lancia.
 #   irm https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.ps1 | iex
 # Con un progetto a cui sei stato invitato:
-#   $env:PROGETTO='PROPRIETARIO/REPO'; irm https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.ps1 | iex
+#   $env:PROGETTO='PROPRIETARIO/REPO'; $env:STUDIO='studio.nome.org'; irm https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.ps1 | iex
 # Tutto il resto (Claude Code, GitHub, plugin, progetti, Nextcloud) lo fa crew.py, uguale su Mac, Linux e Windows.
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 
@@ -42,6 +42,7 @@ function Avvia {
     }
     $argomenti = @('guida')
     if ($env:PROGETTO) { $argomenti += $env:PROGETTO }
+    if ($env:STUDIO) { $argomenti += "--studio=$env:STUDIO" }
     python $crew @argomenti
 }
 

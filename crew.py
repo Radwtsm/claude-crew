@@ -2,8 +2,10 @@
 """crew: la guida unica per entrare nella crew e nei suoi progetti, anche per chi non programma.
 
     crew                    la prima volta la guida; poi un menu
-    crew guida [OWNER/REPO …]   dall'inizio a tutto pronto: Claude Code, GitHub (con o senza account), plugin,
-                            progetti, Nextcloud e la stanza Talk; si può rilanciare: salta ciò che c'è già
+    crew guida [OWNER/REPO …] [--studio=INDIRIZZO]   dall'inizio a tutto pronto: Claude Code, GitHub (con o senza
+                            account), plugin, progetti, Nextcloud e la stanza Talk; si può rilanciare: salta il fatto.
+                            Con --studio: accesso allo studio Nextcloud dal browser («Concedi accesso», la password
+                            per app si salva da sola) e i progetti condivisi lì, anche senza GitHub
     crew entra OWNER/REPO   entra in un progetto (clone, plugin, stanza, cartelle)
     crew controlla          solo i controlli, senza installare niente
     crew aggiorna           crew, plugin e progetti all'ultima versione
@@ -18,12 +20,15 @@ Un progetto dice cosa gli serve in `.claude/progetto.json` del suo repo (stanza,
 marketplace, passi, dopo, moduli, marchio, comando); i plugin di `.claude/settings.json` con valore true contano anche loro.
 L'indirizzo di Nextcloud viene dal `talk.py` del progetto, l'aspetto dal suo `marchio` (se c'è) e `comando` dà un
 secondo nome allo stesso programma (es. il nome dello studio): questo file è pubblico e non ne contiene.
+Progetti dallo studio: ogni cartella condivisa che contiene `.claude/progetto.json` (copia di sola lettura del repo,
+con `.claude-plugin/` e `plugins/`) è un progetto: chi non ha accesso al repo GitHub (`repo` in progetto.json) la
+riceve in ~/.crew/studio/ e i suoi plugin come marketplace locale; le proposte vanno nella cartella `proposte`.
 Il profilo e i plugin presi stanno solo in ~/.config/crew/stato.json di questo computer: mai inviati a nessuno.
 Mac, Linux e Windows (python3 o python). Solo libreria standard. Le funzioni non stampano: la stampa è in
 `Terminale`, così un'app con finestra può riusare le stesse funzioni con un'altra interfaccia.
 """
 import hashlib, importlib.util, io, json, os, platform, re, shutil, subprocess, sys, tarfile, threading, time
-import urllib.error, urllib.parse, urllib.request, zipfile
+import urllib.error, urllib.parse, urllib.request, webbrowser, xml.etree.ElementTree as ET, zipfile
 from concurrent.futures import ThreadPoolExecutor
 
 CREW = "Radwtsm/claude-crew"
@@ -362,6 +367,134 @@ def scrivi_in_stanza(d, c, testo):
     return run(*args, cwd=d)[0] == 0
 
 
+# Studio (Nextcloud) senza GitHub: Login Flow v2 e WebDAV
+
+AGENTE_STUDIO = f"crew ({platform.system()})"  # il nome del dispositivo nella pagina «Sicurezza» di Nextcloud
+STUDIO_DIR = os.path.join(CARTELLA, "studio")
+
+
+def studio_url(x):
+    x = (x or "").strip().rstrip("/")
+    return x if not x or "://" in x else urllib.parse.urlunsplit(("https", x, "", "", ""))
+
+
+def chiama(url, metodo="GET", dati=None, cred=None, intestazioni=None, timeout=30):
+    h = {"User-Agent": AGENTE_STUDIO}  # Cloudflare blocca l'agente predefinito di Python (errore 1010)
+    if cred:
+        import base64
+        h["Authorization"] = "Basic " + base64.b64encode(f"{cred['utente']}:{cred['password']}".encode()).decode()
+    h.update(intestazioni or {})
+    req = urllib.request.Request(url, data=dati, method=metodo, headers=h)
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read()
+
+
+def inizia_accesso(server):
+    """Login Flow v2: (pagina da aprire nel browser, dati per aspettare la risposta)."""
+    r = json.loads(chiama(server + "/index.php/login/v2", "POST"))
+    return r["login"], r["poll"]
+
+
+def aspetta_accesso(poll, minuti=15):
+    """{utente, password per app} quando la persona preme «Concedi accesso»; None se non arriva in tempo."""
+    corpo = urllib.parse.urlencode({"token": poll["token"]}).encode()
+    fine = time.time() + minuti * 60
+    while time.time() < fine:
+        try:
+            d = json.loads(chiama(poll["endpoint"], "POST", corpo,
+                                  intestazioni={"Content-Type": "application/x-www-form-urlencoded"}))
+            return {"utente": d["loginName"], "password": d["appPassword"]}
+        except urllib.error.HTTPError as e:
+            if e.code != 404:  # 404 = non ancora concesso
+                raise
+        except (OSError, ValueError):
+            pass
+        time.sleep(2)
+    return None
+
+
+def _dav(server, cred, percorso=""):
+    base = f"/remote.php/dav/files/{urllib.parse.quote(cred['utente'])}/"
+    return server + base + urllib.parse.quote(percorso.strip("/")), urllib.parse.unquote(base)
+
+
+def dav_elenco(server, cred, percorso=""):
+    """[(nome, è_cartella)] del contenuto di `percorso` nei file dell'utente."""
+    url, base = _dav(server, cred, percorso)
+    xml = chiama(url.rstrip("/") + "/", "PROPFIND", b'<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop>'
+                 b'<d:resourcetype/></d:prop></d:propfind>', cred, {"Depth": "1", "Content-Type": "application/xml"})
+    out, io_stesso = [], percorso.strip("/")
+    for r in ET.fromstring(xml).findall("{DAV:}response"):
+        rel = urllib.parse.unquote(r.findtext("{DAV:}href", "")).split(base, 1)[-1].strip("/")
+        if rel == io_stesso:
+            continue
+        cartella = r.find(".//{DAV:}resourcetype/{DAV:}collection") is not None
+        out.append((rel.rsplit("/", 1)[-1], cartella))
+    return out
+
+
+def dav_leggi(server, cred, percorso):
+    return chiama(_dav(server, cred, percorso)[0], cred=cred, timeout=120)
+
+
+def progetti_studio(server, cred):
+    """[(cartella, progetto.json)]: le cartelle condivise con te che sono progetti."""
+    out = []
+    for nome, cartella in dav_elenco(server, cred):
+        if not cartella:
+            continue
+        try:
+            out.append((nome, json.loads(dav_leggi(server, cred, f"{nome}/.claude/progetto.json"))))
+        except (OSError, ValueError):
+            pass
+    return out
+
+
+def dir_studio(cartella):
+    return os.path.join(STUDIO_DIR, re.sub(r"[^a-z0-9]+", "-", cartella.lower()).strip("-"))
+
+
+def scarica_cartella(server, cred, cartella, dest):
+    """Copia locale di una cartella dello studio (sostituita tutta solo quando il download è completo)."""
+    nuovo, file = dest + ".nuovo", []
+
+    def giro(rel):
+        for nome, sotto in dav_elenco(server, cred, f"{cartella}/{rel}"):
+            (giro if sotto else file.append)(f"{rel}/{nome}".strip("/"))
+    giro("")
+    shutil.rmtree(nuovo, ignore_errors=True)
+    for f in file:
+        p = os.path.join(nuovo, *f.split("/"))
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "wb") as h:
+            h.write(dav_leggi(server, cred, f"{cartella}/{f}"))
+    if os.path.isdir(dest):
+        shutil.rmtree(dest)  # solo la copia gestita da crew in ~/.crew/studio, mai file della persona
+    os.replace(nuovo, dest)
+    return len(file)
+
+
+def salva_credenziali(t, cred):
+    """Dove le salva `talk.py collega` (con il suo codice: file solo tuo, permessi 600)."""
+    if not t.credenziali():
+        t.scrivi_json(t.CONF, {"utente": cred["utente"], "password": cred["password"]})
+
+
+def cartelle_progetti():
+    """(etichetta, cartella) di ogni progetto su questo computer: repo clonati e copie dallo studio."""
+    out = [(r, cartella_progetto(r)) for r in stato().get("progetti", [])]
+    out += [(c, dir_studio(c)) for c in stato().get("studio_progetti", [])]
+    return [(e, d) for e, d in out if os.path.isdir(d)]
+
+
+def credenziali_note():
+    for _, d in cartelle_progetti():
+        t = modulo_talk(d, config_progetto(d))
+        if t and t.credenziali():
+            return t.credenziali()
+    return None
+
+
 # Il comando crew stesso
 
 def installa_comando(nome="crew"):
@@ -448,9 +581,8 @@ def togli(nome):
 
 def cantieri_aperti():
     """Le righe di `talk.py cantieri` del primo progetto collegato (operazioni in corso su risorse condivise)."""
-    for repo in stato().get("progetti", []):
-        d = cartella_progetto(repo)
-        c = config_progetto(d) if os.path.isdir(d) else {}
+    for _, d in cartelle_progetti():
+        c = config_progetto(d)
         if c.get("talk") and os.path.isfile(os.path.join(d, c["talk"])):
             codice, out = run(sys.executable, os.path.join(d, c["talk"]), "cantieri", cwd=d, timeout=20)
             return out if codice == 0 else ""
@@ -460,9 +592,8 @@ def cantieri_aperti():
 def file_marchio():
     if lavoro():
         return None
-    for repo in stato().get("progetti", []):
-        d = cartella_progetto(repo)
-        c = config_progetto(d) if os.path.isdir(d) else {}
+    for _, d in cartelle_progetti():
+        c = config_progetto(d)
         if c.get("marchio") and os.path.isfile(os.path.join(d, c["marchio"])):
             return os.path.join(d, c["marchio"]), c.get("comando") or "crew"
     return None
@@ -745,7 +876,82 @@ def scegli_progetti(ui, richiesti):
     return noti
 
 
-def passo_progetto(ui, repo):
+SPIEGA_ACCESSO = """Accesso allo studio: si apre il browser su Nextcloud.
+  1. se chiede un codice: scrivi la tua mail, poi incolla il codice che ti arriva
+  2. «Accedi» con il tuo utente e la tua password (e il codice dell'app di verifica, se ce l'hai)
+  3. premi «Concedi accesso»: la password per questo computer si salva da sola, non la vedi mai"""
+
+
+def accedi_studio(ui, server):
+    ui.fai(SPIEGA_ACCESSO)
+    if ui.chiedi("Premi Invio per aprire il browser (o scrivi «salta»):").lower() == "salta":
+        return None
+    try:
+        pagina, poll = inizia_accesso(server)
+    except (OSError, ValueError, KeyError) as e:
+        ui.esito(Esito("accesso allo studio", False, f"lo studio non risponde ({e}): controlla internet e rilancia"))
+        return None
+    webbrowser.open(pagina)
+    ui.info("Se il browser non si è aperto, apri tu questo link:")
+    ui.link("Accesso allo studio", pagina)
+    with ui.attesa("aspetto che premi «Concedi accesso» nel browser (fino a 15 min)"):
+        cred = aspetta_accesso(poll)
+    return cred
+
+
+def passo_studio(ui):
+    """I progetti condivisi nello studio. Torna [(etichetta, risultato di prepara)]."""
+    if lavoro():
+        return []
+    s = stato()
+    if "studio" not in s:
+        x = ui.chiedi("Ti hanno dato l'indirizzo di uno studio Nextcloud (es. studio.nome.org)? Scrivilo, o Invio se no:")
+        salva_stato(studio=studio_url(x))
+    server = stato().get("studio")
+    if not server:
+        return []
+    ui.titolo(f"Studio {server.split('//')[-1]}")
+    cred = credenziali_note() or accedi_studio(ui, server)
+    if not ui.esito(Esito("accesso allo studio" + (f" come {cred['utente']}" if cred else ""), bool(cred),
+                          "rilancia `crew` e premi «Concedi accesso» nel browser; senza utente: chiedilo a chi ti ha "
+                          "invitato")):
+        return []
+    try:
+        with ui.attesa("cerco i progetti condivisi con te"):
+            trovati = progetti_studio(server, cred)
+    except urllib.error.HTTPError as e:
+        ui.esito(Esito("progetti dello studio", False, f"lo studio ha risposto {e.code}: rilancia `crew`; se si ripete, "
+                       "dillo a chi ti ha invitato"))
+        return []
+    if not trovati:
+        ui.esito(Esito("progetti dello studio", True, saltato=True, nota="nessuno condiviso con te per ora"))
+    out, copie = [], []
+    for cartella, cfg in trovati:
+        repo = cfg.get("repo")
+        if repo and (os.path.isdir(os.path.join(cartella_progetto(repo), ".git")) or
+                     (gh_collegato() and repo_accessibile(repo) == "si")):
+            r = passo_progetto(ui, repo, cred)  # con GitHub: il repo vero, come sempre
+            if r:
+                out.append((repo, r))
+                salva_stato(progetti=list(dict.fromkeys(stato().get("progetti", []) + [repo])))
+            continue
+        ui.titolo(f"Progetto {cfg.get('nome', cartella)} (dallo studio)")
+        d = dir_studio(cartella)
+        try:
+            with ui.attesa(f"scarico «{cartella}» dallo studio"):
+                n = scarica_cartella(server, cred, cartella, d)
+        except (OSError, ValueError) as e:
+            ui.esito(Esito(f"copia di «{cartella}»", False, f"download interrotto ({e}): rilancia `crew`"))
+            continue
+        ui.esito(Esito(f"copia di «{cartella}» in {d.replace(CASA, '~')}", True, nota=f"{n} file, sola lettura"))
+        copie.append(cartella)
+        out.append((cartella, prepara(ui, d, config_progetto(d), cartella, cred, studio=True)))
+    if copie:
+        salva_stato(studio_progetti=list(dict.fromkeys(stato().get("studio_progetti", []) + copie)))
+    return out
+
+
+def passo_progetto(ui, repo, cred=None):
     """Clone, plugin, hook, Talk, cartelle: un progetto dall'inizio a pronto. Torna (cartella, config, talk)."""
     ui.titolo(f"Progetto {repo}")
     acc = repo_accessibile(repo)
@@ -764,10 +970,18 @@ def passo_progetto(ui, repo):
         ok, d, out = clona(repo)
     if not ui.esito(Esito(f"repo in {d.replace(CASA, '~')}", ok, out, nota=out)):
         return None
-    c = config_progetto(d)
+    return prepara(ui, d, config_progetto(d), repo, cred)
+
+
+def prepara(ui, d, c, etichetta, cred=None, studio=False):
+    """Plugin, hook, Talk, cartelle e passi di un progetto già su questo computer (repo o copia dallo studio)."""
+    mk = marketplace_del_progetto(c)
+    locale = (leggi_json(os.path.join(d, ".claude-plugin", "marketplace.json"), {}) or {}).get("name")
+    if studio and locale:
+        mk[locale] = d  # marketplace locale: la copia dello studio al posto del repo GitHub
     if c["plugin"]:
         with ui.attesa("installo i plugin che il progetto chiede"):
-            manca, auto = assicura_plugin(marketplace_del_progetto(c), c["plugin"])
+            manca, auto = assicura_plugin(mk, c["plugin"])
         ui.esito(Esito(f"plugin del progetto ({len(c['plugin'])})", not manca,
                        "in Claude Code: /plugin install " + " ".join(manca)))
     if hook_git(d):
@@ -779,10 +993,17 @@ def passo_progetto(ui, repo):
         conf = stanza_collegata(t, c.get("stanza"))
         nome = c.get("stanza") or t.STANZA
         if not conf:
-            ui.fai(SPIEGA_APP.format(s=t.SERVER) + "\nNon hai ancora un utente Nextcloud? Chiedilo a chi ti ha "
-                   "invitato e rilancia `crew` quando ce l'hai.")
-            if ui.chiedi("Premi Invio per collegarti (o scrivi «salta»):").lower() != "salta":
-                collega_stanza(d, c)
+            if not t.credenziali():
+                cred = cred or credenziali_note() or accedi_studio(ui, t.SERVER)
+                if cred:
+                    salva_credenziali(t, cred)
+            if t.credenziali():
+                collega_stanza(d, c)  # le credenziali ci sono: non chiede niente
+            else:
+                ui.fai(SPIEGA_APP.format(s=t.SERVER) + "\nNon hai ancora un utente Nextcloud? Chiedilo a chi ti ha "
+                       "invitato e rilancia `crew` quando ce l'hai.")
+                if ui.chiedi("Premi Invio per collegarti a mano (o scrivi «salta»):").lower() != "salta":
+                    collega_stanza(d, c)
             conf = stanza_collegata(t, c.get("stanza"))
         ui.esito(Esito(f"stanza Talk «{nome}»", bool(conf), "rilancia `crew`: ti richiede utente e password per app"))
         if conf and c.get("cartelle"):
@@ -793,13 +1014,16 @@ def passo_progetto(ui, repo):
             ui.esito(Esito("app Nextcloud sul computer", app_nextcloud(),
                            "scaricala da nextcloud.com/install («Desktop»), accedi con il tuo utente, poi "
                            "«⋯» → «Scegli cosa sincronizzare» → spunta " + ", ".join(f"«{x}»" for x in c["cartelle"])))
-    if c.get("passi") and os.path.isfile(os.path.join(d, c["passi"])):
+    if studio and c.get("proposte"):
+        ui.fai(f"Questa è una copia di sola lettura: le tue proposte (skill, processi, modifiche) vanno nella cartella "
+               f"«{c['proposte']}» dello studio; Claude le porta con la skill porta-proposte.")
+    if not studio and c.get("passi") and os.path.isfile(os.path.join(d, c["passi"])):
         ui.info(ui.c("2", f"passi propri del progetto ({c['passi']}):"))
         args = [sys.executable, os.path.join(d, c["passi"]), "--da-crew"]
         if conf:
             args.append(conf["utente"])
         ui.esito(Esito("passi del progetto", run(*args, cwd=d, vivo=True)[0] == 0,
-                       f"rilancia `crew entra {repo}` dopo aver fatto ciò che chiede"))
+                       f"rilancia `crew entra {etichetta}` dopo aver fatto ciò che chiede"))
     return d, c, t, conf
 
 
@@ -825,30 +1049,31 @@ def guida(ui, richiesti, solo_progetti=False):
                 return 1
         if not lavoro():
             ui.passo(len(passi) + 1, len(passi) + 1, "Progetti", "i progetti di cui fai parte, con stanza e cartelle")
-    pronti = []
+    pronti = []  # (etichetta, (cartella, config, talk, conf))
+    if not solo_progetti:
+        pronti += passo_studio(ui)
+    fatti = {e for e, _ in pronti} | {r[1].get("repo") for _, r in pronti}  # copia dallo studio = quel repo
     scelti = richiesti if solo_progetti else scegli_progetti(ui, richiesti)  # entra X = solo X
-    for repo in ([] if lavoro() else scelti):
+    for repo in ([] if lavoro() else [x for x in scelti if x not in fatti]):
         r = passo_progetto(ui, repo)
         if r:
-            pronti.append(repo)
-            if r[1].get("comando"):
-                installa_comando(r[1]["comando"])
-            mostra_link(ui, *r)
-            for x in r[1].get("dopo", []):
-                ui.fai(x)
-    if pronti:
-        salva_stato(progetti=list(dict.fromkeys(stato().get("progetti", []) + pronti)))
+            pronti.append((repo, r))
+            salva_stato(progetti=list(dict.fromkeys(stato().get("progetti", []) + [repo])))
+    for _, r in pronti:
+        if r[1].get("comando"):
+            installa_comando(r[1]["comando"])
+        mostra_link(ui, *r)
+        for x in r[1].get("dopo", []):
+            ui.fai(x)
     minuti = round((time.time() - inizio) / 60, 1)
     ui.riepilogo(minuti)
     print("\n" + REGOLE_USO)
     verdi = sum(e.ok or e.saltato for e in ui.esiti)
-    for repo in pronti:
-        d, c = cartella_progetto(repo), config_progetto(cartella_progetto(repo))
-        t = modulo_talk(d, c)
+    for etichetta, (d, c, t, conf) in pronti:
         if t and stanza_collegata(t, c.get("stanza")):
             scrivi_in_stanza(d, c, f"🆕 crew guida su {platform.system()}: {verdi}/{len(ui.esiti)} a posto in "
-                             f"{minuti} min ({repo.split('/')[-1]})")
-    primo = cartella_progetto(pronti[0]) if pronti else CASA
+                             f"{minuti} min ({etichetta.split('/')[-1]})")
+    primo = pronti[0][1][0] if pronti else CASA
     ui.titolo("E adesso")
     ui.info(f"Apri il terminale nella cartella {primo.replace(CASA, '~')}, scrivi {ui.c('1', 'claude')} e premi Invio;")
     ui.info("la prima volta scrivi «configura il mio Claude». Per rivedere tutto: " + ui.c("1", ui.nome))
@@ -879,10 +1104,9 @@ def controlla(ui):
             ui.esito(Esito(f"preso: {x['cosa']}", f"{x['cosa']}@claude-crew" in inst, f"crew prendi {x['cosa']}",
                            nota=f"dal {x['quando']}" + (f", {x['perche']}" if x.get("perche") else "")))
     for repo in stato().get("progetti", []):
-        d = cartella_progetto(repo)
-        if not os.path.isdir(os.path.join(d, ".git")):
+        if not os.path.isdir(os.path.join(cartella_progetto(repo), ".git")):
             ui.esito(Esito(repo, False, f"rilancia `crew entra {repo}`"))
-            continue
+    for repo, d in cartelle_progetti():
         c = config_progetto(d)
         manca = [p for p in c["plugin"] if ha("claude") and p not in inst]
         ui.esito(Esito(f"{repo}: plugin", not manca, "crew aggiorna"))
@@ -897,6 +1121,14 @@ def aggiorna(ui):
     ui.titolo(f"{ui.nome} · aggiorno ciò che c'è già")
     ok, cosa = aggiorna_comando()
     ui.esito(Esito("comando crew", ok, cosa, nota=cosa))
+    server, cred = stato().get("studio"), credenziali_note()
+    for cartella in ([] if lavoro() or not (server and cred) else stato().get("studio_progetti", [])):
+        try:
+            with ui.attesa(f"riallineo «{cartella}» dallo studio"):
+                n = scarica_cartella(server, cred, cartella, dir_studio(cartella))
+            ui.esito(Esito(f"copia di «{cartella}»", True, nota=f"{n} file"))
+        except (OSError, ValueError) as e:
+            ui.esito(Esito(f"copia di «{cartella}»", False, f"{e}: rilancia `crew aggiorna`"))
     if ha("claude"):
         with ui.attesa("aggiorno i plugin"):
             codice, _ = run("claude", "plugin", "marketplace", "update")
@@ -916,26 +1148,21 @@ def aggiorna(ui):
 
 def progetti(ui):
     ui.titolo(f"{ui.nome} · i tuoi progetti")
-    elenco = stato().get("progetti", [])
+    elenco = cartelle_progetti()
     if not elenco:
         ui.info("Nessuno ancora: `crew entra PROPRIETARIO/NOME` o `crew guida`.")
-    for repo in elenco:
-        d = cartella_progetto(repo)
-        c = config_progetto(d) if os.path.isdir(d) else {}
-        ui.info(f"{ui.c('1', repo)}  {c.get('nome', '')}  ·  {d.replace(CASA, '~')}"
-                + ("" if os.path.isdir(d) else ui.c("31", "  (non scaricato)")))
+    for repo, d in elenco:
+        ui.info(f"{ui.c('1', repo)}  {config_progetto(d).get('nome', '')}  ·  {d.replace(CASA, '~')}")
     return 0
 
 
 def link(ui):
     ui.titolo(f"{ui.nome} · link")
-    for repo in stato().get("progetti", []):
-        d = cartella_progetto(repo)
-        if os.path.isdir(d):
-            c = config_progetto(d)
-            t = modulo_talk(d, c)
-            ui.info(ui.c("1", repo))
-            mostra_link(ui, d, c, t, stanza_collegata(t, c.get("stanza")) if t else None)
+    for repo, d in cartelle_progetti():
+        c = config_progetto(d)
+        t = modulo_talk(d, c)
+        ui.info(ui.c("1", repo))
+        mostra_link(ui, d, c, t, stanza_collegata(t, c.get("stanza")) if t else None)
     return 0
 
 
@@ -986,6 +1213,10 @@ def main():
         print(__doc__)
         return 0
     path_aggiornato()
+    for x in a:
+        if x.startswith("--studio="):
+            salva_stato(studio=studio_url(x.split("=", 1)[1]))
+    a = [x for x in a if not x.startswith("--studio=")]
     ui = interfaccia()
     try:
         if not a:
