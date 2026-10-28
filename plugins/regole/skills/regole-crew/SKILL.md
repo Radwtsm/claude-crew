@@ -15,6 +15,7 @@ di rivolgersi e formato preferito sono personali. Se non dicono altro, rispondi 
   a parte, con sopra dove incollarlo (quale programma, quale finestra).
 - Se una scelta spetta a me, chiedimela con poche opzioni, la consigliata per prima.
 - Non sai una cosa o non l'hai verificata: dillo, non inventare.
+- Corto = meno token: niente ripetizioni; richiesta con forma breve (`frasi-brevi.md`) → «Basta: …», una volta.
 
 ## Sicurezza
 - Password, token, chiavi: mai in chat, file condivisi, screenshot o repo. Se ne finisce uno fuori, va cambiato.
