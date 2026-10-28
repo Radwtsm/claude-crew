@@ -12,6 +12,8 @@ Letto da `SKILL.md` prima di: script bash/zsh/Git Bash, comandi ssh, hook, hered
 - Bash con `set -e`: un passo che deve fermare lo script non sta in una lista `a && b && c` (lì un errore è ignorato):
   usa `if …; then …; fi`.
 - Hook shell: mai finire con `[ cond ] && …` (cond falsa = exit 1 = blocca tutto in silenzio); `if …; fi` + `exit 0`.
+- Hook con la seconda voce `python … --se-manca-python3` (per Windows): sul Mac `python` non esiste → «python:
+  command not found» a ogni risposta → `command -v python >/dev/null 2>&1 || exit 0; python …`.
 - `… | tr -c 'A-Za-z0-9' '-'` su un nome: passalo senza newline (`printf "%s"`), o diventa un `-` finale.
 - Git Bash su Windows: un percorso `C:\…` scritto dentro `sed 's#…#…#'` o dentro una stringa Python/JS si rovina
   in silenzio: `\b`, `\c`, `\t`, `\n` diventano caratteri di controllo (`cartella\blender` → `cartella⌫lender`) e il
