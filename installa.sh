@@ -12,6 +12,8 @@ if [ "$(uname)" = Darwin ] && ! xcode-select -p >/dev/null 2>&1; then
   printf '  Ti chiede la password del Mac (quella con cui accendi il computer): mentre la scrivi non si vede niente.\n'
   segnale=/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
   touch "$segnale"
+  printf '  Cerco il pacchetto di Apple (1-2 minuti, senza scritte: non è bloccato)…\n'
+  printf '  Se è aperta la finestra «Scarico il software» di un tentativo precedente, premi «Interrompi»: ne basta uno.\n'
   nome=$(softwareupdate -l 2>/dev/null | sed -n 's/^ *\* Label: //p' | grep 'Command Line Tools' | tail -1)
   if [ -n "$nome" ] && sudo softwareupdate -i "$nome" --verbose; then
     rm -f "$segnale"
