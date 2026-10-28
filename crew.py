@@ -929,7 +929,9 @@ class Terminale:
         if self in SCHERMI:
             SCHERMI.remove(self)
         sys.stdout.write("\033[?25h\033[?1049l")
-        sys.stdout.write("\n".join(self.ultimo) + ("\n" if self.ultimo else ""))
+        resta = self.ultimo or "\n".join(self.corpo).strip("\n").split("\n")  # senza riepilogo (squadra, link…):
+        resta = [r for r in resta if r]  # resta il resoconto intero, se no il comando sembra non dire niente
+        sys.stdout.write("\n".join(resta) + ("\n" if resta else ""))
         sys.stdout.flush()
 
     def sospendi(self):
