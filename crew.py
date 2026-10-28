@@ -7,7 +7,7 @@
                             Con --studio: accesso allo studio Nextcloud dal browser («Concedi accesso», la password
                             per app si salva da sola) e i progetti condivisi lì, anche senza GitHub
     pleyades-cli entra OWNER/REPO   entra in un progetto (clone, plugin, stanza, cartelle)
-    pleyades-cli controlla          solo i controlli, senza installare niente
+    pleyades-cli controlla [--talk] solo i controlli, senza installare niente (--talk: il riassunto nella stanza Talk)
     pleyades-cli aggiorna           pleyades-cli, plugin e progetti all'ultima versione
     pleyades-cli progetti           i tuoi progetti e a che punto sono
     pleyades-cli link               i link giusti (studio, Talk, Dashboard, cartelle)
@@ -1706,7 +1706,30 @@ def controlla(ui):
         t = modulo_talk(d, c)
         if t:
             ui.esito(Esito(f"{repo}: stanza Talk", bool(stanza_collegata(t, c.get("stanza"))), f"pleyades-cli entra {repo}"))
+        ruolo = plugin_del_ruolo(d, c)
+        if ruolo:
+            manca = [p for p in ruolo if p not in inst]
+            ui.esito(Esito(f"{repo}: skill del ruolo", not manca, "pleyades-cli aggiorna", nota=", ".join(manca)))
+        codice, kit = kit_ruolo(d, c)
+        if codice == 0 and kit:
+            ui.esito(Esito(f"{repo}: scheda con Ambiti", "Nessuna scheda" not in kit and "da scegliere" not in kit,
+                           "apri Claude nella cartella del progetto e chiedi «prepara la mia scheda»"))
+        if c.get("cartelle"):
+            ui.esito(Esito("app Nextcloud", app_nextcloud(), "pleyades-cli guida (la installa)"))
+    if ha("claude") and not lavoro():
+        ui.esito(Esito("accesso a Claude", claude_collegato(), "apri `claude` e scrivi /login"))
+        ui.esito(Esito("regole personali (claude-personale)", os.path.isdir(os.path.join(CASA, "claude-personale")),
+                       "in Claude Code: «configura il mio Claude»"))
+    eta = (time.time() - os.path.getmtime(os.path.join(CARTELLA, "crew.py"))) / 86400 \
+        if os.path.isfile(os.path.join(CARTELLA, "crew.py")) else 99
+    ui.esito(Esito("pleyades-cli aggiornato", eta < 2, "pleyades-cli aggiorna", nota=f"{eta:.0f} giorni fa"))
     ui.riepilogo(0)
+    if "--talk" in sys.argv:  # il riassunto nella stanza: chi cura gli strumenti vede cosa manca a ognuno
+        manca = [e.nome for e in ui.esiti if not (e.ok or e.saltato)]
+        for _, d in cartelle_progetti()[:1]:
+            scrivi_in_stanza(d, config_progetto(d), f"🔎 pleyades-cli controlla ({platform.system()}): "
+                             f"{len(ui.esiti) - len(manca)}/{len(ui.esiti)} a posto" + (" · manca: " + ", ".join(manca)
+                                                                                     if manca else "")[:300])
     return 0 if all(e.ok or e.saltato for e in ui.esiti) else 1
 
 
