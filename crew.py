@@ -1847,7 +1847,8 @@ def squadra(ui):
                            + (f"diverso: {' '.join(diverso)}" if diverso else f"{r.group('ok')}/{r.group('tot')}")
                            + (f" · controllo di {giorni:.0f} giorni fa" if giorni >= 7 else ""),
                            nota=f"{r.group('ok')}/{r.group('tot')} · {time.strftime('%d/%m %H:%M', time.localtime(m['timestamp']))}"))
-        mai = sorted(persone - {n for n, _ in ultimi})
+        fatti = {n for n, _ in ultimi}
+        mai = sorted(persone - fatti - {n[len("claude-"):] for n in fatti if n.startswith("claude-")})  # il suo Claude
         if mai:
             ui.info("nella stanza, senza controllo: " + ", ".join(mai) + " (`pleyades-cli controlla --talk`)")
     return 0 if all(e.ok or e.saltato for e in ui.esiti) else 1
