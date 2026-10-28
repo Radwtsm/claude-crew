@@ -11,11 +11,15 @@
     pleyades-cli squadra [PROGETTO] chi del progetto è allineato: l'ultimo `controlla --talk` di ognuno nella stanza
                             contro l'ultima versione (comando, commit del progetto, plugin); rosso = da aggiornare
     pleyades-cli aggiorna           pleyades-cli, plugin e progetti all'ultima versione
+    pleyades-cli diagnosi           perché questo computer non è allineato: versioni contro le ultime, ultimo `auto` e il
+                                    suo log, modifiche non pubblicate; ogni ✗ con il comando che lo sistema (non cambia niente)
     pleyades-cli progetti           i tuoi progetti e a che punto sono
     pleyades-cli link               i link giusti (studio, Talk, Dashboard, cartelle)
     pleyades-cli kit                il tuo kit in base al ruolo: skill, cosa leggere, a chi chiedere
     pleyades-cli auto [--subito]    (hook d'avvio di regole e «📦 Push» nella stanza, in background) aggiorna tutto, poi
                                     `controlla --talk` solo se il riassunto è cambiato o ha più di 3 giorni
+    pleyades-cli pianifica [--togli]   l'attività del sistema che lancia `auto` all'accesso e ogni 30 minuti, anche a
+                                    Claude chiuso (launchd, Utilità di pianificazione, cron); `auto` la rimette da sola
     pleyades-cli hook               (per un hook SessionStart) installa i plugin che il progetto aperto chiede e mancano
     pleyades-cli profilo casa|lavoro   che computer è: «lavoro» = solo le regole comuni, niente progetti, Talk o Nextcloud
     pleyades-cli prendi NOME ["perché"] / pleyades-cli togli NOME   un plugin di Pleyades tools solo su questo computer (per il lavoro),
@@ -34,7 +38,7 @@ Il profilo e i plugin presi stanno solo in ~/.config/crew/stato.json di questo c
 Mac, Linux e Windows (python3 o python). Solo libreria standard. Le funzioni non stampano: la stampa è in
 `Terminale`, così un'app con finestra può riusare le stesse funzioni con un'altra interfaccia.
 """
-import hashlib, importlib.util, io, json, os, platform, re, shutil, subprocess, sys, tarfile, textwrap, threading, time
+import hashlib, importlib.util, io, json, os, platform, plistlib, re, shutil, subprocess, sys, tarfile, textwrap, threading, time
 import urllib.error, urllib.parse, urllib.request, webbrowser, xml.etree.ElementTree as ET, zipfile
 from concurrent.futures import ThreadPoolExecutor
 
@@ -45,10 +49,16 @@ CREW_PY = "https://raw.githubusercontent.com/Radwtsm/claude-crew/main/crew.py"
 GH_RELEASE = "https://api.github.com/repos/cli/cli/releases/latest"
 CASA = os.path.expanduser("~")
 CARTELLA = os.path.join(CASA, ".crew")  # crew.py installato
+LOG_AUTO = os.path.join(CARTELLA, "auto.log")  # l'output dell'ultimo `auto` (hook d'avvio di regole)
+LOG_PIANO = os.path.join(CARTELLA, "pianificato.log")  # l'output dell'ultimo `auto` lanciato dall'attività del sistema
+PIANO = "studio.pleyades.auto"  # nome dell'attività pianificata (launchd; su Windows «Pleyades tools»)
 STATO = os.path.join(CASA, ".config", "crew", "stato.json")  # scelte della persona, mai segreti
 BIN = os.path.join(CASA, ".local", "bin")
 CODICE = os.path.join(CASA, "code")
 WIN, MAC = os.name == "nt", sys.platform == "darwin"
+# Windows: da `auto` in background (hook staccato, attività pianificata con pythonw) ogni git/claude aprirebbe una
+# finestra nera per un attimo
+SENZA_FINESTRA: dict = {"creationflags": 0x08000000} if WIN else {}
 # senza schermo: collegati via ssh, o Linux senza grafica (es. un server): niente browser da aprire qui
 SENZA_SCHERMO = bool(os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY")) or \
     (not WIN and not MAC and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")))
@@ -95,7 +105,7 @@ def run(*cmd, cwd=None, timeout=300, vivo=False):
                 if schermo:
                     schermo.riprendi()
         r = subprocess.run(list(cmd), capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=cwd,
-                           timeout=timeout)
+                           timeout=timeout, **SENZA_FINESTRA)
         return r.returncode, (r.stdout + r.stderr).strip()
     except (OSError, subprocess.SubprocessError) as e:
         return 1, str(e)
@@ -1787,6 +1797,9 @@ def controlla(ui):
                        nota="claude-rules del manutentore" if eccezione else ""))  # claude-rules = il setup del manutentore
     eta = (time.time() - os.path.getmtime(os.path.join(CARTELLA, "crew.py"))) / 86400 \
         if os.path.isfile(os.path.join(CARTELLA, "crew.py")) else 99
+    if not lavoro():
+        ok, cosa = pianifica()
+        ui.esito(Esito("aggiornamento automatico pianificato", ok, f"{cosa} → `{NOME_CLI} pianifica`", nota=cosa))
     ui.esito(Esito("pleyades-cli aggiornato", eta < 2, "pleyades-cli aggiorna", nota=f"{eta:.0f} giorni fa"))
     ui.riepilogo(0)
     if "--talk" in sys.argv:  # il riassunto in ogni stanza; `pleyades-cli squadra` confronta le versioni di tutti
@@ -1959,10 +1972,130 @@ def auto(ui):
     sys.argv += ["--talk", "--se-cambiato"]
     controlla(ui)
     ko += [e.nome for e in ui.esiti if not (e.ok or e.saltato)]
+    ok, cosa = pianifica()
+    if not ok:
+        ko.append(f"attività pianificata ({cosa})")
     salva_stato(auto={"t": time.time(), "esito": "ok" if not ko else "da sistemare: " + ", ".join(dict.fromkeys(ko))})
     ui.esiti = []
     squadra(ui)
     return 0
+
+
+def pianifica(togli=False):
+    """L'allineamento anche a Claude chiuso (owner 28/10: imposto, non affidato a chi riapre Claude): un'attività del
+    sistema lancia `auto` all'accesso e ogni 30 minuti. Si rimette da sola a ogni `auto`. Torna (ok, cosa)."""
+    if lavoro():
+        return True, "computer di lavoro: niente attività pianificate"
+    crew = os.path.join(CARTELLA, "crew.py")
+    if WIN:
+        pyw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")  # senza finestra
+        tr = f'"{pyw if os.path.isfile(pyw) else sys.executable}" "{crew}" auto'
+        if togli:
+            return run("schtasks", "/Delete", "/TN", "Pleyades tools", "/F")[0] == 0, "tolta"
+        if tr in run("schtasks", "/Query", "/TN", "Pleyades tools", "/V", "/FO", "LIST")[1]:
+            return True, "attiva (Utilità di pianificazione, ogni 30 minuti)"
+        c, out = run("schtasks", "/Create", "/TN", "Pleyades tools", "/SC", "MINUTE", "/MO", "30", "/TR", tr, "/F")
+        return c == 0, "attivata (Utilità di pianificazione, ogni 30 minuti)" if c == 0 else out[:200]
+    if MAC:
+        p = os.path.join(CASA, "Library", "LaunchAgents", PIANO + ".plist")
+        dominio = f"gui/{os.getuid()}"
+        dati = plistlib.dumps({
+            "Label": PIANO, "ProgramArguments": [sys.executable, crew, "auto"], "RunAtLoad": True,
+            "StartInterval": 1800, "ProcessType": "Background", "StandardOutPath": LOG_PIANO,
+            "StandardErrorPath": LOG_PIANO, "EnvironmentVariables": {
+                "PATH": f"{BIN}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin", "NO_COLOR": "1"}})
+        uguale = os.path.isfile(p) and open(p, "rb").read() == dati
+        if uguale and not togli and run("launchctl", "print", f"{dominio}/{PIANO}")[0] == 0:
+            return True, "attiva (launchd, ogni 30 minuti)"
+        run("launchctl", "bootout", f"{dominio}/{PIANO}")
+        if togli:
+            if os.path.isfile(p):
+                os.remove(p)
+            return True, "tolta"
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "wb") as f:
+            f.write(dati)
+        c, out = run("launchctl", "bootstrap", dominio, p)
+        return c == 0, "attivata (launchd, ogni 30 minuti)" if c == 0 else out[:200]
+    if not ha("crontab"):
+        return False, f"manca crontab: fai partire `{NOME_CLI} auto` all'accesso"
+    attuale = run("crontab", "-l")[1]
+    riga = f'*/30 * * * * NO_COLOR=1 "{sys.executable}" "{crew}" auto >"{LOG_PIANO}" 2>&1'
+    if not togli and riga in attuale:
+        return True, "attiva (cron, ogni 30 minuti)"
+    resto = [r for r in attuale.splitlines() if r.strip() and f'"{crew}" auto' not in r and not r.startswith("no crontab")]
+    r = subprocess.run(["crontab", "-"], input="\n".join(resto + ([] if togli else [riga])) + "\n", text=True,
+                       capture_output=True)
+    return r.returncode == 0, ("tolta" if togli else "attivata (cron, ogni 30 minuti)") if r.returncode == 0 else r.stderr[:200]
+
+
+def diagnosi(ui):
+    """Per il Claude di chi è indietro (skill `ripara-allineamento`): tutto in una volta, senza cambiare niente; ogni ✗
+    dice la causa probabile e il comando che la sistema."""
+    ui.titolo(f"{ui.nome} · diagnosi dell'allineamento (non cambio niente)")
+    ui.info(f"{platform.system()} {platform.release()} · python {platform.python_version()} · "
+            f"comando: {shutil.which(NOME_CLI) or 'non nel PATH'} · claude: {shutil.which('claude') or 'non trovato'}")
+    try:
+        cli = sha7(scarica(CREW_PY))
+    except (OSError, ValueError) as e:
+        cli = None
+        ui.esito(Esito("GitHub raggiungibile", False, f"rete, proxy o antivirus: {str(e)[:120]}"))
+    f = os.path.join(CARTELLA, "crew.py")
+    mio = sha7(open(f, "rb").read()) if os.path.isfile(f) else "manca"
+    ui.esito(Esito("pleyades-cli", cli is None or mio == cli, f"`{NOME_CLI} aggiorna`; se resta uguale e il push è "
+                   "di pochi minuti fa, GitHub serve ancora la versione vecchia (cache ~5 min): riprova fra poco",
+                   nota=mio + (f", ultima {cli}" if cli and cli != mio else "")))
+    a = stato().get("auto", {})
+    esito, quando = a.get("esito", "mai partito"), a.get("t", 0)
+    if esito == "in corso" and time.time() - quando > 900:
+        esito = "interrotto (in corso da più di 15 minuti)"
+    ui.esito(Esito("aggiornamento automatico (auto)", esito == "ok",
+                   f"{esito} → righe di auto.log sotto; si rifà a mano con `{NOME_CLI} auto --subito`; «mai partito» = "
+                   "manca il plugin regole o il suo hook (Windows: serve python o python3 nel PATH)",
+                   nota=time.strftime("%d/%m %H:%M", time.localtime(quando)) if quando else ""))
+    if esito != "ok" and os.path.isfile(LOG_AUTO):
+        for r in open(LOG_AUTO, encoding="utf-8", errors="replace").read().strip().splitlines()[-8:]:
+            ui.info("auto.log │ " + r[:150])
+    noti = leggi_json(os.path.join(CASA, ".claude", "plugins", "known_marketplaces.json"), {})
+    for repo, d in cartelle_progetti():
+        c = config_progetto(d)
+        ui.titolo(repo)
+        v, rif = versioni(d, c), riferimento(d, c, cli)
+        p, r = v.get("progetto", ""), rif.get("progetto", "")
+        if p.endswith("*"):
+            n = len(run("git", "-C", d, "status", "--short", "-uno")[1].strip().splitlines())
+            avanti = run("git", "-C", d, "rev-list", "--count", "@{u}..HEAD")[1].strip()
+            ui.esito(Esito("progetto: modifiche non pubblicate", False,
+                           f"{n} file modificati, {avanti or '?'} commit non pushati: commit + push (prima "
+                           "`git pull --rebase`); push rifiutato da check.sh → leggi il suo messaggio, non saltarlo"))
+        elif p not in ("studio", r) and r != "?":
+            ui.esito(Esito("progetto: dietro", False, f"`git -C {d} pull --ff-only` (o `{NOME_CLI} aggiorna`)",
+                           nota=f"{p} → {r}"))
+        else:
+            ui.esito(Esito("progetto", True, nota=p))
+        for mk in marketplace_del_progetto(c):
+            loc = noti.get(mk, {}).get("installLocation", "")
+            testa = run("git", "-C", loc, "rev-parse", "--short=7", "HEAD")[1].strip() if loc else ""
+            mio_mk, ult = v.get(mk, "manca"), rif.get(mk, "?")
+            if mio_mk == "manca":
+                cosa = f"plugin di {mk} non installati: `{NOME_CLI} aggiorna` (o /plugin install …@{mk})"
+            elif testa and testa != ult:
+                cosa = f"catalogo fermo a {testa}: `claude plugin marketplace update {mk}`, poi `{NOME_CLI} aggiorna`"
+            else:
+                cosa = f"catalogo aggiornato, plugin no: `{NOME_CLI} aggiorna` (fa `claude plugin update` di ognuno)"
+            ui.esito(Esito(f"plugin {mk}", ult in (mio_mk, "?"), cosa + "; poi riavvia Claude",
+                           nota=mio_mk + ("" if noti.get(mk, {}).get("autoUpdate") else " · autoUpdate spento")))
+        t = modulo_talk(d, c)
+        if t:
+            ui.esito(Esito("stanza Talk", bool(stanza_collegata(t, c.get("stanza"))), f"`{NOME_CLI} entra {repo}`"))
+    sq = stato().get("squadra", {})
+    if sq.get("t"):
+        ui.info(f"squadra al {time.strftime('%d/%m %H:%M', time.localtime(sq['t']))}: indietro "
+                f"{', '.join(sq.get('indietro', [])) or 'nessuno'}; senza controllo {', '.join(sq.get('senza', [])) or 'nessuno'}")
+    ui.info("Plugin aggiornati = validi dalla prossima sessione: chiudi e riapri Claude. Tutto ✓ ma la squadra ti vede "
+            f"indietro → `{NOME_CLI} controlla --talk` (il resoconto nella stanza è vecchio).")
+    ui.riepilogo(0)
+    return 0 if all(e.ok or e.saltato for e in ui.esiti) else 1
 
 
 def menu(ui):
@@ -1998,6 +2131,8 @@ def menu(ui):
 
 def main():
     a = sys.argv[1:]
+    if sys.stdout is None:  # pythonw (attività pianificata su Windows): l'output nel log
+        sys.stdout = sys.stderr = open(LOG_PIANO, "w", encoding="utf-8")
     if a[:1] == ["hook"]:
         try:
             return hook()
@@ -2036,7 +2171,11 @@ def main():
             ui.esito(Esito(f"{'preso' if cmd == 'prendi' else 'tolto'}: {a[1]}", ok, cosa,
                            nota="valido dalla prossima sessione di Claude Code"))
             return 0 if ok else 1
-        f = {"controlla": controlla, "squadra": squadra, "aggiorna": aggiorna, "auto": auto, "progetti": progetti, "link": link, "kit": mio_kit}.get(cmd)
+        if cmd == "pianifica":
+            ok, cosa = pianifica(togli="--togli" in a)
+            ui.esito(Esito("aggiornamento automatico pianificato", ok, cosa, nota=cosa))
+            return 0 if ok else 1
+        f = {"controlla": controlla, "squadra": squadra, "aggiorna": aggiorna, "auto": auto, "diagnosi": diagnosi, "progetti": progetti, "link": link, "kit": mio_kit}.get(cmd)
         if f:
             return f(ui)
         print(f"pleyades-cli: comando «{cmd}» sconosciuto. `pleyades-cli --help` per l'elenco.")

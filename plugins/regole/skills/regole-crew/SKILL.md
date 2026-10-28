@@ -26,7 +26,7 @@ progetto vincono dove dicono altro. Tono e formato sono personali. Se non dicono
 ## Lavoro fatto bene
 - Prima di dire "fatto", controlla che funzioni davvero (apri il file, prova il comando, guarda il risultato).
 - **Squadra allineata = priorità**: l'avvio aggiorna da solo (`pleyades-cli auto`); «Squadra non allineata» o
-  allineamento fallito → dillo per primo e correggi alla fonte, mai a mano su un solo computer.
+  allineamento fallito → dillo per primo, poi skill `ripara-allineamento` (alla fonte, mai a mano su un PC).
 
 ## Contesto snello (sempre una priorità)
 - Ciò che Claude legge a ogni turno (CLAUDE.md, regole, hook d'avvio) costa a ogni risposta: resta corto, un indice

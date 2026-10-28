@@ -16,7 +16,7 @@ scelte in una scheda `progetto.md` così ogni pezzo si incastra con gli altri.
 
 | Cosa | Dove | Per chi |
 |---|---|---|
-| Regole comuni + `organizza-claude` (struttura comune), `configura-claude` (il tuo Claude come il nostro), `condividi-skill`, `raccogli-skill`, `installa-crew` | `plugins/regole/` | tutti |
+| Regole comuni + `organizza-claude` (struttura comune), `configura-claude` (il tuo Claude come il nostro), `ripara-allineamento` (computer indietro), `condividi-skill`, `raccogli-skill`, `installa-crew` | `plugins/regole/` | tutti |
 | Regole per chi programma | `plugins/codice/` | chi programma (solo Claude Code) |
 | Una skill per tipo di lavoro | `plugins/<skill>/skills/<skill>/SKILL.md` | chi la installa |
 | Plugin di terzi consigliati (fissati a un commit) | `esterni.json` | tutti |
