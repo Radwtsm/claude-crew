@@ -11,6 +11,7 @@
     pleyades-cli aggiorna           pleyades-cli, plugin e progetti all'ultima versione
     pleyades-cli progetti           i tuoi progetti e a che punto sono
     pleyades-cli link               i link giusti (studio, Talk, Dashboard, cartelle)
+    pleyades-cli kit                il tuo kit in base al ruolo: skill, cosa leggere, a chi chiedere
     pleyades-cli hook               (per un hook SessionStart) installa i plugin che il progetto aperto chiede e mancano
     pleyades-cli profilo casa|lavoro   che computer è: «lavoro» = solo le regole comuni, niente progetti, Talk o Nextcloud
     pleyades-cli prendi NOME ["perché"] / pleyades-cli togli NOME   un plugin di Pleyades tools solo su questo computer (per il lavoro),
@@ -668,6 +669,32 @@ def lavoro():
     return stato().get("profilo") == "lavoro"
 
 
+def kit_ruolo(d, c, *opz):
+    """Lo script `ruolo` del progetto (progetto.json): il kit della persona in base al suo ruolo. (codice, testo)."""
+    s = c.get("ruolo") and os.path.join(d, c["ruolo"])
+    if not s or not os.path.isfile(s):
+        return 1, ""
+    return run(sys.executable, s, *opz, cwd=d, timeout=30)
+
+
+def plugin_del_ruolo(d, c):
+    """I plugin della crew che il ruolo chiede e che esistono davvero nel catalogo (mai altro)."""
+    codice, out = kit_ruolo(d, c, "--plugin")
+    cat = catalogo_crew()
+    return [x for x in out.split() if codice == 0 and x.endswith("@claude-crew") and x.split("@")[0] in cat]
+
+
+def mio_kit(ui):
+    ui.intestazione("il mio kit")
+    for etichetta, d in cartelle_progetti():
+        codice, out = kit_ruolo(d, config_progetto(d))
+        if codice == 0 and out:
+            print()
+            for r in out.splitlines():
+                ui.info(r)
+    return 0
+
+
 def catalogo_crew():
     """I plugin della crew (repo pubblico, controllato da check.sh: niente segreti né servizi privati)."""
     m = leggi_json(os.path.join(CASA, ".claude", "plugins", "marketplaces", "claude-crew", ".claude-plugin",
@@ -1268,6 +1295,12 @@ def prepara(ui, d, c, etichetta, cred=None, studio=False):
             manca, auto = assicura_plugin(mk, c["plugin"])
         ui.esito(Esito(f"plugin del progetto ({len(c['plugin'])})", not manca,
                        "in Claude Code: /plugin install " + " ".join(manca)))
+    ruolo = plugin_del_ruolo(d, c)
+    if ruolo:
+        with ui.attesa("installo le skill del tuo ruolo") as a:
+            manca, _ = assicura_plugin({"claude-crew": CREW}, ruolo)
+        ui.esito(Esito(f"skill del tuo ruolo ({len(ruolo)})", not manca, "pleyades-cli aggiorna",
+                       nota=", ".join(x.split("@")[0] for x in ruolo)))
     if hook_git(d):
         ui.esito(Esito("controlli prima del commit (hook git)", True))
     moduli_del_progetto(c)
@@ -1378,6 +1411,12 @@ def guida(ui, richiesti, solo_progetti=False):
             scrivi_in_stanza(d, c, f"🆕 pleyades-cli guida su {platform.system()}: {verdi}/{len(ui.esiti)} a posto in "
                              f"{minuti} min ({etichetta.split('/')[-1]})")
     primo = pronti[0][1][0] if pronti else CASA
+    for _, (d, c, t, conf) in pronti:  # il kit del ruolo a portata di mano, prima di cominciare
+        codice, out = kit_ruolo(d, c)
+        if codice == 0 and out:
+            ui.titolo("Il tuo kit")
+            for r in out.splitlines()[1:]:
+                ui.info(r.strip())
     ui.titolo("E adesso")
     ui.info(f"Nel terminale, nella cartella {primo.replace(CASA, '~')}: scrivi {ui.c('1', 'claude')} e premi Invio.")
     ui.info(f"Per rivedere tutto: {ui.c('1', file_marchio()[1] if pronti and file_marchio() else ui.nome)}")
@@ -1493,6 +1532,7 @@ def hook():
 
 def menu(ui):
     voci = [("Controlla che sia tutto a posto", controlla), ("Aggiorna pleyades-cli, plugin e progetti", aggiorna),
+            ("Il mio kit: skill, cosa leggere, a chi chiedere", mio_kit),
             ("I miei progetti", progetti), ("Entra in un nuovo progetto", None), ("I link", link),
             ("Rifai la guida da capo", lambda u: guida(u, []))]
     ui.intestazione("cosa c'è e cosa manca")
@@ -1551,7 +1591,7 @@ def main():
             ui.esito(Esito(f"{'preso' if cmd == 'prendi' else 'tolto'}: {a[1]}", ok, cosa,
                            nota="valido dalla prossima sessione di Claude Code"))
             return 0 if ok else 1
-        f = {"controlla": controlla, "aggiorna": aggiorna, "progetti": progetti, "link": link}.get(cmd)
+        f = {"controlla": controlla, "aggiorna": aggiorna, "progetti": progetti, "link": link, "kit": mio_kit}.get(cmd)
         if f:
             return f(ui)
         print(f"pleyades-cli: comando «{cmd}» sconosciuto. `pleyades-cli --help` per l'elenco.")
