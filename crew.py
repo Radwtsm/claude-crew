@@ -1718,8 +1718,11 @@ def controlla(ui):
             ui.esito(Esito("app Nextcloud", app_nextcloud(), "pleyades-cli guida (la installa)"))
     if ha("claude") and not lavoro():
         ui.esito(Esito("accesso a Claude", claude_collegato(), "apri `claude` e scrivi /login"))
+        cm = os.path.join(CASA, ".claude", "CLAUDE.md")
+        eccezione = "@~/claude-rules/" in (open(cm, encoding="utf-8").read() if os.path.isfile(cm) else "")
         ui.esito(Esito("regole personali (claude-personale)", os.path.isdir(os.path.join(CASA, "claude-personale")),
-                       "in Claude Code: «configura il mio Claude»"))
+                       "in Claude Code: «configura il mio Claude»", saltato=eccezione,  # lo standard è claude-personale;
+                       nota="claude-rules del manutentore" if eccezione else ""))  # claude-rules = il setup del manutentore
     eta = (time.time() - os.path.getmtime(os.path.join(CARTELLA, "crew.py"))) / 86400 \
         if os.path.isfile(os.path.join(CARTELLA, "crew.py")) else 99
     ui.esito(Esito("pleyades-cli aggiornato", eta < 2, "pleyades-cli aggiorna", nota=f"{eta:.0f} giorni fa"))
