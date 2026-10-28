@@ -19,3 +19,5 @@ Letto da `SKILL.md` prima di: SQLite, server HTTP, VPN/mesh, Docker e firewall, 
   ricompilazione, non il rilascio → guarda la data della release del progetto (GitHub releases).
 - Overpass/Nominatim (OpenStreetMap) che rispondono 429/502/504 → servizio pubblico carico → una richiesta al
   secondo con un User-Agent, nuovi tentativi con attesa crescente, mai un loop stretto.
+- Nextcloud Talk: le menzioni arrivano come `{mention-user1}` nel testo, il nome sta in `messageParameters` → un
+  programma (o un Claude) che legge solo `message` non sa chi è taggato → risolvi i segnaposto coi parametri.
