@@ -78,6 +78,41 @@ def run(*cmd, cwd=None, timeout=300, vivo=False):
         return 1, str(e)
 
 
+LIVE = []  # la riga di stato aperta (ui.attesa): le funzioni lunghe ci scrivono senza stampare
+
+
+def live(frazione=None, dettaglio=None):
+    if LIVE:
+        LIVE[-1].avanza(frazione, dettaglio)
+
+
+def run_live(*cmd, cwd=None, timeout=900):
+    """Come run, ma ogni riga del programma (anche quelle con \\r delle barre) va nella riga di stato live, con la
+    percentuale se la riga ne ha una. Torna (codice, output)."""
+    try:
+        p = subprocess.Popen(list(cmd), cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    except OSError as e:
+        return 1, str(e)
+    out, resto, fine = [], b"", time.time() + timeout
+    while True:
+        pezzo = p.stdout.read1(4096)
+        if not pezzo:
+            break
+        righe = re.split(rb"[\r\n]", resto + pezzo)
+        resto = righe.pop()
+        for r in righe:
+            t = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", r.decode("utf-8", "replace")).strip()
+            if t:
+                out.append(t)
+                pc = re.search(r"(\d{1,3})(?:[.,]\d+)?\s?%", t)
+                live(int(pc.group(1)) / 100 if pc and int(pc.group(1)) <= 100 else None, t)
+        if time.time() > fine:
+            p.kill()
+            out.append("tempo scaduto")
+            break
+    return p.wait(), "\n".join(out)
+
+
 def leggi_json(p, base=None):
     try:
         with open(p, encoding="utf-8") as f:
@@ -119,7 +154,14 @@ def ha(prog):
 def scarica(url, timeout=60):
     req = urllib.request.Request(url, headers={"User-Agent": "pleyades-cli/1.0"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read()
+        tot, dati = int(r.headers.get("Content-Length") or 0), bytearray()
+        while True:
+            pezzo = r.read(65536)
+            if not pezzo:
+                return bytes(dati)
+            dati += pezzo
+            if tot > 1_000_000:  # solo i file grossi: la barra con i MB
+                live(len(dati) / tot, f"{len(dati) // 1_000_000}/{tot // 1_000_000} MB")
 
 
 # Claude Code
@@ -130,7 +172,7 @@ def installa_claude():
                "irm https://claude.ai/install.ps1 | iex"]
     else:
         cmd = ["bash", "-c", "curl -fsSL https://claude.ai/install.sh | bash"]
-    out = run(*cmd, timeout=900)[1]
+    out = run_live(*cmd, timeout=900)[1]
     path_aggiornato()
     return ha("claude"), out[-400:]
 
@@ -234,8 +276,9 @@ def assicura_plugin(marketplace, plugin):
         if nome not in lista:
             run("claude", "plugin", "marketplace", "add", src)
     inst = plugin_installati()
-    for x in plugin:
+    for i, x in enumerate(plugin):
         if x not in inst:
+            live(i / len(plugin), x)
             run("claude", "plugin", "install", x)
     auto = impostazioni_utente(marketplace)
     inst = plugin_installati()
@@ -261,9 +304,9 @@ def clona(repo):
         return True, d, ("" if codice == 0 else "non aggiornato: " + out[:200])
     os.makedirs(os.path.dirname(d), exist_ok=True)
     if gh_collegato():
-        codice, out = run("gh", "repo", "clone", repo, d)
+        codice, out = run_live("gh", "repo", "clone", repo, d, "--", "--progress")
     else:
-        codice, out = run("git", "clone", "-q", f"https://github.com/{repo}.git", d)
+        codice, out = run_live("git", "clone", "--progress", f"https://github.com/{repo}.git", d)
     return codice == 0, d, ("" if codice == 0 else out[-300:])
 
 
@@ -472,7 +515,8 @@ def scarica_cartella(server, cred, cartella, dest):
             (giro if sotto else file.append)(f"{rel}/{nome}".strip("/"))
     giro("")
     shutil.rmtree(nuovo, ignore_errors=True)
-    for f in file:
+    for i, f in enumerate(file):
+        live(i / max(1, len(file)), f"{i + 1}/{len(file)} file · {f.rsplit('/', 1)[-1]}")
         p = os.path.join(nuovo, *f.split("/"))
         os.makedirs(os.path.dirname(p), exist_ok=True)
         with open(p, "wb") as h:
@@ -636,10 +680,12 @@ def tasto():
     return "invio" if k in ("\r", "\n") else k
 
 
-ACCENTO = "38;5;173"  # un solo colore, quello di Claude; il resto testo normale o grigio
+ACCENTO = "38;5;153"  # un solo colore, l'azzurro stella di Pleyades; il resto testo normale o grigio
 
 
 class Terminale:
+    GIRO = "✦✧⋆·⋆✧"  # la stella che pulsa
+
     def __init__(self):
         self.colori = sys.stdout.isatty() and not os.environ.get("NO_COLOR") and os.environ.get("TERM") != "dumb"
         for s in (sys.stdout, sys.stderr):
@@ -781,25 +827,62 @@ class Terminale:
 
 
 class _Attesa:
-    """Una rotellina mentre un comando lungo lavora (solo in un terminale vero)."""
+    """La riga di stato live mentre un passo lungo lavora (solo in un terminale vero): rotellina, testo, barra con
+    percentuale quando si sa quanto manca, l'ultima riga del programma che lavora e il tempo passato.
+        with ui.attesa("scarico") as a:  a.avanza(0.4, "12/30 file")"""
     def __init__(self, ui, testo):
         self.ui, self.testo, self.fine = ui, testo, threading.Event()
+        self.frazione, self.dettaglio, self.inizio = None, "", time.time()
+
+    def avanza(self, frazione=None, dettaglio=None):
+        if frazione is not None:
+            self.frazione = max(0.0, min(1.0, frazione))
+        if dettaglio is not None:
+            self.dettaglio = " ".join(str(dettaglio).split())
+
+    def luccica(self):
+        """Una luce che scorre sul testo, come quando Claude Code pensa."""
+        if not self.ui.colori:
+            return self.testo
+        self.k = getattr(self, "k", -1) + 1
+        pos = self.k % (len(self.testo) + 12) - 3
+        return "".join(self.ui.c("1", x) if abs(i - pos) <= 1 else self.ui.c("2", x) if abs(i - pos) > 4 else x
+                       for i, x in enumerate(self.testo))
+
+    def riga(self, giro):
+        ui, sec = self.ui, int(time.time() - self.inizio)
+        tempo = f"{sec // 60}:{sec % 60:02d}" if sec >= 60 else f"{sec} s"
+        barra = ""
+        if self.frazione is not None:
+            n = round(self.frazione * 20)
+            barra = "  " + ui.acc("━" * n) + ui.c("2", "─" * (20 - n)) + f" {round(self.frazione * 100):3d}%"
+            if 0.03 < self.frazione < 1 and sec >= 5:  # quanto manca, dal ritmo finora
+                resta = int(sec * (1 - self.frazione) / self.frazione)
+                tempo += f" · ~{resta // 60} min" if resta >= 90 else f" · ~{resta} s"
+        spazio = shutil.get_terminal_size((80, 24)).columns - len(self.testo) - (28 if barra else 0) - 16
+        dett = self.dettaglio[:max(0, spazio)]
+        return ("\r  " + ui.acc(giro) + " " + self.luccica() + barra + ui.c("2", ("  " + dett if dett else "") + f"  {tempo}")
+                + "\033[K")
 
     def __enter__(self):
+        LIVE.append(self)
         if self.ui.colori:
             def gira():
                 i = 0
                 while not self.fine.wait(0.12):
-                    sys.stdout.write("\r  " + self.ui.acc("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"[i % 10]) + " " + self.ui.c("2", self.testo) + " ")
+                    sys.stdout.write(self.riga(self.ui.GIRO[i % len(self.ui.GIRO)]))
                     sys.stdout.flush()
                     i += 1
             self.t = threading.Thread(target=gira, daemon=True)
             self.t.start()
         else:
             print("  … " + self.testo)
+        return self
 
     def __exit__(self, *a):
         self.fine.set()
+        if self in LIVE:
+            LIVE.remove(self)
         if self.ui.colori:
             self.t.join()
             sys.stdout.write("\r\033[K")
@@ -827,9 +910,6 @@ class Marchio(Terminale):
 
     def titolo(self, t):
         print("\n" + self.m.c("✦ " + t, "brillio", forte=True) if self.colori else "\n✦ " + t)
-
-    def attesa(self, testo):
-        return self.m.attesa(testo)
 
 
 def interfaccia():
