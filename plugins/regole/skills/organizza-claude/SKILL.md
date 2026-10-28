@@ -3,20 +3,20 @@ name: organizza-claude
 description: Struttura comune per organizzare il proprio Claude (regole personali, skill, progetti, plugin) e riorganizzare un setup senza perdere niente; risparmio di token. Usala per "organizza il mio Claude", "dove metto questa regola", "sistema i miei CLAUDE.md".
 ---
 
-# Organizzare il proprio Claude (struttura della crew)
+# Organizzare il proprio Claude (struttura di Pleyades)
 
-Tutti nella crew usano la stessa struttura: così condividere una skill è solo spostarla, e ogni Claude sa dove
+Tutti in Pleyades usano la stessa struttura: così condividere una skill è solo spostarla, e ogni Claude sa dove
 cercare e dove scrivere.
 
 ## I tre strati (vince il più preciso)
 | Strato | Cosa contiene | Chi lo cambia |
 |---|---|---|
-| **Crew** | regole comuni e skill di tutti (plugin della crew) | i manutentori, tramite la libreria |
+| **Pleyades** | regole comuni e skill di tutti (plugin di Pleyades) | i manutentori, tramite la libreria |
 | **Personale** | come Claude lavora con te: lingua, tono, formato, cautele, i tuoi strumenti | solo tu |
 | **Progetto** | regole di un repo o di un lavoro: comandi, struttura, cosa non toccare | chi ci lavora |
 
-Il personale vince sulla crew, il progetto vince sul personale dove è più preciso. Mai mischiarli: una preferenza
-tua non va nella crew, una regola di progetto non va nel personale.
+Il personale vince su Pleyades, il progetto vince sul personale dove è più preciso. Mai mischiarli: una preferenza
+tua non va in Pleyades, una regola di progetto non va nel personale.
 
 ## Claude Code
 ```
@@ -29,7 +29,7 @@ tua non va nella crew, una regola di progetto non va nel personale.
 ~/.claude/skills/<nome>/SKILL.md  skill solo tue (procedure con nomi, account, macchine tue)
 <progetto>/CLAUDE.md              regole del progetto: mappa, comandi, divieti
 <progetto>/.claude/skills/<nome>/ skill che servono solo in quel progetto
-plugin della crew                 installati con /plugin, aggiornati da soli: mai copiati a mano
+plugin di Pleyades                 installati con /plugin, aggiornati da soli: mai copiati a mano
 ```
 Cose della singola macchina (percorsi, nomi dei PC): in un file `~/claude-personale/macchina-<nome>.md` importato
 solo su quella macchina, oppure direttamente in `~/.claude/CLAUDE.md` sotto gli import.
@@ -37,8 +37,8 @@ solo su quella macchina, oppure direttamente in `~/.claude/CLAUDE.md` sotto gli 
 ## App Claude (desktop, web, telefono)
 | Strato | Dove |
 |---|---|
-| Crew | Personalizza → Plugin → marketplace della crew, Sync automatically; nelle preferenze una riga sola: "Segui sempre le regole comuni della crew: all'inizio di ogni conversazione leggi la skill regole-crew" (il testo si aggiorna da solo) |
-| Personale | Impostazioni → preferenze personali (sopra la riga della crew); skill solo tue in Personalizza → Skill |
+| Pleyades | Personalizza → Plugin → marketplace di Pleyades, Sync automatically; nelle preferenze una riga sola: "Segui sempre le regole comuni di Pleyades: all'inizio di ogni conversazione leggi la skill regole-crew" (il testo si aggiorna da solo) |
+| Personale | Impostazioni → preferenze personali (sopra la riga di Pleyades); skill solo tue in Personalizza → Skill |
 | Progetto | un Progetto (o un progetto Cowork con la sua cartella) con le sue istruzioni |
 
 ## Contesto snello: cosa si carica sempre
@@ -65,11 +65,11 @@ Ogni risposta di Claude rilegge tutto ciò che è sempre caricato; in una sessio
 - Ogni tanto misura (skill di uso dei token, se c'è): se le istruzioni fisse sono più di metà, sono da sfoltire.
 
 ## Dove va una cosa nuova
-- Vale per chiunque nella crew? → crew (`condividi-skill`).
+- Vale per chiunque in Pleyades? → Pleyades (`condividi-skill`).
 - Vale per te ovunque? → personale.
 - Vale solo in un progetto? → progetto.
 - Una procedura con passi ripetibili → skill (nello strato giusto); un comportamento sempre valido → regola.
-- Contiene nomi, account, macchine o percorsi tuoi → mai nella crew.
+- Contiene nomi, account, macchine o percorsi tuoi → mai in Pleyades.
 
 ## Modello di `regole.md` personale
 ```

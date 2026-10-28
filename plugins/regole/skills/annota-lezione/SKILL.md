@@ -1,6 +1,6 @@
 ---
 name: annota-lezione
-description: Trasforma un problema appena risolto in una lezione per tutta la crew, così nessuno ci ricasca. Usala subito dopo un errore strano o un consiglio sbagliato risolto, e quando l'utente dice "finalmente funziona", "era questo il problema", "segnatelo".
+description: Trasforma un problema appena risolto in una lezione per tutta Pleyades, così nessuno ci ricasca. Usala subito dopo un errore strano o un consiglio sbagliato risolto, e quando l'utente dice "finalmente funziona", "era questo il problema", "segnatelo".
 ---
 
 # Annota una lezione
@@ -15,7 +15,7 @@ va nelle sue note personali).
 macro → clip_start 0.002". Niente nomi, percorsi o dati personali.
 
 ## 3. Mettila nel posto giusto
-- C'è una skill della crew sul tema → nella sua sezione **Insidie** o **Trappole** (crea la sezione se manca, con
+- C'è una skill di Pleyades sul tema → nella sua sezione **Insidie** o **Trappole** (crea la sezione se manca, con
   una di queste parole nel titolo: così gli altri Claude la trovano cercando quelle parole).
 - Programmazione, sistemi, strumenti in generale → plugin `codice`, skill `trappole-tecniche` (in fondo).
 - Vale per qualunque lavoro → regole comuni (skill `regole-crew`, sezione "Imparare insieme").
@@ -27,5 +27,5 @@ Se l'errore si riconosce in automatico (un valore, un formato, un file), proponi
 skill: una regola si dimentica, un controllo no.
 
 ## 5. Invia
-Chiedi all'utente l'ok con la riga già scritta. Poi: clone del repo della crew → scrivila lì seguendo il suo
+Chiedi all'utente l'ok con la riga già scritta. Poi: clone del repo di Pleyades → scrivila lì seguendo il suo
 `CLAUDE.md` (pull, `check.sh`, commit, push); altrimenti `condividi-skill`.

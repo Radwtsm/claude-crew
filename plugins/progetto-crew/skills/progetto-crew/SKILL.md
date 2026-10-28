@@ -1,6 +1,6 @@
 ---
 name: progetto-crew
-description: Progetti fatti insieme dalla crew o per un cliente esterno, su più settori (server, sito, negozio, SEO, video) con una sola identità: scheda progetto.md, piano, consegne, coerenza. Usala per "progetto della crew", "lanciamo X insieme", "progetto per un cliente", o con un progetto.md.
+description: Progetti fatti insieme da Pleyades o per un cliente esterno, su più settori (server, sito, negozio, SEO, video) con una sola identità: scheda progetto.md, piano, consegne, coerenza. Usala per "progetto di Pleyades", "lanciamo X insieme", "progetto per un cliente", o con un progetto.md.
 ---
 
 # Progetto con più settori
@@ -20,11 +20,11 @@ Le scelte stanno in un posto solo: `progetto.md` nella cartella del progetto.
 - Mai password, chiavi o dati personali nella scheda: la leggono tutti quelli del progetto.
 
 ## 2. Piano per settori
-- Per ogni pezzo: settore, skill della crew che lo copre (elenco dei plugin), chi lo fa, cosa gli serve, cosa
+- Per ogni pezzo: settore, skill di Pleyades che lo copre (elenco dei plugin), chi lo fa, cosa gli serve, cosa
   consegna. Scrivilo nella tabella "Pezzi e piano" della scheda.
 - Prima i pezzi da cui dipendono gli altri: identità (logo, palette, font, testi base) → sito e negozio →
   contenuti (video, post, SEO) → lancio.
-- Settore senza skill nella crew: dillo, lavora con le regole comuni e annota i passi; a fine progetto diventano
+- Settore senza skill in Pleyades: dillo, lavora con le regole comuni e annota i passi; a fine progetto diventano
   una skill (`condividi-skill`).
 
 ## 3. Consegne tra settori
@@ -57,7 +57,7 @@ Quando il progetto è per un'attività che paga o prova il nostro lavoro, oltre 
 - **Proposta scritta**: cosa è incluso ed escluso, tempi, costo una tantum e mensile, assistenza (canale, orari,
   tempi di risposta), cosa succede ai dati a fine rapporto (export). Il primo modello lo rivede un commercialista o
   un legale; la forma per incassare si decide con il commercialista prima del primo incasso.
-- **Account a nome del cliente** (dominio, profilo Google, fornitori, app): lui è proprietario, la crew ha accesso
+- **Account a nome del cliente** (dominio, profilo Google, fornitori, app): lui è proprietario, Pleyades ha accesso
   delegato. Credenziali solo in un gestore password condiviso, mai in chat o nella scheda.
 - **Dati personali** dei suoi clienti o dipendenti: accordo GDPR per il trattamento, dati in UE, mai nei test o
   nelle demo.
@@ -70,7 +70,7 @@ Quando il progetto è per un'attività che paga o prova il nostro lavoro, oltre 
 ## Insidie con i clienti
 - Lavoro che non finisce mai → "già che ci sei" accettato a voce → ogni cosa fuori dalla proposta è una richiesta
   nuova, con tempi e costo.
-- Cliente bloccato o crew bloccata → dominio o account registrati a nome di uno di noi → sempre a nome del cliente.
+- Cliente bloccato o Pleyades bloccata → dominio o account registrati a nome di uno di noi → sempre a nome del cliente.
 - Pagamento che non arriva → lavoro iniziato senza nulla di scritto → proposta accettata per iscritto (anche una
   mail) prima di iniziare.
 - Prodotto che non serve → costruito prima di parlare con chi lo usa → prima demo e pilota, poi il prodotto.

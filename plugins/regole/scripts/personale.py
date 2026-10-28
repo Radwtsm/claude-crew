@@ -8,6 +8,9 @@ privato, una sola memoria per tutti i progetti, sincronizzazione automatica, bar
   personale.py misura       byte che Claude carica a ogni sessione (regole, memoria, descrizioni delle skill)
   personale.py inizio       hook SessionStart: pull, memoria collegata anche per il progetto aperto, limiti
   personale.py fine         hook Stop: commit + push di regole e memoria cambiate
+  personale.py mappa        la mappa di questo computer in ~/claude-personale/mappa-<computer>.md (md che Claude
+                            legge, skill, plugin, progetti, cartelle condivise, scarti dalla struttura comune);
+                            rifatta a ogni avvio, va nel repo col sync: ogni Claude sa dove sta cosa su ogni PC
   personale.py statusline   barra di stato: modello · contesto · uso 5h/7g con reset · durata
   personale.py avviso       hook UserPromptSubmit: una riga a Claude quando l'uso 5h o 7g passa il 50% (risposte
                             corte) o SOGLIA (chiudi e salva); solo al cambio di livello. Suggerisce anche un plugin
@@ -15,7 +18,7 @@ privato, una sola memoria per tutti i progetti, sincronizzazione automatica, bar
 
 Senza ~/claude-personale gli hook non fanno niente. Mac, Linux e Windows (python o python3); solo libreria standard.
 """
-import glob, json, os, re, shutil, subprocess, sys, time
+import glob, hashlib, json, os, platform, re, shutil, socket, subprocess, sys, time
 
 HOME = os.path.expanduser("~")
 REPO = os.path.join(HOME, "claude-personale")
@@ -298,6 +301,10 @@ def inizio():
     if r.returncode and "Could not resolve" not in r.stderr and "unable to access" not in r.stderr:
         righe.append("claude-personale: pull non riuscito (modifiche da unire a mano): sistemalo prima di altro.")
     righe += collega_tutte(dati.get("cwd"))
+    try:
+        mappa(stampa=False)  # la commit la fa `fine`, col resto
+    except OSError:
+        pass
     righe += [f"claude-personale: {x}: proponi di spostare i dettagli in un file per tema (organizza-claude)."
               for x in fuori_limite()]
     if righe:
@@ -314,6 +321,86 @@ def fine():
         git("commit", "-q", "-m", "aggiornamento automatico")
     if git("rev-list", "--count", "@{u}..HEAD").stdout.strip() not in ("", "0"):
         git("push", "-q", timeout=30)
+    return 0
+
+
+CARTELLE_PROGETTI = ("code", "Progetti", "progetti", "Developer", os.path.join(".crew", "studio"))  # dove cercarli
+CLAUDE_MD_MAX = 12000  # byte di un CLAUDE.md di progetto oltre i quali va diviso (organizza-claude)
+
+
+def computer():
+    """Il nome di questo computer nella mappa: sistema + 4 cifre (il nome vero può contenere quello di una persona)."""
+    h = hashlib.sha1(socket.gethostname().lower().encode()).hexdigest()[:4]
+    return f"{platform.system().replace('Darwin', 'Mac').lower()}-{h}"
+
+
+def corto(p):
+    return "~" + p[len(HOME):] if p.startswith(HOME) else p
+
+
+def byte(p):
+    return os.path.getsize(p) if os.path.isfile(p) else 0
+
+
+def progetti():
+    """Le cartelle che sono progetti per Claude (CLAUDE.md o .claude/) nelle cartelle dei progetti, un livello sotto."""
+    out = []
+    for base in CARTELLE_PROGETTI:
+        for d in sorted(glob.glob(os.path.join(HOME, base, "*"))):
+            if os.path.isdir(d) and (os.path.isfile(os.path.join(d, "CLAUDE.md")) or os.path.isdir(os.path.join(d, ".claude"))):
+                out.append(d)
+    return out
+
+
+def mappa(stampa=True):
+    """mappa-<computer>.md nel repo personale: dove sta ogni cosa che Claude usa su questo PC e cosa non segue la
+    struttura comune (organizza-claude). Solo nomi, percorsi e byte: mai il contenuto dei file."""
+    s = [f"# Mappa di {computer()} ({platform.system()} {platform.release()})", "",
+         "Generata da `personale.py mappa` a ogni avvio di Claude Code: non modificarla a mano. Percorsi con ~ = la "
+         "cartella di casa.", ""]
+    scarti = []
+    cm = os.path.join(CONFIG, "CLAUDE.md")
+    t = open(cm, encoding="utf-8").read() if os.path.isfile(cm) else ""
+    s += ["## Personale (sempre caricato)", "| File | Byte |", "|---|---|", f"| {corto(cm)} | {byte(cm)} |"]
+    for imp in re.findall(r"^@(\S+)", t, re.M):
+        s.append(f"| {imp} (import) | {byte(os.path.expanduser(imp))} |")
+    s.append(f"| {corto(MEMORIA)}/ | {len(glob.glob(os.path.join(MEMORIA, '*.md')))} memorie |")
+    if [r for r in t.splitlines() if r.strip() and not r.startswith(("@", "#", "<!--"))]:
+        scarti.append(f"{corto(cm)} ha regole scritte dentro: spostale in regole.md (solo import lì)")
+    if IMPORT not in t:
+        scarti.append(f"{corto(cm)} non importa {IMPORT}")
+    skill = sorted(glob.glob(os.path.join(CONFIG, "skills", "*", "SKILL.md")))
+    comandi = sorted(glob.glob(os.path.join(CONFIG, "commands", "*.md")))
+    s += ["", "## Skill e comandi solo miei", "| Cosa | Byte |", "|---|---|"]
+    s += [f"| skill `{os.path.basename(os.path.dirname(f))}` | {byte(f)} |" for f in skill]
+    s += [f"| comando `/{os.path.basename(f)[:-3]}` | {byte(f)} |" for f in comandi] or ["| (nessuno) | |"]
+    scarti += [f"skill {os.path.basename(os.path.dirname(f))}: SKILL.md {byte(f)} byte > 6000 (fanne un indice)"
+               for f in skill if byte(f) > 6000]
+    attivi = sorted(k for k, v in leggi_json(os.path.join(CONFIG, "settings.json")).get("enabledPlugins", {}).items() if v)
+    s += ["", "## Plugin accesi ovunque", ", ".join(f"`{k}`" for k in attivi) or "(nessuno)"]
+    s += ["", "## Progetti", "| Cartella | CLAUDE.md byte | Skill del progetto | Plugin accesi nel progetto |",
+          "|---|---|---|---|"]
+    for d in progetti():
+        cmd = os.path.join(d, "CLAUDE.md")
+        sk = len(glob.glob(os.path.join(d, ".claude", "skills", "*", "SKILL.md")))
+        pl = [k for k, v in leggi_json(os.path.join(d, ".claude", "settings.json")).get("enabledPlugins", {}).items() if v]
+        s.append(f"| {corto(d)} | {byte(cmd)} | {sk} | {', '.join(pl) or '—'} |")
+        if byte(cmd) > CLAUDE_MD_MAX:
+            scarti.append(f"{corto(cmd)}: {byte(cmd)} byte > {CLAUDE_MD_MAX}: indice corto + file per tema")
+    condivise = sorted(set(glob.glob(os.path.join(HOME, "Library", "CloudStorage", "*", "Agenzia*")) +
+                           glob.glob(os.path.join(HOME, "Nextcloud*", "Agenzia*"))))
+    s += ["", "## Cartelle condivise (app Nextcloud)"] + [f"- {corto(c)}" for c in condivise] + (["- (nessuna)"] if not condivise else [])
+    if not os.path.isdir(os.path.join(HOME, "code")):
+        scarti.append("niente ~/code: i progetti stanno in ~/code/<nome> (struttura comune)")
+    s += ["", "## Scarti dalla struttura comune (skill organizza-claude)"] + ([f"- {x}" for x in scarti] or ["- nessuno ✓"])
+    testo = "\n".join(s) + "\n"
+    if os.path.isdir(REPO):
+        p = os.path.join(REPO, f"mappa-{computer()}.md")
+        if (open(p, encoding="utf-8").read() if os.path.isfile(p) else "") != testo:
+            with open(p, "w", encoding="utf-8") as f:
+                f.write(testo)
+    if stampa:
+        print(testo)
     return 0
 
 
@@ -409,7 +496,7 @@ if __name__ == "__main__":
     if "--se-manca-python3" in sys.argv and run(["python3", "-c", "pass"], timeout=10).returncode == 0:
         sys.exit(0)  # seconda voce degli hook, per Windows dove c'è solo `python`
     comandi = {"setup": setup, "controlla": controlla, "misura": lambda: (misura(), 0)[1], "inizio": inizio, "fine": fine,
-               "statusline": statusline, "avviso": avviso}
+               "statusline": statusline, "avviso": avviso, "mappa": mappa}
     if not args or args[0] not in comandi:
         print(__doc__)
         sys.exit(2)

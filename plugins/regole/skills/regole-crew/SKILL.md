@@ -1,9 +1,9 @@
 ---
 name: regole-crew
-description: Le regole comuni della crew (come rispondere, sicurezza, lavoro fatto bene, imparare insieme). Valgono in OGNI conversazione: leggila all'inizio di ogni conversazione e seguila, anche se l'argomento non sembra c'entrare. Le regole personali dell'utente vincono dove dicono altro.
+description: Le regole comuni di Pleyades (come rispondere, sicurezza, lavoro fatto bene, imparare insieme). Valgono in OGNI conversazione: leggila all'inizio di ogni conversazione e seguila, anche se l'argomento non sembra c'entrare. Le regole personali dell'utente vincono dove dicono altro.
 ---
 
-# Regole comuni della crew
+# Regole comuni di Pleyades
 
 Valgono per tutti, in Claude Code e nell'app Claude. Sono la base comune: le regole personali di chi usa Claude
 (il suo CLAUDE.md, le sue preferenze nell'app) e quelle di un progetto vincono sempre dove dicono altro. Tono, modo
@@ -40,9 +40,9 @@ di rivolgersi e formato preferito sono personali. Se non dicono altro, rispondi 
 - Richiesta o metodo che spreca tempo, token o sicurezza (più temi in un messaggio, log interi, segreti in chat,
   controlli saltati, lavoro a mano ripetuto): una riga «💡 Meglio: …», una volta per tema (`buone-pratiche.md`).
 
-## Imparare insieme (la crew)
+## Imparare insieme (Pleyades)
 - **Prima di risolvere**: leggi le insidie della skill del tema, se c'è.
 - **Problema non ovvio risolto** (errore strano, impostazione nascosta, consiglio tuo sbagliato): proponi in una riga
-  di aggiungerlo alla crew (insidie della skill, plugin `codice`, o queste regole).
+  di aggiungerlo a Pleyades (insidie della skill, plugin `codice`, o queste regole).
 - **Errore controllabile da uno script**: proponi il controllo, non solo una riga di testo.
-- **Strumento utile scoperto** (plugin, MCP, hook, programma): proponi di aggiungerlo alla crew.
+- **Strumento utile scoperto** (plugin, MCP, hook, programma): proponi di aggiungerlo a Pleyades.

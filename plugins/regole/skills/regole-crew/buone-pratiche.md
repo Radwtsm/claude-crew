@@ -1,4 +1,4 @@
-# Buone pratiche (crew)
+# Buone pratiche (Pleyades)
 
 Come usare bene Claude, per chi inizia e per il Claude che lo aiuta. Claude lo dice in una riga «💡 Meglio: …» solo
 quando vede una di queste cose, una volta per tema; se la persona sceglie diversamente, è una sua scelta.

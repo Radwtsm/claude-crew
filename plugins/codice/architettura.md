@@ -1,6 +1,6 @@
 # Architettura
 
-Regole comuni della crew (plugin `codice`). Le regole tue e il CLAUDE.md del progetto vincono dove sono più precise.
+Regole comuni di Pleyades (plugin `codice`). Le regole tue e il CLAUDE.md del progetto vincono dove sono più precise.
 
 ## Ricostruibile
 - Tutto ciò che non è dato vive in un repo (config, unit, cron, policy, versioni fissate + hash) con un check che

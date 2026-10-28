@@ -5,7 +5,7 @@ description: Trappole tecniche già incontrate, con la soluzione: shell (bash, z
 
 # Trappole tecniche
 
-Ognuna è già costata tempo a qualcuno della crew. Apri **solo** il file del tema che tocchi:
+Ognuna è già costata tempo a qualcuno di Pleyades. Apri **solo** il file del tema che tocchi:
 
 | Tema | File | Leggilo prima di… |
 |---|---|---|

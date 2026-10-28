@@ -1,6 +1,6 @@
 # <Nome del progetto>
 
-Scheda di progetto (modello della crew, skill `progetto-crew`): la sola fonte delle scelte. Ogni Claude la legge
+Scheda di progetto (modello di Pleyades, skill `progetto-crew`): la sola fonte delle scelte. Ogni Claude la legge
 prima di lavorare al progetto e la aggiorna quando una scelta cambia. Mai password o chiavi qui.
 
 ## Obiettivo
@@ -25,7 +25,7 @@ prima di lavorare al progetto e la aggiorna quando una scelta cambia. Mai passwo
 - Dominio, sito, negozio, server, social:
 
 ## Pezzi e piano
-| Pezzo | Settore / skill della crew | Chi | Gli serve | Consegna | Stato |
+| Pezzo | Settore / skill di Pleyades | Chi | Gli serve | Consegna | Stato |
 |---|---|---|---|---|---|
 
 ## Consegne

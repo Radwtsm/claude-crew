@@ -5,7 +5,7 @@ amici che usano Claude (Claude Code e app, Windows e Mac). Serve a far crescere 
 lavorare**: quello che uno scopre o impara da un errore arriva al Claude di tutti.
 **Una skill = un plugin**: ognuno accende solo quelle che vuole.
 
-**Oggi** la crew serve a condividere conoscenza: ogni progetto di uno di noi lascia qui quello che ha insegnato,
+**Oggi** Pleyades serve a condividere conoscenza: ogni progetto di uno di noi lascia qui quello che ha insegnato,
 così il prossimo parte già avanti. **In futuro** faremo progetti insieme che toccano più settori (es. un server con
 sito, negozio online, campagna SEO e video promozionale): per quelli c'è il plugin `progetto-crew`, che tiene le
 scelte in una scheda `progetto.md` così ogni pezzo si incastra con gli altri.
@@ -25,12 +25,12 @@ scelte in una scheda `progetto.md` così ogni pezzo si incastra con gli altri.
 
 ## Installare
 
-- **Claude Code**: incolla al tuo Claude `Installa la crew seguendo` + il link a `INSTALLA.md` (`https://raw.githubusercontent.com/Radwtsm/claude-crew/main/INSTALLA.md`).
+- **Claude Code**: incolla al tuo Claude `Installa Pleyades seguendo` + il link a `INSTALLA.md` (`https://raw.githubusercontent.com/Radwtsm/claude-crew/main/INSTALLA.md`).
 - **App Claude desktop**: Personalizza → Plugin → Aggiungi marketplace `Radwtsm/claude-crew`, installa, accendi
   Sync automatically (valgono anche in chat e sul telefono); le regole comuni si incollano nelle preferenze.
 - Plugin installati dall'app desktop valgono anche su web e telefono (stesso account).
 - **Una riga nelle preferenze, una volta sola** (Impostazioni → preferenze personali, sotto le tue):
-  `Segui sempre le regole comuni della crew: all'inizio di ogni conversazione leggi la skill regole-crew. Le mie preferenze qui sopra vincono dove dicono altro.`
+  `Segui sempre le regole comuni di Pleyades: all'inizio di ogni conversazione leggi la skill regole-crew. Le mie preferenze qui sopra vincono dove dicono altro.`
   Il testo delle regole sta nella skill e si aggiorna da solo: non si ricopia mai.
 
 ## Perché tutto qui
@@ -41,13 +41,13 @@ errore. Come si fa: `CLAUDE.md` → "Strumenti: tutti qui" e "Lezioni".
 
 ## Tre strati, nessuno tocca gli altri
 
-1. **Crew**: questo repo, uguale per tutti.
+1. **Pleyades**: questo repo, uguale per tutti.
 2. **Personale**: come Claude ti parla, i tuoi metodi. Claude Code: il tuo `~/.claude/CLAUDE.md`; app: le tue
-   preferenze, sopra il blocco `regole crew`. Mai qui. Vince sulla crew.
+   preferenze, sopra il blocco `regole Pleyades`. Mai qui. Vince su Pleyades.
 3. **Progetto**: il `CLAUDE.md` del repo su cui lavori.
 
 ## Formato
-Le stesse regole per la crew, i tuoi repo e quelli di progetto, controllate da `plugins/regole/scripts/lint_regole.py`: il plugin
+Le stesse regole per Pleyades, i tuoi repo e quelli di progetto, controllate da `plugins/regole/scripts/lint_regole.py`: il plugin
 `regole` lo lancia **mentre Claude scrive** (hook su ogni regola o skill modificata), `check.sh` prima di ogni commit;
 nei tuoi repo, nel pre-commit: `python3 ~/.claude/plugins/marketplaces/claude-crew/plugins/regole/scripts/lint_regole.py .`
 - **Skill**: frontmatter con `name` uguale alla cartella e `description` di 80–300 caratteri che dice cosa fa e
@@ -61,7 +61,7 @@ I problemi già presenti stanno in `lint-regole-baseline.txt`: bloccano solo que
 
 ## Contribuire
 
-Ognuno lo chiede al proprio Claude: **"aggiungi questo a crew"** (una skill) o **"raccogli le mie skill nella crew"**
+Ognuno lo chiede al proprio Claude: **"aggiungi questo a Pleyades"** (una skill) o **"raccogli le mie skill in Pleyades"**
 (inventario completo). Le regole che le istanze seguono sono in [`CLAUDE.md`](CLAUDE.md), la sola fonte.
 
 - **Collaboratori** (invitati al repo su GitHub: Settings → Collaborators): il loro Claude li guida a clonare il

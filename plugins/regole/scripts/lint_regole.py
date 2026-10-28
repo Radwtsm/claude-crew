@@ -6,7 +6,7 @@
   python3 lint_regole.py --hook                 hook PostToolUse: controlla il file appena scritto (JSON su stdin);
                                                 un .md fuori da ogni casa (repo, cloud, ~/.claude) → avviso a Claude
 
-Cosa controlla (README della crew → Formato):
+Cosa controlla (README di Pleyades tools → Formato):
 - SKILL.md: frontmatter con `name` uguale alla cartella e `description` di 80-300 caratteri che dice quando usarla (si paga a ogni risposta: corta)
   ("Usala…" o "Use when…"); un titolo `# …` nel corpo.
 - Righe sotto un titolo "Insidie"/"Trappole": `sintomo → causa → cosa fare` (almeno una freccia).
@@ -176,7 +176,7 @@ def hook():
     trovati = nuovi(root, problemi(path, rel)) + troppo_lungo(root, rel, path)
     if not trovati:
         return 0
-    print("\n".join(trovati) + "\nlint_regole (plugin regole): sistemali ora, formato nel README della crew → Formato",
+    print("\n".join(trovati) + "\nlint_regole (plugin regole): sistemali ora, formato nel README di Pleyades tools → Formato",
           file=sys.stderr)
     return 2
 
@@ -197,7 +197,7 @@ def main():
     for p in da_sistemare:
         print(p)
     if da_sistemare:
-        print(f"lint_regole: {len(da_sistemare)} problemi nuovi (formato: README della crew → Formato)", file=sys.stderr)
+        print(f"lint_regole: {len(da_sistemare)} problemi nuovi (formato: README di Pleyades tools → Formato)", file=sys.stderr)
         return 1
     return 0
 

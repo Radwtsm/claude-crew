@@ -1,6 +1,6 @@
 # Codice
 
-Regole comuni della crew (plugin `codice`). Le regole tue e il CLAUDE.md del progetto vincono dove sono più precise.
+Regole comuni di Pleyades (plugin `codice`). Le regole tue e il CLAUDE.md del progetto vincono dove sono più precise.
 
 ## Stile
 - Il codice nuovo si legge come quello intorno: stessa densità di commenti, stessi nomi, stessi idiomi.
