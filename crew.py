@@ -609,6 +609,41 @@ def installa_comando(nome=NOME_CLI):
     return ha(nome)
 
 
+def icona_desktop(nome, png=None):
+    """Un'icona «Pleyades tools» sul desktop che apre il comando nel terminale con un doppio clic (per chi non usa
+    mai il terminale). Mac: .command (con l'immagine del marchio se c'è), Windows: collegamento, Linux: .desktop."""
+    titolo = "Pleyades tools"
+    if WIN:
+        desk = run("powershell", "-NoProfile", "-Command", "[Environment]::GetFolderPath('Desktop')")[1].strip()
+        cmd = os.path.join(BIN, nome + ".cmd")
+        lnk = os.path.join(desk, titolo + ".lnk")
+        ok = run("powershell", "-NoProfile", "-Command",
+                 f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{lnk}'); $s.TargetPath='cmd.exe'; "
+                 f"$s.Arguments='/k \"{cmd}\"'; $s.WorkingDirectory='{CASA}'; $s.Save()")[0] == 0
+        return lnk if ok else None
+    desk = os.path.join(CASA, "Desktop")
+    if not os.path.isdir(desk):
+        return None
+    if MAC:
+        f = os.path.join(desk, titolo + ".command")
+        with open(f, "w", encoding="utf-8") as h:
+            h.write(f'#!/bin/sh\nclear\nexec "{os.path.join(BIN, nome)}"\n')
+        os.chmod(f, 0o755)
+        if png:
+            img = os.path.join(CARTELLA, "icona.png")
+            os.makedirs(CARTELLA, exist_ok=True)
+            with open(img, "wb") as h:
+                h.write(png)
+            run("osascript", "-l", "JavaScript", "-e", "ObjC.import('AppKit'); $.NSWorkspace.sharedWorkspace."
+                f"setIconForFileOptions($.NSImage.alloc.initWithContentsOfFile('{img}'), '{f}', 0)")
+        return f
+    f = os.path.join(desk, "pleyades-tools.desktop")
+    with open(f, "w", encoding="utf-8") as h:
+        h.write(f"[Desktop Entry]\nType=Application\nName={titolo}\nExec={os.path.join(BIN, nome)}\nTerminal=true\n")
+    os.chmod(f, 0o755)
+    return f
+
+
 def aggiorna_comando():
     """Scarica l'ultima crew.py; la sostituisce solo se è Python valido."""
     try:
@@ -1324,6 +1359,10 @@ def guida(ui, richiesti, solo_progetti=False):
         nuova = interfaccia()
         nuova.esiti = ui.esiti
         ui = nuova
+    if pronti and file_marchio():
+        m = getattr(ui, "m", None)
+        f = icona_desktop(file_marchio()[1], m.png_sfondo(512, 512) if m and hasattr(m, "png_sfondo") else None)
+        ui.esito(Esito("icona «Pleyades tools» sul desktop", bool(f), "", nota="doppio clic per aprire la guida"))
     for _, r in pronti:
         mostra_link(ui, *r)
         for x in r[1].get("dopo", []):
