@@ -21,6 +21,8 @@
     pleyades-cli pianifica [--togli]   l'attività del sistema che lancia `auto` all'accesso e ogni 5 minuti, anche a
                                     Claude chiuso (launchd, Utilità di pianificazione, cron); `auto` la rimette da sola
     pleyades-cli intro              le 7 Pleiadi in pixel art con la frase dello studio (un tasto la salta)
+    pleyades-cli casa               intro, poi Claude (riprende l'ultima chat); uscendo da Claude: di nuovo Claude, menu
+                                    Pleyades o chiudi. È quello che apre l'icona «Pleyades» (`pleyades-cli tema` la crea)
     pleyades-cli tema               parole Pleyades nella rotella di Claude + terminale «Pleiad Fire Red» nero con
                                     l'intro (Mac: profilo del Terminale; Windows: Windows Terminal e PowerShell)
     pleyades-cli hook               (per un hook SessionStart) installa i plugin che il progetto aperto chiede e mancano
@@ -2219,7 +2221,7 @@ ROSSO, ROSA, BIANCO = (232, 37, 63), (255, 138, 150), (255, 244, 240)
 FRASE_INTRO = "Sette stelle, una rotta"
 
 
-def intro(durata=3.2):
+def intro(durata=3.2, primo_avvio=True):
     """`pleyades-cli intro`: a tutto schermo, su nero pieno in ogni cella (uguale in ogni terminale, anche col fondo
     chiaro): volo fra le stelle, le 7 Pleiadi, due stelle 3D che ruotano, il nome, la frase e lo stato. Pixel = mezza
     cella (▀/▄); un tasto salta alla fine. Fuori da un terminale non fa niente."""
@@ -2419,7 +2421,7 @@ def intro(durata=3.2):
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, vecchio)
             while select.select([sys.stdin], [], [], 0)[0]:
                 os.read(sys.stdin.fileno(), 64)  # il tasto che ha saltato non finisce nel prompt
-    if not stato().get("intro_vista"):  # primo avvio: tre strade, poi mai più
+    if primo_avvio and not stato().get("intro_vista"):  # primo avvio: tre strade, poi mai più
         salva_stato(intro_vista=time.strftime("%Y-%m-%d"))
         ui = interfaccia()
         i = ui.scegli("Da dove parti?", ["Parla con Claude", "Menu Pleyades: progetti, aggiornamenti, aiuto",
@@ -2429,6 +2431,29 @@ def intro(durata=3.2):
         if i == 1:
             return menu(ui)
     return 0
+
+
+def casa():
+    """`pleyades-cli casa` (l'icona Pleyades): intro, poi Claude che riprende l'ultima chat del progetto; all'uscita da
+    Claude un menu per tornarci, aprire il menu Pleyades o chiudere. Un solo terminale per Claude e Pleyades."""
+    intro(primo_avvio=False)
+    salva_stato(intro_vista=stato().get("intro_vista") or time.strftime("%Y-%m-%d"))
+    d = os.getcwd()
+    if os.path.abspath(d) == CASA:  # aperta dall'icona: si parte dal primo progetto
+        d = next((x for _, x in cartelle_progetti()), CASA)
+    claude, ui = shutil.which("claude"), interfaccia()
+    while True:
+        if claude:
+            inizio = time.time()
+            if subprocess.run([claude, "--continue"], cwd=d).returncode and time.time() - inizio < 5:
+                subprocess.run([claude], cwd=d)  # nessuna chat da riprendere: ne apre una nuova
+        else:
+            ui.info(f"Claude Code non c'è ancora: `{NOME_CLI} guida` lo installa")
+        i = ui.scegli("Dove vai?", ["Torna a Claude", "Menu Pleyades: progetti, aggiornamenti, aiuto", "Chiudi"])
+        if i == 1:
+            menu(ui)
+        elif i == 2:
+            return 0
 
 
 def stato_in_parole():
@@ -2604,6 +2629,8 @@ def main():
             return 0
     if a[:1] == ["intro"]:
         return intro()
+    if a[:1] == ["casa"]:
+        return casa()
     if a[:1] in (["-h"], ["--help"], ["aiuto"]):
         print(__doc__)
         return 0
