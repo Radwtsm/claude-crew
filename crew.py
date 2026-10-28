@@ -1395,7 +1395,8 @@ def guida(ui, richiesti, solo_progetti=False):
     if pronti and file_marchio():
         m = getattr(ui, "m", None)
         f = icona_desktop(file_marchio()[1], m.png_sfondo(512, 512) if m and hasattr(m, "png_sfondo") else None)
-        ui.esito(Esito("icona «Pleyades tools» sul desktop", bool(f), "", nota="doppio clic per aprire la guida"))
+        ui.esito(Esito("icona «Pleyades tools» sul desktop", bool(f), "", saltato=f is None and not WIN,
+                       nota="doppio clic per aprire la guida" if f else "niente cartella Scrivania"))
     for _, r in pronti:
         mostra_link(ui, *r)
         for x in r[1].get("dopo", []):
