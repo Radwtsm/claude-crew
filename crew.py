@@ -287,6 +287,7 @@ def modulo_talk(d, c):
     if not c.get("talk") or not os.path.isfile(p):
         return None
     spec = importlib.util.spec_from_file_location("talk_" + re.sub(r"\W", "_", os.path.basename(d)), p)
+    sys.dont_write_bytecode = True  # niente __pycache__ nel repo del progetto
     try:
         t = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(t)
