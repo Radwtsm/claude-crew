@@ -6,7 +6,7 @@ description: I temi di Claude Code con i colori dello studio (blu notte o rosso 
 # Tema dello studio
 
 ## Scegliere il tema
-1. In Claude Code (terminale): scrivi `/theme` e scegli «Pleyades Studio» o «Pleyades Studio rosso».
+1. In Claude Code (terminale): scrivi `/theme` e scegli «Pleyades Studio» o «Pleiad Fire Red».
 2. Vale per quel computer; per tornare indietro, `/theme` e un tema di base.
 Il rosso è pensato per un terminale a sfondo nero: lo sfondo lo decide il programma del terminale (Terminale,
 iTerm, Windows Terminal → Impostazioni → Profilo → Colori), non Claude.

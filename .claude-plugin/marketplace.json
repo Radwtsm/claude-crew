@@ -109,7 +109,7 @@
     {
       "name": "tema-studio",
       "source": "./plugins/tema-studio",
-      "description": "Temi di Claude Code con i colori dello studio: «Pleyades Studio» (notte blu e stelle) e «Pleyades Studio rosso» (accento rosso su nero); si scelgono con /theme",
+      "description": "Temi di Claude Code con i colori dello studio: «Pleyades Studio» (notte blu e stelle) e «Pleiad Fire Red» (accento rosso su nero); si scelgono con /theme",
       "category": "grafica",
       "keywords": [
         "grafica",
