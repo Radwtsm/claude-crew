@@ -269,16 +269,28 @@ def misura(stampa=True):
 
 def controlla():
     manca = []
-    if not os.path.isdir(os.path.join(REPO, ".git")):
-        manca.append("repo ~/claude-personale")
     cm = os.path.join(CONFIG, "CLAUDE.md")
-    if IMPORT not in (open(cm, encoding="utf-8").read() if os.path.exists(cm) else ""):
-        manca.append(f"{IMPORT} in {cm}")
-    if "personale.py" not in json.dumps(leggi_json(os.path.join(CONFIG, "settings.json")).get("statusLine", {})):
-        manca.append("barra di stato della crew")
-    for p in glob.glob(os.path.join(CONFIG, "projects", "*", "memory")):
-        if not collegata(p):
-            manca.append(f"memoria non unita: {p}")
+    testo = open(cm, encoding="utf-8").read() if os.path.exists(cm) else ""
+    # il setup del manutentore (claude-rules + memoria nel suo repo, decisione 28/10) vale come quello standard,
+    # come in `pleyades-cli controlla`: si chiede solo che ci siano regole, una memoria sola e una barra di stato
+    eccezione = "@~/claude-rules/" in testo and not os.path.isdir(os.path.join(REPO, ".git"))
+    linea = leggi_json(os.path.join(CONFIG, "settings.json")).get("statusLine", {})
+    memorie = glob.glob(os.path.join(CONFIG, "projects", "*", "memory"))
+    if eccezione:
+        print("setup del manutentore (claude-rules): controllo l'equivalente")
+        if not linea.get("command"):
+            manca.append("barra di stato")
+        mete = {os.path.realpath(p) for p in memorie}
+        if len(mete) > 1:
+            manca += [f"memoria non unita: {p}" for p in memorie if os.path.realpath(p) != os.path.realpath(memorie[0])]
+    else:
+        if not os.path.isdir(os.path.join(REPO, ".git")):
+            manca.append("repo ~/claude-personale")
+        if IMPORT not in testo:
+            manca.append(f"{IMPORT} in {cm}")
+        if "personale.py" not in json.dumps(linea):
+            manca.append("barra di stato della crew")
+        manca += [f"memoria non unita: {p}" for p in memorie if not collegata(p)]
     manca += fuori_limite()
     manca += misura(stampa=False)
     print("\n".join("- " + m for m in manca) or "tutto a posto")
