@@ -4,7 +4,8 @@ privato, una sola memoria per tutti i progetti, sincronizzazione automatica, bar
 
   personale.py setup        crea o clona ~/claude-personale (GitHub privato, con gh), collega regole, memoria,
                             barra di stato e aggiornamento automatico dei marketplace
-  personale.py controlla    stampa cosa manca (exit 1 se qualcosa non è a posto)
+  personale.py controlla    stampa cosa manca (exit 1 se qualcosa non è a posto), con i byte fissi
+  personale.py misura       byte che Claude carica a ogni sessione (regole, memoria, descrizioni delle skill)
   personale.py inizio       hook SessionStart: pull, memoria collegata anche per il progetto aperto, limiti
   personale.py fine         hook Stop: commit + push di regole e memoria cambiate
   personale.py statusline   barra di stato: modello · contesto · uso 5h/7g con reset · durata
@@ -218,6 +219,43 @@ def setup():
     return 0
 
 
+NUCLEO, INDICE, SKILL_MAX = 4500, 6000, 12000  # byte: regole sempre caricate, indice della memoria, descrizioni
+
+
+def misura(stampa=True):
+    """What is in context at every session, in bytes (1 token ≈ 4 byte): CLAUDE.md + its @imports, the memory index,
+    the descriptions of the skills of the enabled plugins. Returns the lines over the limits."""
+    righe, troppo = [], []
+    cm = os.path.join(CONFIG, "CLAUDE.md")
+    regole = 0
+    if os.path.exists(cm):
+        t = open(cm, encoding="utf-8").read()
+        regole = len(t.encode())
+        for imp in re.findall(r"^@(\S+)", t, re.M):
+            p = os.path.expanduser(imp)
+            if os.path.isfile(p):
+                regole += os.path.getsize(p)
+    righe.append(("regole sempre caricate (CLAUDE.md + @import)", regole, NUCLEO))
+    mem = os.path.join(MEMORIA, "MEMORY.md")
+    righe.append(("indice della memoria", os.path.getsize(mem) if os.path.exists(mem) else 0, INDICE))
+    attivi = {k for k, v in leggi_json(os.path.join(CONFIG, "settings.json")).get("enabledPlugins", {}).items() if v}
+    desc = 0
+    for k in attivi:
+        nome, mk = k.split("@", 1)
+        vers = sorted(glob.glob(os.path.join(CONFIG, "plugins", "cache", mk, nome, "*")), key=os.path.getmtime)
+        for f in glob.glob(os.path.join(vers[-1], "skills", "*", "SKILL.md")) if vers else []:
+            d = re.search(r"^description:\s*(.+)$", open(f, encoding="utf-8").read(), re.M)
+            desc += len(d.group(1).encode()) if d else 0
+    righe.append((f"descrizioni delle skill ({len(attivi)} plugin accesi)", desc, SKILL_MAX))
+    for nome, n, lim in righe:
+        if n > lim:
+            troppo.append(f"{nome}: {n} byte > {lim} (organizza-claude → contesto snello)")
+    if stampa:
+        print("\n".join(f"{n:>7} byte  {nome}" + ("  ⚠️" if n > lim else "") for nome, n, lim in righe))
+        print(f"{sum(n for _, n, _ in righe):>7} byte  totale (≈ {sum(n for _, n, _ in righe) // 4} token a ogni risposta)")
+    return troppo
+
+
 def controlla():
     manca = []
     if not os.path.isdir(os.path.join(REPO, ".git")):
@@ -231,6 +269,7 @@ def controlla():
         if not collegata(p):
             manca.append(f"memoria non unita: {p}")
     manca += fuori_limite()
+    manca += misura(stampa=False)
     print("\n".join("- " + m for m in manca) or "tutto a posto")
     return 1 if manca else 0
 
@@ -328,7 +367,7 @@ if __name__ == "__main__":
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     if "--se-manca-python3" in sys.argv and run(["python3", "-c", "pass"], timeout=10).returncode == 0:
         sys.exit(0)  # seconda voce degli hook, per Windows dove c'è solo `python`
-    comandi = {"setup": setup, "controlla": controlla, "inizio": inizio, "fine": fine,
+    comandi = {"setup": setup, "controlla": controlla, "misura": lambda: (misura(), 0)[1], "inizio": inizio, "fine": fine,
                "statusline": statusline, "avviso": avviso}
     if not args or args[0] not in comandi:
         print(__doc__)
