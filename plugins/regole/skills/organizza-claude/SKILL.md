@@ -22,8 +22,9 @@ tua non va nella crew, una regola di progetto non va nel personale.
 ```
 ~/.claude/CLAUDE.md               solo import, niente regole scritte qui:
                                     @~/claude-personale/regole.md
-~/claude-personale/               cartella privata (meglio un repo git privato: uguale su ogni PC)
+~/claude-personale/               repo GitHub privato, uguale su ogni PC (lo crea `configura-claude`)
   regole.md                       le tue regole personali (modello sotto)
+  memoria/                        memoria di Claude, unica per ogni progetto
   <tema>.md                       se crescono: un file per tema, importato da ~/.claude/CLAUDE.md
 ~/.claude/skills/<nome>/SKILL.md  skill solo tue (procedure con nomi, account, macchine tue)
 <progetto>/CLAUDE.md              regole del progetto: mappa, comandi, divieti

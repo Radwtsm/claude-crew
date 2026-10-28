@@ -1,0 +1,336 @@
+#!/usr/bin/env python3
+"""Il Claude di ognuno configurato come quello del manutentore (skill configura-claude): regole personali in un repo
+privato, una sola memoria per tutti i progetti, sincronizzazione automatica, barra di stato, avviso di uso alto.
+
+  personale.py setup        crea o clona ~/claude-personale (GitHub privato, con gh), collega regole, memoria,
+                            barra di stato e aggiornamento automatico dei marketplace
+  personale.py controlla    stampa cosa manca (exit 1 se qualcosa non è a posto)
+  personale.py inizio       hook SessionStart: pull, memoria collegata anche per il progetto aperto, limiti
+  personale.py fine         hook Stop: commit + push di regole e memoria cambiate
+  personale.py statusline   barra di stato: modello · contesto · uso 5h/7g con reset · durata
+  personale.py avviso       hook UserPromptSubmit: una riga a Claude se l'uso 5h o 7g supera SOGLIA
+
+Senza ~/claude-personale gli hook non fanno niente. Mac, Linux e Windows (python o python3); solo libreria standard.
+"""
+import glob, json, os, re, shutil, subprocess, sys, time
+
+HOME = os.path.expanduser("~")
+REPO = os.path.join(HOME, "claude-personale")
+MEMORIA = os.path.join(REPO, "memoria")
+CONFIG = os.path.expanduser(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(HOME, ".claude"))
+CACHE = os.path.join(CONFIG, "uso-cache.json")
+IMPORT = "@~/claude-personale/regole.md"
+SOGLIA = 85
+WIN = os.name == "nt"
+GIORNI = ["lun", "mar", "mer", "gio", "ven", "sab", "dom"]
+
+REGOLE = """# Regole personali
+
+Le mie regole per Claude, uguali su ogni computer (repo privato `claude-personale`). Vincono su quelle della crew.
+Struttura e dove va una cosa nuova: skill `organizza-claude`.
+
+## Chi sono e cosa faccio
+
+## Come rispondermi
+
+## Come lavoriamo
+
+## I miei strumenti
+
+## Da non fare mai
+"""
+LIMITI = """# Byte massimi dei file letti a ogni sessione (personale.py li controlla all'avvio). Sforato: i dettagli in un
+# file per tema, letto quando serve (organizza-claude).
+6000   regole.md
+6000   memoria/MEMORY.md
+"""
+
+
+def run(cmd, cwd=None, timeout=60):
+    try:
+        return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+    except (OSError, subprocess.SubprocessError) as e:
+        return subprocess.CompletedProcess(cmd, 1, "", str(e))
+
+
+def git(*args, timeout=60):
+    return run(["git", "-C", REPO, *args], timeout=timeout)
+
+
+def leggi_json(p):
+    try:
+        with open(p, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def scrivi_json(p, dati):
+    tmp = p + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(dati, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    os.replace(tmp, p)
+
+
+def scrivi_se_manca(nome, testo):
+    p = os.path.join(REPO, nome)
+    if not os.path.exists(p):
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "w", encoding="utf-8", newline="\n") as f:
+            f.write(testo)
+
+
+# ---- memoria unica
+
+def cartella_progetto(cwd):
+    """Come Claude Code chiama la cartella di un progetto in ~/.claude/projects (ogni carattere non alfanumerico → -)."""
+    return os.path.join(CONFIG, "projects", re.sub(r"[^A-Za-z0-9]", "-", cwd))
+
+
+def collegata(d):
+    return os.path.exists(d) and os.path.realpath(d) == os.path.realpath(MEMORIA)
+
+
+def collega(d):
+    """Unisce una memoria locale a quella unica (copia, niente sovrascritto) e la sostituisce con un collegamento."""
+    if collegata(d):
+        return None
+    os.makedirs(os.path.dirname(d), exist_ok=True)
+    if os.path.islink(d):
+        os.unlink(d)
+    elif os.path.isdir(d):
+        for f in sorted(os.listdir(d)):
+            src, dst = os.path.join(d, f), os.path.join(MEMORIA, f)
+            if not os.path.isfile(src):
+                continue
+            if f == "MEMORY.md":
+                vecchie = open(dst, encoding="utf-8").read().splitlines() if os.path.exists(dst) else []
+                nuove = [r for r in open(src, encoding="utf-8").read().splitlines() if r.strip() and r not in vecchie]
+                with open(dst, "a", encoding="utf-8", newline="\n") as out:
+                    out.writelines(r + "\n" for r in nuove)
+            elif not os.path.exists(dst):
+                shutil.copy2(src, dst)
+            elif open(src, "rb").read() != open(dst, "rb").read():
+                shutil.copy2(src, os.path.join(MEMORIA, f[:-3] + "-" + os.path.basename(os.path.dirname(d)).strip("-")[-20:] + ".md"))
+        os.rename(d, d + ".prima-di-unire-" + time.strftime("%Y%m%d%H%M%S"))  # copia di sicurezza, niente perso
+    if WIN:  # giunzione: non chiede i permessi da amministratore come un collegamento simbolico
+        r = run(["cmd", "/c", "mklink", "/J", d, MEMORIA])
+        if r.returncode:
+            return f"memoria: collegamento non creato per {d}: {(r.stderr or r.stdout).strip()}"
+    else:
+        os.symlink(MEMORIA, d)
+    return f"memoria: {d} ora è la memoria unica"
+
+
+def collega_tutte(cwd=None):
+    if not os.path.isdir(MEMORIA):
+        return []
+    dirs = {os.path.join(p, "memory") for p in glob.glob(os.path.join(CONFIG, "projects", "*")) if os.path.isdir(p)}
+    if cwd:
+        dirs.add(os.path.join(cartella_progetto(cwd), "memory"))
+    return [m for m in (collega(d) for d in sorted(dirs)) if m]
+
+
+# ---- limiti e formato
+
+def fuori_limite():
+    out = []
+    try:
+        righe = open(os.path.join(REPO, "limiti-contesto.txt"), encoding="utf-8").read().splitlines()
+    except OSError:
+        return out
+    for r in righe:
+        if not r.strip() or r.startswith("#"):
+            continue
+        massimo, schema = r.split(None, 1)
+        for p in glob.glob(os.path.join(REPO, schema.strip())):
+            if os.path.getsize(p) > int(massimo):
+                out.append(f"{os.path.relpath(p, REPO)} {os.path.getsize(p)} byte > {massimo}")
+    return out
+
+
+# ---- comandi
+
+def setup():
+    if not shutil.which("git") or not shutil.which("gh"):
+        print("Servono git e gh (GitHub CLI) installati dalle fonti ufficiali, poi `gh auth login`.")
+        return 2
+    if run(["gh", "auth", "status"]).returncode:
+        print("GitHub non collegato: lancia `gh auth login` (poi rilancia setup).")
+        return 2
+    if not os.path.isdir(os.path.join(REPO, ".git")):
+        utente = run(["gh", "api", "user", "--jq", ".login"]).stdout.strip()
+        if run(["gh", "repo", "view", f"{utente}/claude-personale"]).returncode == 0:
+            r = run(["gh", "repo", "clone", f"{utente}/claude-personale", REPO], timeout=180)
+        else:
+            r = run(["gh", "repo", "create", "claude-personale", "--private", "--clone",
+                     "--description", "Regole personali e memoria di Claude"], cwd=HOME, timeout=180)
+        if r.returncode:
+            print(f"Repo claude-personale non creato: {(r.stderr or r.stdout).strip()}")
+            return 1
+    else:
+        git("pull", "-q", "--ff-only")
+    scrivi_se_manca("regole.md", REGOLE)
+    scrivi_se_manca("memoria/MEMORY.md", "")
+    scrivi_se_manca("limiti-contesto.txt", LIMITI)
+    scrivi_se_manca(".gitignore", ".DS_Store\n*.tmp\n")
+    fatti = ["repo ~/claude-personale (privato su GitHub)"]
+
+    cm = os.path.join(CONFIG, "CLAUDE.md")
+    testo = open(cm, encoding="utf-8").read() if os.path.exists(cm) else ""
+    if IMPORT not in testo:
+        if testo.strip():
+            shutil.copy2(cm, cm + ".prima-di-configura")
+        with open(cm, "w", encoding="utf-8", newline="\n") as f:
+            f.write(IMPORT + "\n" + ("\n" + testo if testo.strip() else ""))
+        fatti.append(f"{cm}: importa le regole personali" + (" (copia: CLAUDE.md.prima-di-configura)" if testo.strip() else ""))
+
+    sp = os.path.join(CONFIG, "settings.json")
+    s = leggi_json(sp)
+    prima = json.dumps(s, sort_keys=True)
+    script = os.path.join(CONFIG, "plugins", "marketplaces", "claude-crew", "plugins", "regole", "scripts", "personale.py")
+    py = shutil.which("python" if WIN else "python3") or sys.executable  # il comando, non la versione: regge gli aggiornamenti
+    comando = f'"{py}" "{script}" statusline'.replace("\\", "/")
+    if "personale.py" in json.dumps(s.get("statusLine", {})) or not s.get("statusLine"):
+        s["statusLine"] = {"type": "command", "command": comando}
+    else:
+        fatti.append("barra di stato: ne hai già una, lasciata com'è (chiedi a Claude se vuoi quella della crew)")
+    noti = leggi_json(os.path.join(CONFIG, "plugins", "known_marketplaces.json"))
+    extra = s.setdefault("extraKnownMarketplaces", {})
+    for nome, m in noti.items():
+        src = (m or {}).get("source") or {}
+        if src.get("source") == "github" and nome != "claude-plugins-official":
+            extra.setdefault(nome, {"source": {"source": "github", "repo": src.get("repo")}})["autoUpdate"] = True
+    if json.dumps(s, sort_keys=True) != prima:
+        if os.path.exists(sp):
+            shutil.copy2(sp, sp + ".prima-di-configura")
+        scrivi_json(sp, s)
+        fatti.append("barra di stato + aggiornamento automatico dei marketplace in settings.json")
+
+    fatti += collega_tutte(os.getcwd())
+    git("add", "-A")
+    if git("diff", "--cached", "--quiet").returncode:
+        git("commit", "-q", "-m", "configura-claude: struttura iniziale")
+        git("branch", "-M", "main")
+        git("push", "-q", "-u", "origin", "main", timeout=120)
+    print("\n".join("- " + f for f in fatti))
+    return 0
+
+
+def controlla():
+    manca = []
+    if not os.path.isdir(os.path.join(REPO, ".git")):
+        manca.append("repo ~/claude-personale")
+    cm = os.path.join(CONFIG, "CLAUDE.md")
+    if IMPORT not in (open(cm, encoding="utf-8").read() if os.path.exists(cm) else ""):
+        manca.append(f"{IMPORT} in {cm}")
+    if "personale.py" not in json.dumps(leggi_json(os.path.join(CONFIG, "settings.json")).get("statusLine", {})):
+        manca.append("barra di stato della crew")
+    for p in glob.glob(os.path.join(CONFIG, "projects", "*", "memory")):
+        if not collegata(p):
+            manca.append(f"memoria non unita: {p}")
+    manca += fuori_limite()
+    print("\n".join("- " + m for m in manca) or "tutto a posto")
+    return 1 if manca else 0
+
+
+def hook_input():
+    try:
+        return json.load(sys.stdin)
+    except ValueError:
+        return {}
+
+
+def inizio():
+    dati = hook_input()
+    if not os.path.isdir(os.path.join(REPO, ".git")):
+        return 0
+    righe = []
+    r = git("pull", "-q", "--ff-only", timeout=15)
+    if r.returncode and "Could not resolve" not in r.stderr and "unable to access" not in r.stderr:
+        righe.append("claude-personale: pull non riuscito (modifiche da unire a mano): sistemalo prima di altro.")
+    righe += collega_tutte(dati.get("cwd"))
+    righe += [f"claude-personale: {x}: proponi di spostare i dettagli in un file per tema (organizza-claude)."
+              for x in fuori_limite()]
+    if righe:
+        print("\n".join(righe))
+    return 0
+
+
+def fine():
+    hook_input()
+    if not os.path.isdir(os.path.join(REPO, ".git")):
+        return 0
+    if git("status", "--porcelain").stdout.strip():
+        git("add", "-A")
+        git("commit", "-q", "-m", "aggiornamento automatico")
+    if git("rev-list", "--count", "@{u}..HEAD").stdout.strip() not in ("", "0"):
+        git("push", "-q", timeout=30)
+    return 0
+
+
+def quando(ts):
+    t = time.localtime(ts)
+    return time.strftime("%H:%M", t) if ts - time.time() < 86400 else GIORNI[t.tm_wday]
+
+
+def finestre(rl, ora):
+    out = []
+    for chiave, nome in (("five_hour", "5h"), ("seven_day", "7g")):
+        w = (rl or {}).get(chiave) or {}
+        pct, reset = w.get("used_percentage"), w.get("resets_at") or 0
+        if pct is not None and (not reset or reset > ora):
+            out.append((nome, float(pct), reset))
+    return out
+
+
+def statusline():
+    dati = hook_input()
+    parti = [((dati.get("model") or {}).get("display_name") or "")]
+    ctx = (dati.get("context_window") or {}).get("used_percentage")
+    if ctx is not None:
+        parti.append(f"contesto {ctx:.0f}%")
+    rl = dati.get("rate_limits")
+    if rl:
+        try:
+            scrivi_json(CACHE, {"ts": int(time.time()), "rate_limits": rl})
+        except OSError:
+            pass
+    parti += [f"{n} {p:.0f}%" + (f" ↻{quando(r)}" if r else "") for n, p, r in finestre(rl, time.time())]
+    ms = (dati.get("cost") or {}).get("total_duration_ms")
+    if ms:
+        m = int(ms // 60000)
+        parti.append(f"{m // 60}h{m % 60:02d}" if m >= 60 else f"{m} min")
+    print(" · ".join(p for p in parti if p))
+    return 0
+
+
+def avviso():
+    hook_input()
+    c = leggi_json(CACHE)
+    ora = time.time()
+    if not c or ora - c.get("ts", 0) > 6 * 3600:
+        return 0
+    alte = [f"{n} {p:.0f}% (reset {quando(r)})" for n, p, r in finestre(c.get("rate_limits"), ora) if p >= SOGLIA]
+    if alte:
+        print(f"uso alto: {', '.join(alte)}. Niente lavori nuovi grandi: chiudi il passo in corso, salva lo stato "
+              "(commit, backlog, prompt per ripartire) e dillo all'utente.")
+    return 0
+
+
+if __name__ == "__main__":
+    for s in (sys.stdout, sys.stderr):
+        try:
+            s.reconfigure(encoding="utf-8")
+        except (AttributeError, ValueError):
+            pass
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    if "--se-manca-python3" in sys.argv and run(["python3", "-c", "pass"], timeout=10).returncode == 0:
+        sys.exit(0)  # seconda voce degli hook, per Windows dove c'è solo `python`
+    comandi = {"setup": setup, "controlla": controlla, "inizio": inizio, "fine": fine,
+               "statusline": statusline, "avviso": avviso}
+    if not args or args[0] not in comandi:
+        print(__doc__)
+        sys.exit(2)
+    sys.exit(comandi[args[0]]())
