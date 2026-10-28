@@ -751,8 +751,8 @@ def aggiorna(ui):
     for repo in stato().get("progetti", []):
         d = cartella_progetto(repo)
         if os.path.isdir(os.path.join(d, ".git")):
-            codice, out = run("git", "-C", d, "pull", "-q", "--ff-only")
-            ui.esito(Esito(f"{repo}", codice == 0, "modifiche locali non salvate? Apri Claude Code lì e scrivi «aggiorna il repo»"))
+            ok, d, out = clona(repo)
+            ui.esito(Esito(f"{repo}", ok and not out, f"{out[:150]} → apri Claude Code lì e scrivi «aggiorna il repo»"))
             c = config_progetto(d)
             if c["plugin"]:
                 manca, _ = assicura_plugin(marketplace_del_progetto(c), c["plugin"])
