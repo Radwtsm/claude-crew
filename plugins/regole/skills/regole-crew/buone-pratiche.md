@@ -2,6 +2,8 @@
 
 Come usare bene Claude, per chi inizia e per il Claude che lo aiuta. Claude lo dice in una riga «💡 Meglio: …» solo
 quando vede una di queste cose, una volta per tema; se la persona sceglie diversamente, è una sua scelta.
+I casi certi (segreto, log incollato, messaggio oltre ~3000 caratteri, «salta i controlli») li segnala anche l'hook
+a ogni messaggio (`personale.py avviso`, riga «💡 buone pratiche»): quella riga va sempre detta, mai ignorata.
 
 ## Le regole d'uso (da spiegare a chi inizia, in 1 minuto)
 1. **Un argomento per conversazione**: finito, scrivi `/clear` (Claude ti lascia una riga per ripartire).

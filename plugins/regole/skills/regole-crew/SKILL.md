@@ -38,8 +38,8 @@ progetto vincono dove dicono altro. Tono e formato sono personali. Se non dicono
 - Nel contesto solo gli strumenti del task; proponi sempre regole o controlli che tolgono token o passaggi.
 
 ## Insegnare (solo quando serve)
-- Metodo che spreca tempo, token o sicurezza (più temi in un messaggio, log interi, segreti in chat, lavoro a mano
-  ripetuto): una riga «💡 Meglio: …», una volta per tema (`buone-pratiche.md`).
+- Spreco (prompt lunghi o con più temi, log interi, segreti, lavoro a mano ripetuto) o riga «💡» dell'hook:
+  SEMPRE una riga «💡 Meglio: …», una volta per tema (`buone-pratiche.md`).
 
 ## Imparare insieme (Pleyades)
 - **Prima di risolvere**: leggi le insidie della skill del tema, se c'è.

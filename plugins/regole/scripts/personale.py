@@ -29,6 +29,25 @@ IMPORT = "@~/claude-personale/regole.md"
 SOGLIA = 85
 AVVISO = os.path.join(CONFIG, "uso-avviso.json")
 SUGGERITI = os.path.join(CONFIG, "plugin-suggeriti.json")
+PRATICHE = os.path.join(CONFIG, "pratiche-avvisate.json")
+# Cattive pratiche che uno script riconosce senza dubbi (buone-pratiche.md): tema → (giorni di silenzio, consiglio).
+# Il segreto ogni volta: va cambiato comunque.
+CONSIGLI = {
+    "segreto": (0, "sembra esserci un segreto (chiave, token, password) nel messaggio: NON ripeterlo, digli che va "
+                   "cambiato e che la prossima volta lo scrive in un comando che lo chiede"),
+    "log": (1, "ha incollato un log o un output lungo: usa solo le righe che contano e digli che basta l'errore (o "
+               "il percorso del file)"),
+    "lungo": (1, "messaggio molto lungo: se dentro ci sono più argomenti, fai il primo e proponi gli altri dopo /clear; "
+                 "digli che funziona meglio un argomento per messaggio, scopo in una riga"),
+    "salta": (1, "chiede di saltare un controllo: spiega cosa segnala e correggi la causa invece di aggirarlo"),
+}
+RE_SEGRETO = re.compile(r"\b(sk-(ant-)?[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|"
+                        r"AKIA[0-9A-Z]{16}|xox[abp]-[A-Za-z0-9-]{20,}|AIza[0-9A-Za-z_-]{30,})|-{5}BEGIN [A-Z ]*PRIVATE KEY|"
+                        r"\b(password|passwd|token|api[_-]?key|secret)\s*[:=]\s*\S{8,}", re.I)
+RE_LOG = re.compile(r"^\s*(\d{4}-\d\d-\d\d[ T]\d\d:\d\d|\[?\d\d:\d\d:\d\d|at [\w.$]+\(|File \".*\", line \d+|"
+                    r"(ERROR|WARN|INFO|DEBUG)\b|Traceback)", re.M)
+RE_SALTA = re.compile(r"--no-verify|salta (i |il )?(test|controll|hook)|disattiva (i |il )?(test|controll|hook)|"
+                      r"skip (the )?(tests?|checks?|hooks?)", re.I)
 LIVELLI = ((SOGLIA, "niente lavori nuovi grandi: chiudi il passo in corso, salva lo stato (commit, backlog, prompt per "
                     "ripartire) e dillo all'utente."),
            (50, "risposte corte, letture mirate (grep, sezioni), niente subagent né ricerche larghe; a fine argomento "
@@ -476,8 +495,37 @@ def suggerisci(prompt):
               "serve davvero al lavoro, non dirlo.")
 
 
+def pratiche(prompt):
+    """Una riga a Claude quando il messaggio mostra una cattiva pratica certa, una volta per tema ogni N giorni
+    (buone-pratiche.md). Il testo del messaggio non viene mai ripetuto. Niente output se è tutto ok (0 token)."""
+    p = prompt or ""
+    temi = []
+    if RE_SEGRETO.search(p):
+        temi.append("segreto")
+    if len(RE_LOG.findall(p)) >= 15:
+        temi.append("log")
+    elif len(p) > 3000:
+        temi.append("lungo")
+    if RE_SALTA.search(p):
+        temi.append("salta")
+    stato, ora = leggi_json(PRATICHE) or {}, time.time()
+    temi = [t for t in temi if ora - stato.get(t, 0) >= CONSIGLI[t][0] * 86400]
+    if not temi:
+        return
+    for t in temi:
+        stato[t] = ora
+    try:
+        scrivi_json(PRATICHE, stato)
+    except OSError:
+        pass  # senza memoria dell'avviso si ripete: meglio che un hook rotto
+    print("💡 buone pratiche (regole-crew → Insegnare): " + "; ".join(CONSIGLI[t][1] for t in temi) +
+          ". Dillo all'utente in UNA riga «💡 Meglio: …», gentile, poi rispondi alla richiesta.")
+
+
 def avviso():
-    suggerisci(hook_input().get("prompt"))
+    dati = hook_input()
+    pratiche(dati.get("prompt"))
+    suggerisci(dati.get("prompt"))
     c = leggi_json(CACHE)
     ora = time.time()
     if not c or ora - c.get("ts", 0) > 6 * 3600:
