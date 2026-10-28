@@ -2472,6 +2472,7 @@ def tema():
         if ha("claude") and "tema-studio@claude-crew" not in plugin_installati():
             run("claude", "plugin", "install", "tema-studio@claude-crew")
         s["theme"] = TEMA_CLAUDE
+    s.setdefault("enabledPlugins", {})["tema-studio@claude-crew"] = True  # installato ma spento = Claude arancione
     if json.dumps(s, sort_keys=True) != prima:
         if os.path.exists(p):
             shutil.copy(p, p + ".prima-di-crew")
@@ -2539,18 +2540,30 @@ def tema_windows():
     if isinstance(prof, list):
         prof = w["profiles"] = {"list": prof}
     prof.setdefault("defaults", {}).update(colorScheme=nome, opacity=100, useAcrylic=False)
-    shutil.copy(f, f + ".prima-di-crew")
+    if not os.path.exists(f + ".prima-di-crew"):  # la copia resta quella di prima del primo giro
+        shutil.copy(f, f + ".prima-di-crew")
+    # l'intro a ogni scheda nuova di PowerShell: dalla riga di comando del profilo di Windows Terminal ($PROFILE
+    # no: su Windows Home la policy Restricted non lo esegue, sanghez 28/10)
+    cli = os.path.join(BIN, f"{NOME_CLI}.cmd")
+    for x in prof.get("list", []):
+        c, sorg = str(x.get("commandline", "")).lower(), str(x.get("source", ""))
+        if "intro" in c:
+            continue
+        if sorg == "Windows.Terminal.PowershellCore" or "pwsh" in c:
+            exe = "pwsh.exe"
+        elif "powershell" in c or "powershell" in str(x.get("name", "")).lower():
+            exe = "powershell.exe"
+        else:
+            continue
+        x["commandline"] = f"{exe} -NoLogo -NoExit -Command \"& '{cli}' intro\""
     scrivi_json(f, w)
-    # l'intro a ogni scheda nuova: una riga nel profilo di PowerShell (solo dentro Windows Terminal)
     ps = shutil.which("powershell") and subprocess.run(["powershell", "-NoProfile", "-Command", "$PROFILE"],
                                                        capture_output=True, text=True).stdout.strip()
-    if ps:
-        riga = "if ($env:WT_SESSION) { pleyades-cli intro }  # Pleyades tools"
-        esiste = open(ps, encoding="utf-8-sig").read() if os.path.isfile(ps) else ""
-        if riga not in esiste:
-            os.makedirs(os.path.dirname(ps), exist_ok=True)
-            with open(ps, "a", encoding="utf-8") as fh:
-                fh.write(("\n" if esiste and not esiste.endswith("\n") else "") + riga + "\n")
+    if ps and os.path.isfile(ps):  # la riga della versione di prima, che con Restricted dà errore a ogni scheda
+        testo = open(ps, encoding="utf-8-sig").read()
+        if "# Pleyades tools" in testo:
+            with open(ps, "w", encoding="utf-8") as fh:
+                fh.write("".join(r for r in testo.splitlines(True) if "# Pleyades tools" not in r))
     return True, f"schema «{nome}» predefinito in Windows Terminal (copia: settings.json.prima-di-crew), intro nelle schede nuove"
 
 

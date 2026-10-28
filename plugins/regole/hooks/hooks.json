@@ -11,7 +11,7 @@
           },
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/personale.py\" inizio",
+            "command": "python3 -c '' 2>/dev/null || exit 0; python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/personale.py\" inizio",
             "timeout": 30
           },
           {
@@ -21,7 +21,7 @@
           },
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/allinea.py\"",
+            "command": "python3 -c '' 2>/dev/null || exit 0; python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/allinea.py\"",
             "timeout": 10
           },
           {
@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/lint_regole.py\" --hook",
+            "command": "python3 -c '' 2>/dev/null || exit 0; python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/lint_regole.py\" --hook",
             "timeout": 15
           },
           {
@@ -54,7 +54,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/personale.py\" fine",
+            "command": "python3 -c '' 2>/dev/null || exit 0; python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/personale.py\" fine",
             "timeout": 45
           },
           {
@@ -70,7 +70,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/personale.py\" avviso",
+            "command": "python3 -c '' 2>/dev/null || exit 0; python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/personale.py\" avviso",
             "timeout": 10
           },
           {
@@ -80,7 +80,7 @@
           },
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/allinea.py\" --turno",
+            "command": "python3 -c '' 2>/dev/null || exit 0; python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/allinea.py\" --turno",
             "timeout": 10
           },
           {
