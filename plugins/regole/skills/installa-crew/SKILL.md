@@ -13,7 +13,10 @@ Le istruzioni complete, anche per la prima installazione, sono in `INSTALLA.md` 
   (copia locale: `~/.claude/plugins/marketplaces/claude-crew/`) e confrontalo con `claude plugin list`; proponi
   cosa accendere o spegnere con una domanda a scelta multipla.
 - Aggiungere: `claude plugin install <nome>@claude-crew`. Togliere: `claude plugin uninstall <nome>@claude-crew`.
-- **"Tutte, sempre"**: l'aggiornamento automatico (`/plugin` → Marketplaces → claude-crew → Enable auto-update)
+- **Per mestiere, di default**: sul computer solo i plugin del settore dell'utente. Uno di un altro settore si
+  installa solo se un lavoro lo chiede o è già stato usato, dicendolo in una riga; mai "per sicurezza".
+- **"Tutte, sempre"** (solo se l'utente lo chiede): l'aggiornamento automatico (`/plugin` → Marketplaces → claude-crew →
+  Enable auto-update)
   aggiorna i plugin installati, ma **non installa quelli nuovi**. A ogni "aggiorna la crew": marketplace update,
   poi installa ogni plugin dell'elenco che manca in `claude plugin list`, poi di' quali sono arrivati.
 - I plugin di terzi nell'elenco (voci di `esterni.json`) si installano allo stesso modo.

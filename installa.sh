@@ -3,7 +3,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.sh | bash
 # Con un progetto privato a cui sei stato invitato (lo clona e lancia il suo onboarding.py, se c'è):
 #   curl -fsSL https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.sh | bash -s -- PROPRIETARIO/REPO
-# Fa: strumenti di Apple (git, python3) → Claude Code → crew (regole + aggiornamento automatico) → progetto.
+# Fa: strumenti di Apple (git, python3) → Claude Code → crew (solo regole + aggiornamento automatico) → progetto.
 set -u
 PROGETTO="${1:-}"
 tty=/dev/tty
@@ -44,12 +44,12 @@ PY
 }
 impostazioni
 claude plugin marketplace list 2>/dev/null | grep -q claude-crew || claude plugin marketplace add Radwtsm/claude-crew >/dev/null
-for x in regole codice; do
+for x in regole; do  # il resto per mestiere: «aggiorna la crew» (mai strumenti di un altro settore)
   claude plugin list 2>/dev/null | grep -q "$x@claude-crew" || claude plugin install "$x@claude-crew" >/dev/null
 done
 impostazioni claude-crew  # `marketplace add` toglie autoUpdate: rimesso dopo
 claude plugin list 2>/dev/null | grep -q "regole@claude-crew" || stop "plugin della crew non installati"
-ok "crew (regole, codice) con aggiornamento automatico"
+ok "crew (regole) con aggiornamento automatico; gli strumenti del tuo mestiere: in Claude «aggiorna la crew»"
 
 [ -n "$PROGETTO" ] || { ok "fatto: apri Claude Code (claude) e scrivi «configura il mio Claude»"; exit 0; }
 
