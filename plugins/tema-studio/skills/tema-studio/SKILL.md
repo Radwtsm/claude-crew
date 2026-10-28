@@ -9,8 +9,9 @@ description: I temi di Claude Code con i colori dello studio (blu notte o rosso 
 1. In Claude Code (terminale): scrivi `/theme` e scegli «Pleyades Studio» o «Pleiad Fire Red».
 2. Vale per quel computer; per tornare indietro, `/theme` e un tema di base.
 Il rosso vuole uno sfondo nero pieno: lo decide il programma del terminale, non Claude.
-`pleyades-cli tema` fa tutto: parole Pleyades nella rotella (solo se non ne hai già di tue) e terminale nero con
-l'intro (stato tuo e della squadra, i comandi `claude` e `pley`; al primo avvio tre strade).
+`pleyades-cli tema` (anche nel menu `pley` e proposto dalla guida) fa tutto: Claude in «Pleiad Fire Red» (chi ha
+scelto il blu lo tiene), parole Pleyades nella rotella (solo se non ne hai di tue), terminale nero con l'intro (stato
+tuo e della squadra, i comandi `claude` e `pley`; al primo avvio tre strade).
 - Mac: profilo «Pleiad Fire Red» del Terminale, predefinito. Toglierlo: Terminale → Impostazioni → Profili → un
   altro → Predefinito. Opzione-clic sposta il cursore nella riga; col mouse in tutto, l'app desktop di Claude.
 - Windows: schema in Windows Terminal (copia in `settings.json.prima-di-crew`) e una riga nel profilo di PowerShell.

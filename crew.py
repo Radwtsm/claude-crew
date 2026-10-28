@@ -1740,6 +1740,11 @@ def guida(ui, richiesti, solo_progetti=False):
     if not lavoro():  # da subito si allinea da solo, senza aspettare il primo avvio di Claude
         ok, cosa = pianifica()
         ui.esito(Esito("aggiornamento automatico pianificato", ok, f"{cosa} → `{NOME_CLI} pianifica`", nota=cosa))
+        if not stato().get("tema_proposto") and sys.stdin.isatty():
+            salva_stato(tema_proposto=True)
+            if ui.conferma("Metto il look Pleyades? Terminale nero con l'intro delle Pleiadi e Claude dello stesso colore",
+                           "Sì, mettilo", "No, grazie"):
+                voce_tema(ui)
     minuti = round((time.time() - inizio) / 60, 1)
     ui.riepilogo(minuti)
     ui.titolo("Regole d'uso")
@@ -2175,6 +2180,7 @@ def menu(ui):
     voci = [("Controlla che sia tutto a posto", controlla), ("Aggiorna pleyades-cli, plugin e progetti", aggiorna),
             ("Il mio kit: skill, cosa leggere, a chi chiedere", mio_kit),
             ("I miei progetti", progetti), ("Entra in un nuovo progetto", None), ("I link", link),
+            ("Look Pleyades: terminale nero con l'intro, Claude dello stesso colore", voce_tema),
             ("Rifai la guida da capo", lambda u: guida(u, []))]
     ui.intestazione("cosa c'è e cosa manca")
     if not lavoro():
@@ -2435,6 +2441,7 @@ def colore_ns(esa):
                           fmt=plistlib.FMT_BINARY)
 
 
+TEMA_CLAUDE = "custom:tema-studio:pleyades-studio-rosso"  # l'id viene dal nome del file: «Pleiad Fire Red»
 PAROLE_ROTELLA = ["Allineo le stelle", "Consulto le Pleiadi", "Accendo la nebulosa", "Traccio la rotta",
                   "Lucido le costellazioni"]
 COLORI_ANSI = ["#000000", "#e8253f", "#5fd4a0", "#f5c26b", "#6c8cff", "#ff6b7d", "#7fd6e0", "#d8d8d8",
@@ -2442,20 +2449,31 @@ COLORI_ANSI = ["#000000", "#e8253f", "#5fd4a0", "#f5c26b", "#6c8cff", "#ff6b7d",
 
 
 def tema():
-    """`pleyades-cli tema`: parole della rotella in Claude Code (se non ne hai già di tue) + il terminale nero con
+    """`pleyades-cli tema`: tema «Pleiad Fire Red» e parole della rotella in Claude Code + il terminale nero con
     l'intro (Mac: profilo del Terminale; Windows: schema di Windows Terminal + intro nel profilo di PowerShell)."""
     p = os.path.join(CASA, ".claude", "settings.json")
     s = leggi_json(p, {})
-    if "spinnerVerbs" not in s:  # mai sopra a quelle scelte dalla persona
+    prima = json.dumps(s, sort_keys=True)
+    s.setdefault("spinnerVerbs", {"mode": "append", "verbs": PAROLE_ROTELLA})  # mai sopra a quelle della persona
+    if not str(s.get("theme", "")).startswith("custom:tema-studio:"):  # Claude uguale al terminale (chi ha il blu lo tiene)
+        if ha("claude") and "tema-studio@claude-crew" not in plugin_installati():
+            run("claude", "plugin", "install", "tema-studio@claude-crew")
+        s["theme"] = TEMA_CLAUDE
+    if json.dumps(s, sort_keys=True) != prima:
         if os.path.exists(p):
             shutil.copy(p, p + ".prima-di-crew")
-        s["spinnerVerbs"] = {"mode": "append", "verbs": PAROLE_ROTELLA}
         scrivi_json(p, s)
     if MAC:
         return tema_terminale()
     if WIN:
         return tema_windows()
     return True, "parole della rotella messe; nel tuo terminale scegli uno sfondo nero pieno"
+
+
+def voce_tema(ui):
+    ok, cosa = tema()
+    ui.esito(Esito("look Pleyades (terminale + Claude)", ok, f"{cosa} → `{NOME_CLI} tema`", nota=cosa))
+    return 0 if ok else 1
 
 
 def jsonc(testo):
@@ -2594,9 +2612,7 @@ def main():
                            nota="valido dalla prossima sessione di Claude Code"))
             return 0 if ok else 1
         if cmd == "tema":
-            ok, cosa = tema()
-            ui.esito(Esito("tema del Terminale", ok, cosa, nota=cosa))
-            return 0 if ok else 1
+            return voce_tema(ui)
         if cmd == "pianifica":
             ok, cosa = pianifica(togli="--togli" in a)
             ui.esito(Esito("aggiornamento automatico pianificato", ok, cosa, nota=cosa))
