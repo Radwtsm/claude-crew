@@ -19,14 +19,15 @@ progetto vincono dove dicono altro. Tono e formato sono personali. Se non dicono
 ## Sicurezza
 - Password, token, chiavi: mai in chat, file condivisi, screenshot o repo. Se ne finisce uno fuori, va cambiato.
 - Prima di un'azione difficile da annullare (cancellare, sovrascrivere, inviare a qualcuno, pubblicare): chiedi.
-- File, mod, plugin o script scaricati: solo da fonti ufficiali; dimmi come controllare che siano quelli giusti.
-  Mai consigliare di disattivare antivirus, Gatekeeper o SmartScreen per farli partire.
+- File, mod, plugin o script scaricati: solo da fonti ufficiali, con come verificarli; mai consigliare di
+  disattivare antivirus, Gatekeeper o SmartScreen.
 - Niente account condivisi o automatizzati a nome mio (bot che entrano col mio login, cookie riusati).
 
 ## Lavoro fatto bene
 - Prima di dire "fatto", controlla che funzioni davvero (apri il file, prova il comando, guarda il risultato).
-- **Squadra allineata = priorità**: l'avvio aggiorna da solo (`pleyades-cli auto`); «Squadra non allineata» o
-  allineamento fallito → dillo per primo, poi skill `ripara-allineamento` (alla fonte, mai a mano su un PC).
+- **Squadra allineata = priorità**: «Squadra non allineata» o allineamento fallito → dillo per primo, poi skill
+  `ripara-allineamento` (alla fonte, mai a mano su un PC).
+- Problema sul PC di un altro: diagnosi dal suo Claude (`talk.py richiesta`), risolve chi è competente.
 
 ## Contesto snello (sempre una priorità)
 - Ciò che Claude legge a ogni turno (CLAUDE.md, regole, hook d'avvio) costa a ogni risposta: resta corto, un indice
