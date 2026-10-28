@@ -71,9 +71,12 @@ ok "GitHub"
 
 dir="$HOME/code/${PROGETTO#*/}"
 if [ ! -d "$dir/.git" ]; then
-  gh repo clone "$PROGETTO" "$dir" >/dev/null 2>&1 \
-    || stop "non vedo $PROGETTO. Manda il tuo nome GitHub «$(gh api user -q .login 2>/dev/null)» a chi ti ha invitato,
-   poi accetta l'invito che ti arriva per mail"
+  if ! gh repo clone "$PROGETTO" "$dir" >/dev/null 2>&1; then
+    io=$(gh api user -q .login 2>/dev/null)
+    [ "$(echo "$io" | tr A-Z a-z)" = "$(echo "${PROGETTO%%/*}" | tr A-Z a-z)" ] \
+      && stop "il repo $PROGETTO non esiste: controlla il nome (è tuo)"
+    stop "non vedo $PROGETTO. Manda il tuo nome GitHub «$io» a chi ti ha invitato, poi accetta l'invito per mail"
+  fi
 fi
 ok "progetto in ${dir/#$HOME/~}"
 onb=$(find "$dir" -maxdepth 4 -name onboarding.py -not -path '*/.git/*' | head -1)
