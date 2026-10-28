@@ -1787,11 +1787,21 @@ def controlla(ui):
     if "--talk" in sys.argv:  # il riassunto in ogni stanza; `pleyades-cli squadra` confronta le versioni di tutti
         manca = [e.nome for e in ui.esiti if not (e.ok or e.saltato)]
         testo = f"🔎 pleyades-cli controlla ({platform.system()}): {len(ui.esiti) - len(manca)}/{len(ui.esiti)} a posto"
-        for _, d in cartelle_progetti():
+        dove = [d for _, d in cartelle_progetti()]
+        qui = run("git", "rev-parse", "--show-toplevel")[1].strip()  # un progetto non ancora «entra»: quello aperto
+        if not dove and qui and os.path.isfile(os.path.join(qui, ".claude", "progetto.json")):
+            dove = [qui]
+        scritti = 0
+        for d in dove:
             c = config_progetto(d)
             if c.get("talk"):
                 v = " ".join(f"{k}={x}" for k, x in versioni(d, c).items())
-                scrivi_in_stanza(d, c, (f"{testo} · versioni: {v}" + (" · manca: " + ", ".join(manca) if manca else ""))[:390])
+                scritti += scrivi_in_stanza(d, c, (f"{testo} · versioni: {v}"
+                                                   + (" · manca: " + ", ".join(manca) if manca else ""))[:390])
+        nota = (f"riassunto in {scritti} stanze" if scritti else
+                "nessuna stanza: `pleyades-cli entra PROPRIETARIO/REPO` o lancialo dalla cartella del progetto")
+        ui.info(nota)
+        ui.ultimo = ui.ultimo + [ui.c("2", "  " + nota)] if getattr(ui, "ultimo", None) else []  # resta dopo l'uscita
     return 0 if all(e.ok or e.saltato for e in ui.esiti) else 1
 
 
