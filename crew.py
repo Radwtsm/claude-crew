@@ -14,6 +14,8 @@
     pleyades-cli progetti           i tuoi progetti e a che punto sono
     pleyades-cli link               i link giusti (studio, Talk, Dashboard, cartelle)
     pleyades-cli kit                il tuo kit in base al ruolo: skill, cosa leggere, a chi chiedere
+    pleyades-cli auto               (lo lancia l'hook d'avvio di regole, in background) aggiorna tutto, poi
+                                    `controlla --talk` solo se il riassunto è cambiato o ha più di 3 giorni
     pleyades-cli hook               (per un hook SessionStart) installa i plugin che il progetto aperto chiede e mancano
     pleyades-cli profilo casa|lavoro   che computer è: «lavoro» = solo le regole comuni, niente progetti, Talk o Nextcloud
     pleyades-cli prendi NOME ["perché"] / pleyades-cli togli NOME   un plugin di Pleyades tools solo su questo computer (per il lavoro),
@@ -1794,14 +1796,21 @@ def controlla(ui):
         qui = run("git", "rev-parse", "--show-toplevel")[1].strip()  # un progetto non ancora «entra»: quello aperto
         if not dove and qui and os.path.isfile(os.path.join(qui, ".claude", "progetto.json")):
             dove = [qui]
-        scritti = 0
+        scritti, uguali, inviati = 0, 0, stato().get("talk_inviati", {})
         for d in dove:
             c = config_progetto(d)
             if c.get("talk"):
                 v = " ".join(f"{k}={x}" for k, x in versioni(d, c).items())
-                scritti += scrivi_in_stanza(d, c, (f"{testo} · versioni: {v}"
-                                                   + (" · manca: " + ", ".join(manca) if manca else ""))[:390])
-        nota = (f"riassunto in {scritti} stanze" if scritti else
+                msg = (f"{testo} · versioni: {v}" + (" · manca: " + ", ".join(manca) if manca else ""))[:390]
+                prima = inviati.get(d, {})
+                if "--se-cambiato" in sys.argv and prima.get("msg") == msg and time.time() - prima.get("t", 0) < 3 * 86400:
+                    uguali += 1  # già nella stanza e recente: squadra lo vede ancora
+                    continue
+                if scrivi_in_stanza(d, c, msg):
+                    scritti += 1
+                    inviati[d] = {"msg": msg, "t": time.time()}
+        salva_stato(talk_inviati=inviati)
+        nota = (f"riassunto in {scritti} stanze" if scritti else "riassunto invariato, già nella stanza" if uguali else
                 "nessuna stanza: `pleyades-cli entra PROPRIETARIO/REPO` o lancialo dalla cartella del progetto")
         ui.info(nota)
         ui.ultimo = ui.ultimo + [ui.c("2", "  " + nota)] if getattr(ui, "ultimo", None) else []  # resta dopo l'uscita
@@ -1933,6 +1942,22 @@ def hook():
     return 0
 
 
+def auto(ui):
+    """Hook d'avvio (in background): tutti gli strumenti all'ultima versione prima di lavorare, poi il controllo
+    nella stanza se è cambiato; l'esito resta in stato.json e l'hook lo dice a Claude al prossimo avvio."""
+    if time.time() - stato().get("auto", {}).get("t", 0) < 1800:
+        return 0  # più sessioni aperte di seguito: una volta ogni mezz'ora basta
+    salva_stato(auto={"t": time.time(), "esito": "in corso"})
+    aggiorna(ui)
+    ko = [e.nome for e in ui.esiti if not (e.ok or e.saltato)]
+    ui.esiti = []
+    sys.argv += ["--talk", "--se-cambiato"]
+    controlla(ui)
+    ko += [e.nome for e in ui.esiti if not (e.ok or e.saltato)]
+    salva_stato(auto={"t": time.time(), "esito": "ok" if not ko else "da sistemare: " + ", ".join(dict.fromkeys(ko))})
+    return 0
+
+
 def menu(ui):
     ui.pulisci()
     voci = [("Controlla che sia tutto a posto", controlla), ("Aggiorna pleyades-cli, plugin e progetti", aggiorna),
@@ -2004,7 +2029,7 @@ def main():
             ui.esito(Esito(f"{'preso' if cmd == 'prendi' else 'tolto'}: {a[1]}", ok, cosa,
                            nota="valido dalla prossima sessione di Claude Code"))
             return 0 if ok else 1
-        f = {"controlla": controlla, "squadra": squadra, "aggiorna": aggiorna, "progetti": progetti, "link": link, "kit": mio_kit}.get(cmd)
+        f = {"controlla": controlla, "squadra": squadra, "aggiorna": aggiorna, "auto": auto, "progetti": progetti, "link": link, "kit": mio_kit}.get(cmd)
         if f:
             return f(ui)
         print(f"pleyades-cli: comando «{cmd}» sconosciuto. `pleyades-cli --help` per l'elenco.")
