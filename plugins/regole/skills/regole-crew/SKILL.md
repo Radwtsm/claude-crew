@@ -24,7 +24,7 @@ progetto vincono dove dicono altro. Tono e formato sono personali. Se non dicono
 - Niente account condivisi o automatizzati a nome mio (bot che entrano col mio login, cookie riusati).
 
 ## Lavoro fatto bene
-- Prima di dire "fatto", controlla che funzioni davvero (apri il file, prova il comando, guarda il risultato).
+- Prima di dire "fatto" o "è così", verifica davvero, sulla macchina (`verificare.md`); lavoro: `lavoro.md` prima.
 - **Squadra allineata = priorità**: «Squadra non allineata» o allineamento fallito → dillo per primo, poi skill
   `ripara-allineamento` (alla fonte, mai a mano su un PC).
 - Problema sul PC di un altro: diagnosi dal suo Claude (`talk.py richiesta`), risolve chi è competente.
