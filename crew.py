@@ -640,8 +640,8 @@ def scarica_cartella(server, cred, cartella, dest):
 
 def salva_credenziali(t, cred):
     """Dove le salva `talk.py collega` (con il suo codice: file solo tuo, permessi 600)."""
-    if not t.credenziali():
-        t.scrivi_json(t.CONF, {"utente": cred["utente"], "password": cred["password"]})
+    if t.credenziali() != {"utente": cred["utente"], "password": cred["password"]}:  # anche una scaduta va sostituita
+        t.scrivi_json(t.CONF, {**(t.leggi_json(t.CONF) or {}), "utente": cred["utente"], "password": cred["password"]})
 
 
 def cartelle_progetti():
@@ -1535,7 +1535,17 @@ def passo_studio(ui):
     if not server:
         return []
     ui.titolo(f"Studio {server.split('//')[-1]}")
-    tieni = [credenziali_note() or accedi_studio(ui, server)]
+    cred = credenziali_note()
+    if cred:  # password cambiata o accesso revocato = 401: si rifà «Concedi accesso», non a mano (28/10, luco)
+        try:
+            dav_elenco(server, cred)
+        except urllib.error.HTTPError as e:
+            if e.code == 401:
+                ui.info("L'accesso salvato allo studio non vale più (password cambiata?): lo rifacciamo.")
+                cred = None
+        except (OSError, ValueError):
+            pass
+    tieni = [cred or accedi_studio(ui, server)]
 
     def di_nuovo():
         tieni[0] = accedi_studio(ui, server)
@@ -1628,6 +1638,8 @@ def prepara(ui, d, c, etichetta, cred=None, studio=False):
     t = modulo_talk(d, c)
     conf = None
     if t:
+        if cred:  # dallo studio, appena controllate: sostituiscono una password per app scaduta (Talk 401)
+            salva_credenziali(t, cred)
         conf = stanza_collegata(t, c.get("stanza"))
         nome = c.get("stanza") or t.STANZA
         if not conf:
