@@ -1819,7 +1819,8 @@ def controlla(ui):
 
 def squadra(ui):
     """Chi del progetto è allineato: l'ultimo «🔎 controlla --talk» di ognuno nella stanza contro l'ultima versione."""
-    filtro = (sys.argv[2:] or [""])[0]
+    filtro = ([x for x in sys.argv[2:] if not x.startswith("-")] or [""])[0]
+    indietro, senza = [], []
     try:
         cli = sha7(scarica(CREW_PY))
     except (OSError, ValueError):
@@ -1861,8 +1862,12 @@ def squadra(ui):
                            nota=f"{r.group('ok')}/{r.group('tot')} · {time.strftime('%d/%m %H:%M', time.localtime(m['timestamp']))}"))
         fatti = {n for n, _ in ultimi}
         mai = sorted(persone - fatti - {n[len("claude-"):] for n in fatti if n.startswith("claude-")})  # il suo Claude
+        indietro += [e.nome for e in ui.esiti if not e.ok and e.nome != "stanza Talk"]
+        senza += mai
         if mai:
             ui.info("nella stanza, senza controllo: " + ", ".join(mai) + " (`pleyades-cli controlla --talk`)")
+    if not filtro:  # l'hook d'avvio di regole lo dice al Claude di ognuno (allineamento = priorità assoluta)
+        salva_stato(squadra={"t": time.time(), "indietro": sorted(set(indietro)), "senza": sorted(set(senza))})
     return 0 if all(e.ok or e.saltato for e in ui.esiti) else 1
 
 
@@ -1955,6 +1960,8 @@ def auto(ui):
     controlla(ui)
     ko += [e.nome for e in ui.esiti if not (e.ok or e.saltato)]
     salva_stato(auto={"t": time.time(), "esito": "ok" if not ko else "da sistemare: " + ", ".join(dict.fromkeys(ko))})
+    ui.esiti = []
+    squadra(ui)
     return 0
 
 

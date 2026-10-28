@@ -23,12 +23,17 @@ def main():
         return
     try:
         with open(STATO, encoding="utf-8") as f:
-            esito = json.load(f).get("auto", {}).get("esito", "")
+            st = json.load(f)
     except (OSError, ValueError):
-        esito = ""
+        st = {}
+    esito, sq = st.get("auto", {}).get("esito", ""), st.get("squadra", {})
     if esito.startswith("da sistemare"):
         print(f"pleyades-cli: l'ultimo allineamento automatico ha {esito}: dillo all'utente in una riga "
               "(si sistema con `pleyades-cli aggiorna`, poi `pleyades-cli controlla`).")
+    fuori = sq.get("indietro", []) + [f"{n} (mai controllato)" for n in sq.get("senza", [])]
+    if fuori:  # allineamento costante del team = priorità assoluta (owner 2026-10-28)
+        print(f"Squadra non allineata: {', '.join(fuori)}. Priorità assoluta: dillo all'utente prima del resto; "
+              "a chi è indietro: `pleyades-cli aggiorna`, poi riavviare Claude.")
     os.makedirs(os.path.dirname(LOG), exist_ok=True)
     # staccato: l'avvio di Claude non aspetta (Windows: DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)
     extra: dict = {"creationflags": 0x00000008 | 0x00000200} if os.name == "nt" else {"start_new_session": True}
