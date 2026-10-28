@@ -21,3 +21,5 @@ Letto da `SKILL.md` prima di: script bash/zsh/Git Bash, comandi ssh, hook, hered
   la shell esegue il resto → delimitatore diverso fuori (`<<'PYEOF'`) o scrivi prima un file.
 - Regole nuove che non arrivano mai su una macchina → il blocco di config si aggiunge "solo se manca"
   (`grep -q BEGIN || cat >>`) → riscrivi il blocco tra i marcatori a ogni esecuzione.
+- Windows: `python3` risponde "Python non è stato trovato… Microsoft Store" anche con Python installato → è l'alias
+  dello Store in `WindowsApps` → negli script prova `python3 -c pass` e ripiega su `python` (o `py`).
