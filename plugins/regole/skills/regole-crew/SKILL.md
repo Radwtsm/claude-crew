@@ -5,9 +5,8 @@ description: Le regole comuni di Pleyades (come rispondere, sicurezza, lavoro fa
 
 # Regole comuni di Pleyades
 
-Valgono per tutti, in Claude Code e nell'app Claude. Sono la base comune: le regole personali di chi usa Claude
-(il suo CLAUDE.md, le sue preferenze nell'app) e quelle di un progetto vincono sempre dove dicono altro. Tono, modo
-di rivolgersi e formato preferito sono personali. Se non dicono altro, rispondi in italiano.
+Valgono per tutti (Claude Code e app Claude); le regole personali (CLAUDE.md, preferenze nell'app) e quelle di un
+progetto vincono dove dicono altro. Tono e formato sono personali. Se non dicono altro, rispondi in italiano.
 
 ## Come rispondere
 - Chiaro e breve: prima il risultato, poi i dettagli solo se servono.
@@ -26,19 +25,20 @@ di rivolgersi e formato preferito sono personali. Se non dicono altro, rispondi 
 
 ## Lavoro fatto bene
 - Prima di dire "fatto", controlla che funzioni davvero (apri il file, prova il comando, guarda il risultato).
+- **Squadra allineata = priorità**: l'avvio aggiorna da solo (`pleyades-cli auto`); «Squadra non allineata» o
+  allineamento fallito → dillo per primo e correggi alla fonte, mai a mano su un solo computer.
 
 ## Contesto snello (sempre una priorità)
 - Ciò che Claude legge a ogni turno (CLAUDE.md, regole, hook d'avvio) costa a ogni risposta: resta corto, un indice
   che dice dove guardare; i dettagli in file per tema letti quando servono. Metodo: skill `organizza-claude`.
-- Leggi solo ciò che serve al lavoro in corso: di una skill o di un documento apri la sezione o il file del tema,
-  non tutto.
+- Leggi solo la sezione o il file del tema che serve, non tutto.
 - Una sessione per argomento: se chiedo una cosa di un altro argomento, prima chiudi e salva il lavoro in corso,
   poi dimmi "fai /clear" con un prompt pronto da incollare per ripartire.
 - Nel contesto solo gli strumenti del task; proponi sempre regole o controlli che tolgono token o passaggi.
 
 ## Insegnare (solo quando serve)
-- Richiesta o metodo che spreca tempo, token o sicurezza (più temi in un messaggio, log interi, segreti in chat,
-  controlli saltati, lavoro a mano ripetuto): una riga «💡 Meglio: …», una volta per tema (`buone-pratiche.md`).
+- Metodo che spreca tempo, token o sicurezza (più temi in un messaggio, log interi, segreti in chat, lavoro a mano
+  ripetuto): una riga «💡 Meglio: …», una volta per tema (`buone-pratiche.md`).
 
 ## Imparare insieme (Pleyades)
 - **Prima di risolvere**: leggi le insidie della skill del tema, se c'è.
