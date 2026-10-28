@@ -2220,39 +2220,56 @@ FRASE_INTRO = "Sette stelle, una rotta"
 
 
 def intro(durata=3.2):
-    """`pleyades-cli intro`: campo di stelle in profondità, le 7 Pleiadi che si accendono, il nome e la frase.
-    Pixel = mezzo carattere (▀/▄), colori a 24 bit; un tasto salta alla fine. Fuori da un terminale non fa niente."""
+    """`pleyades-cli intro`: a tutto schermo, su nero pieno in ogni cella (uguale in ogni terminale, anche col fondo
+    chiaro): volo fra le stelle, le 7 Pleiadi, due stelle 3D che ruotano, il nome, la frase e lo stato. Pixel = mezza
+    cella (▀/▄); un tasto salta alla fine. Fuori da un terminale non fa niente."""
     import math, random
     if not sys.stdout.isatty():
         return 0
-    cols = shutil.get_terminal_size((80, 24)).columns
-    W, PH = min(cols - 2, 76), 36
-    if W < 40:
+    cols, righe_t = shutil.get_terminal_size((80, 24))
+    W, A = cols, righe_t - 4  # sotto: frase, stato, comandi, poi il prompt
+    if W < 40 or A < 10:
         print(FRASE_INTRO)
         return 0
+    PH = A * 2
     if WIN:
         os.system("")  # sequenze ANSI nella console di Windows
-    vero = os.environ.get("COLORTERM", "") in ("truecolor", "24bit") or os.environ.get("TERM_PROGRAM") == "Apple_Terminal"
+    tp = os.environ.get("TERM_PROGRAM", "")
+    vero = (os.environ.get("COLORTERM", "") in ("truecolor", "24bit") or bool(os.environ.get("WT_SESSION"))
+            or tp in ("iTerm.app", "WezTerm", "ghostty", "vscode")
+            or (tp == "Apple_Terminal" and int((platform.mac_ver()[0] or "0").split(".")[0]) >= 26))
 
     def col(c, sfondo):
         r, g, b = (min(255, max(0, int(x))) for x in c)
         if vero:
             return f"\033[{48 if sfondo else 38};2;{r};{g};{b}m"
-        i = 16 + 36 * round(r / 51) + 6 * round(g / 51) + round(b / 51)
-        return f"\033[{48 if sfondo else 38};5;{i}m"
+        if r == g == b:  # grigi della rampa: niente macchie colorate nei toni scuri
+            return f"\033[{48 if sfondo else 38};5;{16 if r < 8 else 231 if r > 246 else 232 + (r - 8) // 10}m"
+        return f"\033[{48 if sfondo else 38};5;{16 + 36 * round(r / 51) + 6 * round(g / 51) + round(b / 51)}m"
 
     rnd = random.Random(7)
-    cx, cy = W / 2, 14
-    # le Pleiadi in pixel: est a sinistra come in cielo, 34 pixel per grado
-    stelle = [(-(ra - 227.48) * 0.25 * 0.9135 * 34, -(de - 24.1) * 34, m) for _, ra, de, m in PLEIADI]
+    cx, cy = W / 2, PH * 0.4
+    s = min(W * 0.46, PH * 0.42 / 0.52)  # pixel per grado: l'ammasso occupa metà larghezza o poco più di un terzo d'altezza
+    g = s / 34  # 1 = la misura per cui sono pensate stelle e solidi
+    stelle = [(-(ra - 227.48) * 0.25 * 0.9135 * s, -(de - 24.1) * s, m) for _, ra, de, m in PLEIADI]
     mx = (max(x for x, _, _ in stelle) + min(x for x, _, _ in stelle)) / 2
     my = (max(y for _, y, _ in stelle) + min(y for _, y, _ in stelle)) / 2
     stelle = [(cx + x - mx, cy + y - my, m) for x, y, m in stelle]
-    volo = [[rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(0.1, 1)] for _ in range(110)]
-    fondo = [(rnd.uniform(0, W), rnd.uniform(0, PH), rnd.uniform(0.15, 0.6), rnd.uniform(0, 6.3)) for _ in range(55)]
-    nubi = [(sx + rnd.uniform(-5, 5), sy + rnd.uniform(-3, 3), rnd.uniform(7, 13), rnd.uniform(4, 7),
+    volo = [[rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(0.1, 1)] for _ in range(int(60 + W * PH / 40))]
+    fondo = [(rnd.uniform(0, W), rnd.uniform(0, PH), rnd.uniform(0.15, 0.6), rnd.uniform(0, 6.3))
+             for _ in range(int(W * PH / 55))]
+    # nebulosa calcolata una volta: ogni fotogramma la scala soltanto
+    nubi = [(sx + rnd.uniform(-5, 5) * g, sy + rnd.uniform(-3, 3) * g, rnd.uniform(7, 13) * g, rnd.uniform(4, 7) * g,
              rnd.choice([(70, 6, 22), (60, 8, 48), (90, 14, 20)])) for sx, sy, _ in stelle for _ in range(2)]
-    grana = [[rnd.uniform(0.55, 1.0) for _ in range(W)] for _ in range(PH)]
+    nebbia = [[[0.0, 0.0, 0.0] for _ in range(W)] for _ in range(PH)]
+    for bx, by, rx, ry, c in nubi:
+        for y in range(max(0, int(by - 2.5 * ry)), min(PH, int(by + 2.5 * ry) + 1)):
+            for x in range(max(0, int(bx - 2.5 * rx)), min(W, int(bx + 2.5 * rx) + 1)):
+                d = ((x - bx) / rx) ** 2 + ((y - by) / ry) ** 2
+                if d < 6:
+                    a = 0.42 * math.exp(-d) * rnd.uniform(0.55, 1.0)
+                    p = nebbia[y][x]
+                    p[0] += c[0] * a; p[1] += c[1] * a; p[2] += c[2] * a
     punte = [(math.cos(k * math.pi / 5 - math.pi / 2) * (1 if k % 2 == 0 else 0.42),
               math.sin(k * math.pi / 5 - math.pi / 2) * (1 if k % 2 == 0 else 0.42)) for k in range(10)]
     stella5 = ([(x, y, z) for z in (-0.28, 0.28) for x, y in punte],
@@ -2260,9 +2277,15 @@ def intro(durata=3.2):
     tetra = [(1, 1, 1), (1, -1, -1), (-1, 1, -1), (-1, -1, 1)]
     merkaba = ([(x * .62, y * .62, z * .62) for x, y, z in tetra] + [(-x * .62, -y * .62, -z * .62) for x, y, z in tetra],
                [(a + o, b + o) for o in (0, 4) for a in range(4) for b in range(a + 1, 4)])
-    solidi = [(stella5, 9, 12, 7, 1, 0.0, 0.0), (merkaba, W - 10, 20, 7, -1, 0.6, 0.45)]  # finiscono in posa: angoli finali
-    nome = "PLEYADES STUDIO" if W >= 62 else "PLEYADES"
-    tx0, ty0 = int(cx - (len(nome) * 4 - 1) / 2), 29  # dispari: nel Terminale del Mac ▀ e ▄ non sono metà esatte
+    r3 = 7 * g
+    lato = 0.5 * s + 2.2 * r3
+    solidi = [(stella5, max(r3 + 1, cx - lato), cy - 0.12 * s, r3, 1, 0.0, 0.0),  # finiscono in posa: angoli finali
+              (merkaba, min(W - r3 - 2, cx + lato), cy + 0.18 * s, r3, -1, 0.6, 0.45)]
+    f = max(1, min(int(W * 0.8 / 59), int(PH * 0.16 / 5)))  # grandezza del pixel del nome
+    nome = "PLEYADES STUDIO" if W >= 61 * f else "PLEYADES"
+    tx0 = int(cx - (len(nome) * 4 - 1) * f / 2)
+    ty0 = int(PH * 0.8) - 5 * f // 2
+    ty0 += (ty0 % 2 == 0) if f == 1 else (ty0 % 2)  # f=1: riga dispari (▀/▄ del Mac); f pari: celle intere
 
     def disegna(buf, x, y, c, a):
         x, y = int(round(x)), int(round(y))
@@ -2271,36 +2294,25 @@ def intro(durata=3.2):
             p[0] += c[0] * a; p[1] += c[1] * a; p[2] += c[2] * a
 
     def fotogramma(t):
-        buf = [[[0.0, 0.0, 0.0] for _ in range(W)] for _ in range(PH)]
-        # nebulosa rossa attorno all'ammasso: profondità
         neb = max(0.0, min(1.0, (t - 0.35) / 0.4))
-        if neb:
-            for y in range(PH):
-                for x in range(W):
-                    for bx, by, rx, ry, c in nubi:
-                        d = ((x - bx) / rx) ** 2 + ((y - by) / ry) ** 2
-                        if d < 6:
-                            disegna(buf, x, y, c, neb * 0.42 * math.exp(-d) * grana[y][x])
-        # volo fra le stelle: veloce all'inizio, si ferma a metà
-        v = max(0.0, 1 - t / 0.5) ** 2
-        for s in volo:
-            z0 = s[2]
-            s[2] -= v * 0.13
-            if s[2] < 0.06:
-                s[0], s[1], s[2] = rnd.uniform(-1, 1), rnd.uniform(-1, 1), 1.0
+        buf = [[[p[0] * neb, p[1] * neb, p[2] * neb] for p in riga] for riga in nebbia]
+        v = max(0.0, 1 - t / 0.5) ** 2  # volo fra le stelle: veloce all'inizio, si ferma a metà
+        for st in volo:
+            z0 = st[2]
+            st[2] -= v * 0.13
+            if st[2] < 0.06:
+                st[0], st[1], st[2] = rnd.uniform(-1, 1), rnd.uniform(-1, 1), 1.0
                 continue
-            a = min(1.0, (1 - s[2]) * 1.7 + 0.15) * max(0.0, 1 - t / 0.55)
-            x1, y1 = cx + s[0] / s[2] * 18, cy + s[1] / s[2] * 9
-            x0, y0 = cx + s[0] / z0 * 18, cy + s[1] / z0 * 9
+            a = min(1.0, (1 - st[2]) * 1.7 + 0.15) * max(0.0, 1 - t / 0.55)
+            k = W * 0.24
+            x1, y1, x0, y0 = cx + st[0] / st[2] * k, cy + st[1] / st[2] * k * 0.5, cx + st[0] / z0 * k, cy + st[1] / z0 * k * 0.5
             n = max(1, int(abs(x1 - x0) + abs(y1 - y0)))
-            for k in range(n + 1):
-                f = k / n
-                disegna(buf, x0 + (x1 - x0) * f, y0 + (y1 - y0) * f, BIANCO if f > 0.8 else ROSA, a * (0.25 + 0.75 * f))
-        # stelle di fondo che brillano
+            for q in range(n + 1):
+                fr = q / n
+                disegna(buf, x0 + (x1 - x0) * fr, y0 + (y1 - y0) * fr, BIANCO if fr > 0.8 else ROSA, a * (0.25 + 0.75 * fr))
         fa = max(0.0, min(1.0, (t - 0.3) / 0.3))
         for x, y, b, ph in fondo:
             disegna(buf, x, y, BIANCO, fa * b * (0.6 + 0.4 * math.sin(t * 9 + ph)))
-        # stelle geometriche 3D che ruotano ai lati (fil di ferro, più chiaro davanti)
         sa = max(0.0, min(1.0, (t - 0.25) / 0.25))
         for (vert, lati), ox, oy, r, verso, fy, fx in solidi if sa else []:
             ay, ax = verso * t * 2 * math.pi + fy, (1 - t) * 3.5 + fx
@@ -2314,64 +2326,69 @@ def intro(durata=3.2):
                 (x0, y0, z0), (x1, y1, z1) = pp[i], pp[j]
                 n = max(1, int(max(abs(x1 - x0), abs(y1 - y0)) * 1.5))
                 for q in range(n + 1):
-                    f = q / n
-                    z = z0 + (z1 - z0) * f
-                    disegna(buf, x0 + (x1 - x0) * f, y0 + (y1 - y0) * f, ROSA if z < 0 else ROSSO, sa * (0.62 - z * 0.25))
-        # le sette, una alla volta dalla più luminosa: nucleo bianco, croce rossa, alone
-        for i, (x, y, m) in enumerate(sorted(stelle, key=lambda s: s[2])):
+                    fr = q / n
+                    z = z0 + (z1 - z0) * fr
+                    disegna(buf, x0 + (x1 - x0) * fr, y0 + (y1 - y0) * fr, ROSA if z < 0 else ROSSO, sa * (0.62 - z * 0.25))
+        for i, (x, y, m) in enumerate(sorted(stelle, key=lambda st: st[2])):  # le sette, dalla più luminosa
             a = max(0.0, min(1.0, (t - 0.42 - i * 0.045) / 0.12))
             if not a:
                 continue
-            r = 6.2 - m  # più luminosa = più grande
-            for dy in range(-4, 5):
-                for dx in range(-4, 5):
-                    d = math.hypot(dx, dy)
-                    disegna(buf, x + dx, y + dy, ROSSO, a * 0.5 * math.exp(-d * d / (r * 0.9)))
+            r = (6.2 - m) * g
+            e = int(4 * g) + 1
+            for dy in range(-e, e + 1):
+                for dx in range(-e, e + 1):
+                    disegna(buf, x + dx, y + dy, ROSSO, a * 0.5 * math.exp(-(dx * dx + dy * dy) / (r * 0.9 * g)))
             for k in range(1, int(r) + 2):
                 for dx, dy in ((k, 0), (-k, 0), (0, k), (0, -k)):
-                    disegna(buf, x + dx, y + dy, ROSA, a * 0.9 / k)
+                    disegna(buf, x + dx, y + dy, ROSA, a * 0.9 / (k / g))
             disegna(buf, x, y, BIANCO, a * 1.2)
-        # il nome in pixel, con un riflesso che passa
-        na = max(0.0, min(1.0, (t - 0.72) / 0.15))
-        lampo = tx0 + (t - 0.8) / 0.2 * (len(nome) * 4 + 8)
+        na = max(0.0, min(1.0, (t - 0.72) / 0.15))  # il nome, con un riflesso che passa
+        lampo = tx0 + (t - 0.8) / 0.2 * (len(nome) * 4 + 8) * f
         for j, ch in enumerate(nome):
-            g = FONT_PIXEL.get(ch, FONT_PIXEL[" "])
-            for k, b in enumerate(g):
+            for k, b in enumerate(FONT_PIXEL.get(ch, FONT_PIXEL[" "])):
                 if b == "1":
-                    x, y = tx0 + j * 4 + k % 3, ty0 + k // 3
-                    f = x / W
-                    c = tuple(ROSSO[q] + (ROSA[q] - ROSSO[q]) * f for q in range(3))
-                    luce = max(0.0, 1 - abs(x - lampo) / 4)
-                    c = tuple(c[q] + (BIANCO[q] - c[q]) * luce for q in range(3))
-                    disegna(buf, x, y, c, na)
+                    for qy in range(f):
+                        for qx in range(f):
+                            x, y = tx0 + (j * 4 + k % 3) * f + qx, ty0 + (k // 3) * f + qy
+                            c = tuple(ROSSO[q] + (ROSA[q] - ROSSO[q]) * x / W for q in range(3))
+                            luce = max(0.0, 1 - abs(x - lampo) / (4 * f))
+                            disegna(buf, x, y, tuple(c[q] + (BIANCO[q] - c[q]) * luce for q in range(3)), na)
         return buf
 
-    def righe(buf, t):
+    nero = col((0, 0, 0), True)
+
+    def schermo(buf, t):
         out = []
-        for r in range(PH // 2):
-            s, ultimo = [" " * ((cols - W) // 2)], None
+        for r in range(A):
+            s_, ultimo = [f"\033[{r + 1};1H"], None
             for x in range(W):
                 a, b = buf[2 * r][x], buf[2 * r + 1][x]
                 sa, sb = sum(a) > 9, sum(b) > 9
-                if sa and sb:
-                    cod = col(a, False) + col(b, True) + "▀"
+                if sa and sb and max(abs(a[q] - b[q]) for q in range(3)) < 6:
+                    cod = (col(a, True), " ")  # cella intera dallo sfondo: nessun bordo del glifo
+                elif sa and sb:
+                    cod = (col(a, False) + col(b, True), "▀")
                 elif sa:
-                    cod = "\033[49m" + col(a, False) + "▀"
+                    cod = (col(a, False) + nero, "▀")
                 elif sb:
-                    cod = "\033[49m" + col(b, False) + "▄"
+                    cod = (col(b, False) + nero, "▄")
                 else:
-                    cod = "\033[0m "
-                s.append(cod)
-            out.append("".join(s) + "\033[0m\033[K")
+                    cod = (nero, " ")
+                s_.append(("" if cod[0] == ultimo else cod[0]) + cod[1])
+                ultimo = cod[0]
+            out.append("".join(s_))
         n = int(max(0.0, min(1.0, (t - 0.85) / 0.15)) * len(FRASE_INTRO) + 0.999) if t > 0.85 else 0
-        frase = FRASE_INTRO[:n]
-        out.append("\033[K")
-        out.append(" " * ((cols - len(FRASE_INTRO)) // 2) + col(ROSA, False) + "\033[3m" + frase + "\033[0m\033[K")
-        return out
+        testi = [(FRASE_INTRO[:n], ROSA, "\033[3m"), (stato_in_parole() if t >= 1 else "", (150, 150, 160), ""),
+                 ("claude  parla con Claude  ·  pley  menu Pleyades" if t >= 1 else "", (110, 110, 120), "")]
+        for i, (testo, c, stile) in enumerate(testi):
+            testo = testo[:W]
+            pieno = len(FRASE_INTRO) if i == 0 else len(testo)
+            out.append(f"\033[{A + 1 + i};1H" + nero + " " * W + f"\033[{A + 1 + i};{max(1, (W - pieno) // 2 + 1)}H"
+                       + nero + col(c, False) + stile + testo + "\033[0m")
+        return "".join(out)
 
-    passi = int(durata * 24)
-    tasto = lambda: False
-    vecchio = None
+    passi = int(durata * 20)
+    tasto, vecchio = (lambda: False), None
     if WIN:
         import msvcrt
         tasto = msvcrt.kbhit
@@ -2383,28 +2400,25 @@ def intro(durata=3.2):
             tasto = lambda: bool(select.select([sys.stdin], [], [], 0)[0])
         except Exception:
             vecchio = None
-    sys.stdout.write("\033[2J\033[3J\033[H\033[?25l\n")
-    altezza = PH // 2 + 2
+    sys.stdout.write("\033[?25l\033[2J")
     try:
         for i in range(passi + 1):
+            inizio = time.time()
             t = i / passi
             if tasto():
-                t, i = 1.0, passi
-            buf = fotogramma(t)
-            sys.stdout.write(("\033[%dF" % altezza if i else "") + "\n".join(righe(buf, t)) + "\n")
+                t = 1.0
+            sys.stdout.write(schermo(fotogramma(t), t))
             sys.stdout.flush()
             if t >= 1.0:
                 break
-            time.sleep(durata / passi)
+            time.sleep(max(0.0, durata / passi - (time.time() - inizio)))
     finally:
-        sys.stdout.write("\033[0m\033[?25h\n")
+        sys.stdout.write(f"\033[0m\033[{A + 4};1H\033[?25h")
         sys.stdout.flush()
         if vecchio is not None:
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, vecchio)
             while select.select([sys.stdin], [], [], 0)[0]:
                 os.read(sys.stdin.fileno(), 64)  # il tasto che ha saltato non finisce nel prompt
-    print(stato_in_parole())
-    print(" " * max(0, (cols - 46) // 2) + "\033[2m" + "claude  parla con Claude  ·  pley  menu Pleyades" + "\033[0m\n")
     if not stato().get("intro_vista"):  # primo avvio: tre strade, poi mai più
         salva_stato(intro_vista=time.strftime("%Y-%m-%d"))
         ui = interfaccia()
@@ -2423,12 +2437,11 @@ def stato_in_parole():
     a, sq = st.get("auto") or {}, st.get("squadra") or {}
     if not a.get("t") or time.time() - a["t"] > 86400:
         return ""
-    io = "✓ questo computer è aggiornato" if a.get("esito") == "ok" else f"✗ da sistemare: `{NOME_CLI} diagnosi`"
+    io = "✓ computer aggiornato" if a.get("esito") == "ok" else f"✗ da sistemare: {NOME_CLI} diagnosi"
     indietro = [x.split(" (")[0] for x in sq.get("indietro", [])]
     gruppo = ("✓ squadra allineata" if not indietro else
               "squadra: " + ", ".join(indietro) + " in aggiornamento") if sq.get("t") else ""
-    riga = "   ·   ".join(x for x in (io, gruppo) if x)
-    return " " * max(0, (shutil.get_terminal_size((80, 24)).columns - len(riga)) // 2) + "\033[2m" + riga + "\033[0m"
+    return "  ·  ".join(x for x in (io, gruppo) if x)
 
 
 def colore_ns(esa):
