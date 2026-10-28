@@ -14,7 +14,7 @@
     pleyades-cli progetti           i tuoi progetti e a che punto sono
     pleyades-cli link               i link giusti (studio, Talk, Dashboard, cartelle)
     pleyades-cli kit                il tuo kit in base al ruolo: skill, cosa leggere, a chi chiedere
-    pleyades-cli auto               (lo lancia l'hook d'avvio di regole, in background) aggiorna tutto, poi
+    pleyades-cli auto [--subito]    (hook d'avvio di regole e «📦 Push» nella stanza, in background) aggiorna tutto, poi
                                     `controlla --talk` solo se il riassunto è cambiato o ha più di 3 giorni
     pleyades-cli hook               (per un hook SessionStart) installa i plugin che il progetto aperto chiede e mancano
     pleyades-cli profilo casa|lavoro   che computer è: «lavoro» = solo le regole comuni, niente progetti, Talk o Nextcloud
@@ -1950,8 +1950,8 @@ def hook():
 def auto(ui):
     """Hook d'avvio (in background): tutti gli strumenti all'ultima versione prima di lavorare, poi il controllo
     nella stanza se è cambiato; l'esito resta in stato.json e l'hook lo dice a Claude al prossimo avvio."""
-    if time.time() - stato().get("auto", {}).get("t", 0) < 1800:
-        return 0  # più sessioni aperte di seguito: una volta ogni mezz'ora basta
+    if time.time() - stato().get("auto", {}).get("t", 0) < (60 if "--subito" in sys.argv else 1800):
+        return 0  # più sessioni aperte di seguito: una volta ogni mezz'ora basta; --subito = un push nella stanza
     salva_stato(auto={"t": time.time(), "esito": "in corso"})
     aggiorna(ui)
     ko = [e.nome for e in ui.esiti if not (e.ok or e.saltato)]

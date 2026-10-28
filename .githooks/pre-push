@@ -1,0 +1,16 @@
+#!/bin/sh
+# Push → "📦" in 🏢 Pleyades HQ: il Claude in ascolto di ognuno lancia `pleyades-cli auto` (tutti allineati subito).
+# Solo dove c'è l'agenzia (talk.py collegato); mai blocca il push.
+subj=$(git log --format='%s' '@{u}..HEAD' 2>/dev/null | head -3 | tr '\n' ';' | cut -c1-250)
+[ -n "$subj" ] || exit 0
+for t in "$HOME/code/agenzia-crew" "$HOME/.claude/plugins/marketplaces/agenzia-crew"; do
+  t="$t/plugins/agenzia/strumenti/talk.py"
+  [ -f "$t" ] || continue
+  for py in python3 python; do
+    "$py" -c pass >/dev/null 2>&1 || continue
+    "$py" "$t" scrivi "📦 Push claude-crew: $subj" >/dev/null 2>&1 &
+    break
+  done
+  break
+done
+exit 0
