@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Rigenera .claude-plugin/marketplace.json dalle cartelle plugins/*: nessuno lo modifica a mano, così due Claude
-che aggiungono skill insieme non si pestano i piedi. Categoria = primo "keywords" del plugin.json.
+che aggiungono skill insieme non si pestano i piedi. Categoria = primo "keywords" del plugin.json;
+le keywords del catalogo = tutte quelle del plugin.json (una sola fonte: il catalogo non si tocca a mano).
 
 Plugin di terzi utili a tutti: `esterni.json` (lista di voci del marketplace con sorgente git fissata a un commit,
 `sha` obbligatorio), aggiunti all'elenco dopo i nostri.
@@ -35,8 +36,9 @@ def genera(root=ROOT):
             problemi.append(f"plugins/{nome}: togli 'version' (chi installa non riceverebbe più gli aggiornamenti)")
             continue
         voce = {"name": nome, "source": f"./plugins/{nome}", "description": pj["description"]}
-        if pj.get("keywords"):
+        if pj.get("keywords"):  # la prima = categoria; tutte = le parole con cui l'hook suggerisce il plugin (check.sh)
             voce["category"] = pj["keywords"][0]
+            voce["keywords"] = pj["keywords"]
         voci.append(voce)
     voci.sort(key=lambda v: (PRIMI.index(v["name"]) if v["name"] in PRIMI else len(PRIMI),
                              v.get("category", ""), v["name"]))

@@ -11,11 +11,11 @@
       "description": "Base per tutti: skill regole-crew (regole comuni, sempre attive), annota-lezione (un problema risolto diventa lezione per tutti), organizza-claude (struttura comune), raccogli-skill (inventario di tutti i tuoi strumenti), condividi-skill e installa-crew",
       "category": "regole",
       "keywords": [
+        "regole",
         "allinea",
         "allineamento",
         "allineiamoci",
         "crew",
-        "regole",
         "skill"
       ]
     },
@@ -25,6 +25,7 @@
       "description": "Per chi programma (solo Claude Code): regole sempre attive su stile, commenti, segreti, test, git, codice di terzi, trappole tecniche, architettura",
       "category": "regole",
       "keywords": [
+        "regole",
         "programmare",
         "script",
         "codice",
@@ -46,6 +47,7 @@
       "description": "Blender guidato da script Python senza interfaccia: lancio in background, scena da zero, luci e camere, Cycles su GPU (OptiX/CUDA), materiali, render e insidie dei render realistici",
       "category": "3d",
       "keywords": [
+        "3d",
         "blender",
         "render 3d",
         "modello 3d",
@@ -54,11 +56,31 @@
       ]
     },
     {
+      "name": "design-app",
+      "source": "./plugins/design-app",
+      "description": "Design di app e siti per Pleyades: regole d'interfaccia (azioni, menu, conferme, parole, layout stabile), sistema visivo stile Apple e linee guida Apple (iPhone, iPad, Mac)",
+      "category": "design",
+      "keywords": [
+        "design",
+        "app",
+        "siti",
+        "interfaccia",
+        "ui",
+        "ux",
+        "sito",
+        "menu",
+        "icone",
+        "hig",
+        "swiftui"
+      ]
+    },
+    {
       "name": "grafica",
       "source": "./plugins/grafica",
       "description": "Grafica: formati di export, dimensioni per YouTube/Instagram/TikTok/Discord, texture e skin Minecraft, regole di qualità, diritti su font e immagini",
       "category": "grafica",
       "keywords": [
+        "grafica",
         "logo",
         "miniatura",
         "thumbnail",
@@ -77,10 +99,29 @@
       "description": "Costruire impaginati InDesign da script ExtendScript (griglia, stili di paragrafo, immagini, esportazione PDF) lanciati da Claude via COM su Windows, con le trappole già incontrate.",
       "category": "grafica",
       "keywords": [
+        "grafica",
         "indesign",
         "impaginato",
         "impaginazione",
         "impaginare"
+      ]
+    },
+    {
+      "name": "tema-studio",
+      "source": "./plugins/tema-studio",
+      "description": "Temi di Claude Code con i colori dello studio: «Pleyades Studio» (notte blu e stelle) e «Pleyades Studio rosso» (accento rosso su nero); si scelgono con /theme",
+      "category": "grafica",
+      "keywords": [
+        "grafica",
+        "tema",
+        "temi",
+        "colori",
+        "theme",
+        "/theme",
+        "rotella",
+        "spinner",
+        "barra di stato",
+        "aspetto di Claude"
       ]
     },
     {
@@ -101,6 +142,7 @@
       "description": "Per quando la crew fa un progetto insieme che tocca più settori (es. server + sito + negozio + SEO + video): scheda di progetto progetto.md come sola fonte delle scelte, piano per settori, consegne tra le skill, controllo di coerenza, lezioni a fine progetto",
       "category": "progetti",
       "keywords": [
+        "progetti",
         "progetto insieme",
         "più settori",
         "lancio di un progetto"
@@ -112,6 +154,7 @@
       "description": "Creare pannelli/plugin CEP per After Effects (HTML/JS + ExtendScript): setup e modalità debug, architettura con anteprima, trappole dell'API (forme, keyframe, testo, effetti, maschere, 3D), test e checklist",
       "category": "video",
       "keywords": [
+        "video",
         "after effects",
         "aftereffects",
         "extendscript",
@@ -125,6 +168,7 @@
       "description": "Animazioni e reel generati in codice (Node + canvas + ffmpeg): fotogrammi come funzione del tempo, molle, motion blur, forme che si trasformano senza stacchi, export MP4/ProRes, controllo dei fotogrammi e aree sicure Instagram",
       "category": "video",
       "keywords": [
+        "video",
         "motion design",
         "animazione",
         "reel animato",
@@ -138,8 +182,8 @@
       "description": "Video con ffmpeg: tagliare, comprimere, verticale per TikTok/Reels, solo audio, unire clip, sottotitoli; consigli OBS, YouTube, Discord",
       "category": "video",
       "keywords": [
-        "ffmpeg",
         "video",
+        "ffmpeg",
         "comprimere",
         "sottotitoli",
         "reel",
@@ -154,29 +198,12 @@
       "description": "Personalizzare un tema Shopify (Horizon/Online Store 2.0) con la Shopify CLI: anteprima locale, pull prima del push, sezioni modificabili dall'editor, tema live, trappole dell'intestazione Horizon e import prodotti da CSV",
       "category": "web",
       "keywords": [
+        "web",
         "shopify",
         "liquid",
         "ecommerce",
         "e-commerce",
         "negozio online"
-      ]
-    },
-    {
-      "name": "design-app",
-      "source": "./plugins/design-app",
-      "description": "Design di app e siti per Pleyades: regole d'interfaccia (azioni, menu, conferme, parole, layout stabile), sistema visivo stile Apple e linee guida Apple (iPhone, iPad, Mac)",
-      "category": "design",
-      "keywords": [
-        "design",
-        "interfaccia",
-        "ui",
-        "ux",
-        "app",
-        "sito",
-        "menu",
-        "icone",
-        "hig",
-        "swiftui"
       ]
     }
   ]

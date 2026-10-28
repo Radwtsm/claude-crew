@@ -1,6 +1,14 @@
 {
   "name": "indesign-script",
   "description": "Costruire impaginati InDesign da script ExtendScript (griglia, stili di paragrafo, immagini, esportazione PDF) lanciati da Claude via COM su Windows, con le trappole già incontrate.",
-  "author": { "name": "crew" },
-  "keywords": ["grafica"]
+  "author": {
+    "name": "crew"
+  },
+  "keywords": [
+    "grafica",
+    "indesign",
+    "impaginato",
+    "impaginazione",
+    "impaginare"
+  ]
 }
