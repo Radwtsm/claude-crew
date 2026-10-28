@@ -2625,10 +2625,50 @@ def tema():
             shutil.copy(p, p + ".prima-di-crew")
         scrivi_json(p, s)
     if MAC:
-        return tema_terminale()
+        ok, cosa = tema_terminale()
+        if app_iterm():
+            ok2, cosa2 = tema_iterm()
+            ok, cosa = ok and ok2, f"{cosa}; {cosa2}"
+        return ok, cosa
     if WIN:
         return tema_windows()
     return True, "parole della rotella messe; nel tuo terminale scegli uno sfondo nero pieno"
+
+
+ITERM_GUID = "pleyades-pleiad-fire-red"
+
+
+def app_iterm():
+    return any(os.path.isdir(os.path.join(d, "iTerm.app")) for d in ("/Applications", os.path.join(CASA, "Applications")))
+
+
+def tema_iterm():
+    """Mac con iTerm2: profilo dinamico «Pleiad Fire Red» (nero pieno, niente trasparenza, colori del tema, intro e poi
+    la shell di sempre) predefinito, barra delle schede «Minimal» (prende il nero del profilo)."""
+    def c(h):
+        r, g, b = (int(h[i:i + 2], 16) / 255 for i in (1, 3, 5))
+        return {"Red Component": r, "Green Component": g, "Blue Component": b, "Alpha Component": 1, "Color Space": "sRGB"}
+
+    shell = os.environ.get("SHELL") or "/bin/zsh"
+    cli = shutil.which(NOME_CLI) or os.path.join(CASA, ".local", "bin", NOME_CLI)  # ~/.local/bin non è nel PATH di -l -c
+    p = {"Name": "Pleiad Fire Red", "Guid": ITERM_GUID, "Background Color": c("#000000"),
+         "Foreground Color": c("#f2f2f2"), "Bold Color": c("#ffffff"), "Cursor Color": c("#e8253f"),
+         "Cursor Text Color": c("#000000"), "Selection Color": c("#5a101b"), "Selected Text Color": c("#ffffff"),
+         "Transparency": 0, "Blur": False, "Use Separate Colors for Light and Dark Mode": False,
+         "Custom Command": "Yes", "Command": f"{shell} -l -c '\"{cli}\" intro; exec {shell} -l'"}
+    for i, x in enumerate(COLORI_ANSI):
+        p[f"Ansi {i} Color"] = c(x)
+    d = os.path.join(CASA, "Library", "Application Support", "iTerm2", "DynamicProfiles")
+    os.makedirs(d, exist_ok=True)
+    with open(os.path.join(d, "pleyades.json"), "w", encoding="utf-8") as f:
+        json.dump({"Profiles": [p]}, f, indent=1)
+    time.sleep(1)  # iTerm2 carica i profili dinamici da solo; predefinito solo dopo che lo conosce
+    dom = "com.googlecode.iterm2"
+    run("defaults", "write", dom, "Default Bookmark Guid", ITERM_GUID)
+    run("defaults", "write", dom, "TabStyleWithAutomaticOption", "-int", "5")
+    if run("defaults", "read", dom, "Default Bookmark Guid")[1].strip() != ITERM_GUID:
+        return False, "profilo iTerm2 creato ma non predefinito: iTerm2 → Settings → Profiles → «Pleiad Fire Red» → Other Actions → Set as Default"
+    return True, "iTerm2: profilo «Pleiad Fire Red» predefinito (nero, intro all'apertura)"
 
 
 def voce_tema(ui):
