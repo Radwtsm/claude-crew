@@ -1,0 +1,27 @@
+{
+  "name": "Pleyades Studio rosso",
+  "base": "dark",
+  "overrides": {
+    "claude": "#e8253f",
+    "claudeShimmer": "#ff6b7d",
+    "clawd_body": "#e8253f",
+    "clawd_background": "#000000",
+    "promptBorder": "#7a1a26",
+    "promptBorderShimmer": "#e8253f",
+    "permission": "#ff4d5e",
+    "permissionShimmer": "#ff9aa5",
+    "suggestion": "#ff8a96",
+    "planMode": "#c2283d",
+    "bashBorder": "#e8253f",
+    "text": "#f2f2f2",
+    "subtle": "#8a8a8a",
+    "inactive": "#6b6b6b",
+    "inactiveShimmer": "#ff6b7d",
+    "userMessageBackground": "#170608",
+    "userMessageBackgroundHover": "#24090d",
+    "selectionBg": "#5a101b",
+    "success": "#5fd4a0",
+    "warning": "#f5c26b",
+    "error": "#ff5f3a"
+  }
+}

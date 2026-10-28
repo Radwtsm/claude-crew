@@ -1,0 +1,29 @@
+---
+name: tema-studio
+description: I temi di Claude Code con i colori dello studio (blu notte o rosso su nero) e le parole della rotella in stile Pleyades. Usala per "metti il tema dello studio", "tema rosso", "cambia i colori di Claude", "parole dell'attesa".
+---
+
+# Tema dello studio
+
+## Scegliere il tema
+1. In Claude Code (terminale): scrivi `/theme` e scegli «Pleyades Studio» o «Pleyades Studio rosso».
+2. Vale per quel computer; per tornare indietro, `/theme` e un tema di base.
+Il rosso è pensato per un terminale a sfondo nero: lo sfondo lo decide il programma del terminale (Terminale,
+iTerm, Windows Terminal → Impostazioni → Profilo → Colori), non Claude.
+
+## Parole della rotella (facoltativo)
+Sono un'impostazione personale, non del plugin: aggiungile in `~/.claude/settings.json` (con l'ok dell'utente):
+```
+"spinnerVerbs": { "mode": "replace", "verbs": ["Allineo le stelle", "Consulto le Pleiadi",
+  "Accendo la nebulosa", "Traccio la rotta", "Lucido le costellazioni"] }
+```
+`"append"` invece di `"replace"` le aggiunge a quelle di Claude.
+
+## Cambiare i colori
+I temi sono in `themes/` di questo plugin (`name`, `base`, `overrides`: nome del colore → `#rrggbb`). I colori
+blu vengono dal marchio dello studio: se cambia il marchio, cambiali qui insieme. Un colore nuovo per sé solo:
+`/theme` → «New custom theme» (resta sul proprio computer).
+
+## Insidie
+- Tema non nell'elenco di `/theme` → plugin installato con Claude aperto → `/reload-plugins`.
+- Colori invariati nell'app desktop di Claude → i temi valgono solo nel terminale → lì si usano i colori dell'app.

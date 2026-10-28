@@ -1,0 +1,27 @@
+{
+  "name": "Pleyades Studio",
+  "base": "dark",
+  "overrides": {
+    "claude": "#8a7cf0",
+    "claudeShimmer": "#a9c4ff",
+    "clawd_body": "#a9c4ff",
+    "clawd_background": "#0a0f24",
+    "promptBorder": "#3d5bd9",
+    "promptBorderShimmer": "#a9c4ff",
+    "permission": "#4a6cf7",
+    "permissionShimmer": "#a9c4ff",
+    "suggestion": "#a9c4ff",
+    "planMode": "#8a7cf0",
+    "bashBorder": "#4a6cf7",
+    "text": "#eaf1ff",
+    "subtle": "#5c6690",
+    "inactive": "#5c6690",
+    "inactiveShimmer": "#a9c4ff",
+    "userMessageBackground": "#141b3d",
+    "userMessageBackgroundHover": "#1c2552",
+    "selectionBg": "#3d5bd9",
+    "success": "#5fd4a0",
+    "warning": "#f5c26b",
+    "error": "#ff6b7d"
+  }
+}
