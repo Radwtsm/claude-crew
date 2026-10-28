@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """pleyades-cli (Pleyades tools): la guida unica per entrare nei progetti, anche per chi non programma.
 
-    pleyades-cli                    la prima volta la guida; poi un menu
+    pleyades-cli (o pley)           la prima volta la guida; poi un menu
     pleyades-cli guida [OWNER/REPO …] [--studio=INDIRIZZO]   dall'inizio a tutto pronto: Claude Code, GitHub (con o senza
                             account), plugin, progetti, Nextcloud e la stanza Talk; si può rilanciare: salta il fatto.
                             Con --studio: accesso allo studio Nextcloud dal browser («Concedi accesso», la password
@@ -33,6 +33,7 @@ import urllib.error, urllib.parse, urllib.request, webbrowser, xml.etree.Element
 from concurrent.futures import ThreadPoolExecutor
 
 CREW = "Radwtsm/claude-crew"
+ALIAS = "pley"  # il nome corto dello stesso comando
 NOME_CLI = "pleyades-cli"  # il nome che si vede (owner 28/10: tutto Pleyades tools, niente «crew»)
 CREW_PY = "https://raw.githubusercontent.com/Radwtsm/claude-crew/main/crew.py"
 GH_RELEASE = "https://api.github.com/repos/cli/cli/releases/latest"
@@ -77,11 +78,16 @@ def run(*cmd, cwd=None, timeout=300, vivo=False):
             tty = None
             if not WIN and sys.stdout.isatty():  # l'input dal terminale vero (/dev/ttys…), non da /dev/tty: Claude
                 tty = open(os.ttyname(sys.stdout.fileno()), "rb")  # Code (Bun) su macOS si ferma con «kqueue EINVAL»
+            schermo = SCHERMI[-1] if SCHERMI else None
+            if schermo:
+                schermo.sospendi()
             try:
                 return subprocess.run(list(cmd), cwd=cwd, stdin=tty).returncode, ""
             finally:
                 if tty:
                     tty.close()
+                if schermo:
+                    schermo.riprendi()
         r = subprocess.run(list(cmd), capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=cwd,
                            timeout=timeout)
         return r.returncode, (r.stdout + r.stderr).strip()
@@ -591,7 +597,7 @@ def credenziali_note():
 
 # Il comando pleyades-cli stesso
 
-def installa_comando(nome=NOME_CLI):
+def installa_comando(nome=NOME_CLI, alias=False):
     """~/.crew/crew.py + il comando `nome` in ~/.local/bin (nome.cmd su Windows), nel PATH."""
     os.makedirs(CARTELLA, exist_ok=True)
     qui, dest = os.path.abspath(__file__), os.path.join(CARTELLA, "crew.py")
@@ -616,6 +622,8 @@ def installa_comando(nome=NOME_CLI):
             if ".local/bin" not in testo:
                 with open(p, "a", encoding="utf-8") as f:
                     f.write(f"\n# pleyades-cli: i comandi in ~/.local/bin (pleyades-cli, claude, gh)\n{riga}\n")
+    if nome == NOME_CLI and not alias:
+        installa_comando(ALIAS, alias=True)  # il nome corto, per chi lo usa spesso
     path_aggiornato()
     return ha(nome)
 
@@ -769,17 +777,41 @@ def tasto():
         prima = termios.tcgetattr(fd)
         try:
             tty.setcbreak(fd)
-            k = os.read(fd, 1).decode(errors="ignore")
-            if k == "\x1b":
-                k += os.read(fd, 2).decode(errors="ignore")
+            b = os.read(fd, 1)
+            if b == b"\x1b":
+                b += os.read(fd, 2)
+            elif b and b[0] >= 0xC0:  # una lettera accentata è più byte (UTF-8)
+                b += os.read(fd, 1 if b[0] < 0xE0 else 2 if b[0] < 0xF0 else 3)
+            k = b.decode(errors="ignore")
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, prima)
         k = {"\x1b[A": "su", "\x1bOA": "su", "\x1b[B": "giu", "\x1bOB": "giu"}.get(k, k)
     if k == "\x03":
         raise KeyboardInterrupt
-    if k in ("j", "k"):
-        return {"k": "su", "j": "giu"}[k]
+    if k in ("\x7f", "\x08"):
+        return "indietro"
     return "invio" if k in ("\r", "\n") else k
+
+
+SCHERMI = []  # lo schermo intero aperto (uno): run(vivo) lo sospende per i programmi che parlano da sé
+
+
+def taglia(r, w):
+    """Una riga colorata tagliata a w colonne visibili (i codici di colore non contano), mai a capo."""
+    out, n, i = [], 0, 0
+    while i < len(r):
+        m = re.match(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b\]8;;[^\x1b]*\x1b\\", r[i:])
+        if m:
+            out.append(m.group(0))
+            i += len(m.group(0))
+            continue
+        if n >= w - 1 and i < len(r) - 1:
+            out.append("…")
+            break
+        out.append(r[i])
+        n += 1
+        i += 1
+    return "".join(out) + ("\x1b[0m" if "\x1b[" in r else "")
 
 
 ACCENTO = "38;5;153"  # un solo colore, l'azzurro stella di Pleyades; il resto testo normale o grigio
@@ -806,19 +838,105 @@ class Terminale:
                 self.colori = False
         self.esiti = []
         self.nome = NOME_CLI
+        # a schermo intero come Claude Code: in alto il riquadro fermo, in basso la riga di stato ferma, in mezzo il
+        # contenuto che scorre; si ridisegna da solo quando la finestra cambia misura (owner 28/10: niente pezzi che
+        # si spostano). PLEYADES_SEMPLICE=1 o niente terminale vero = righe normali, come prima.
+        self.pieno = self.colori and sys.stdin.isatty() and sys.stdout.isatty() and not os.environ.get("PLEYADES_SEMPLICE")
+        self.testa, self.corpo, self.piede, self.ultimo = [], [], "", []
+        self.aperto, self.blocco, self.misura = False, threading.RLock(), None
+
+    # ── lo schermo ──
+    def apri(self):
+        if not self.pieno or self.aperto:
+            return
+        self.aperto = True
+        sys.stdout.write("\033[?1049h\033[?25l")
+        SCHERMI.append(self)
+        import atexit
+        atexit.register(self.chiudi)  # qualunque uscita riporta il terminale normale
+        if not WIN:
+            try:
+                import signal
+                signal.signal(signal.SIGWINCH, lambda *_: self.disegna())
+            except (ValueError, OSError, AttributeError):
+                pass
+
+        def guarda():  # anche su Windows (niente SIGWINCH): controlla la misura 5 volte al secondo
+            while self.aperto:
+                if shutil.get_terminal_size((80, 24)) != self.misura:
+                    self.disegna()
+                time.sleep(0.2)
+        threading.Thread(target=guarda, daemon=True).start()
+        self.disegna()
+
+    def chiudi(self):
+        """Torna allo schermo normale e lascia lì il riepilogo, così resta dopo l'uscita."""
+        if not self.aperto:
+            return
+        self.aperto = False
+        if self in SCHERMI:
+            SCHERMI.remove(self)
+        sys.stdout.write("\033[?25h\033[?1049l")
+        sys.stdout.write("\n".join(self.ultimo) + ("\n" if self.ultimo else ""))
+        sys.stdout.flush()
+
+    def sospendi(self):
+        """Per un programma che parla da sé con la persona (accesso a Claude, GitHub…): schermo normale."""
+        if self.aperto:
+            sys.stdout.write("\033[?25h\033[?1049l")
+            sys.stdout.flush()
+
+    def riprendi(self):
+        if self.aperto:
+            sys.stdout.write("\033[?1049h\033[?25l")
+            self.misura = None
+            self.disegna()
+
+    def out(self, riga=""):
+        if not self.pieno:
+            print(riga)
+            return
+        self.apri()
+        with self.blocco:
+            self.corpo += riga.split("\n")
+            del self.corpo[:-500]
+        self.disegna()
+
+    def disegna(self):
+        if not self.aperto:
+            return
+        with self.blocco:
+            self.misura = shutil.get_terminal_size((80, 24))
+            w, h = self.misura.columns, self.misura.lines
+            testa = [taglia(r, w) for r in self.testa] if h >= len(self.testa) + 8 else []
+            piede = [self.c("2", "─" * w), taglia(self.piede or self.c("2", "  ↑↓ scegli · Invio conferma · Ctrl+C esci"), w)]
+            spazio = max(1, h - len(testa) - len(piede))
+            corpo = [taglia(r, w) for r in self.corpo[-spazio:]]
+            corpo += [""] * (spazio - len(corpo))
+            righe = testa + corpo + piede
+            sys.stdout.write("\033[H" + "\r\n".join(r + "\033[K" for r in righe[:h]) + "\033[J")
+            sys.stdout.flush()
 
     def intestazione(self, t):
-        """Il riquadro d'apertura, come quello di Claude Code."""
-        self.riquadro([self.acc("✦ ") + self.c("1", "Pleyades tools") + self.c("2", f"  {self.nome}"), "  " + t,
-                       self.c("2", "  ↑↓ scegli · Invio conferma · Ctrl+C esci (riprende da dove eri)")])
+        """Il riquadro d'apertura, come quello di Claude Code: fermo in alto per tutta la sessione."""
+        righe = [self.acc("✦ ") + self.c("1", "Pleyades tools") + self.c("2", f"  {self.nome}"), "  " + t]
+        if self.pieno:
+            self.testa = self.cornice(righe)
+            self.apri()
+            self.disegna()
+        else:
+            self.riquadro(righe + [self.c("2", "  ↑↓ scegli · Invio conferma · Ctrl+C esci (riprende da dove eri)")])
 
-    def riquadro(self, righe):
+    def cornice(self, righe):
         vis = [len(re.sub(r"\x1b\[[0-9;]*m", "", r)) for r in righe]
         w = self.largo = max(max(vis) + 2, getattr(self, "largo", 0))  # tutti i riquadri larghi uguali
-        print("\n" + self.c("2", "╭" + "─" * w + "╮"))
-        for r, n in zip(righe, vis):
-            print(self.c("2", "│") + " " + r + " " * (w - n - 1) + self.c("2", "│"))
-        print(self.c("2", "╰" + "─" * w + "╯"))
+        return ([self.c("2", "╭" + "─" * w + "╮")] + [self.c("2", "│") + " " + r + " " * (w - n - 1) + self.c("2", "│")
+                for r, n in zip(righe, vis)] + [self.c("2", "╰" + "─" * w + "╯")])
+
+    def riquadro(self, righe):
+        self.out("")
+        for r in self.cornice(righe):
+            self.out(r)
 
     def c(self, codice, t):
         return f"\033[{codice}m{t}\033[0m" if self.colori else t
@@ -827,12 +945,14 @@ class Terminale:
         return self.c(ACCENTO, t)
 
     def titolo(self, t):
-        print("\n" + self.acc("✦") + " " + self.c("1", t))
+        self.out("")
+        self.out(self.acc("✦") + " " + self.c("1", t))
         self.attacco = True
 
     def passo(self, n, tot, t, spiega=""):
         """⏺ Passo  n/tot · spiegazione, poi i risultati attaccati sotto con ⎿ (come le azioni di Claude Code)."""
-        print("\n" + self.acc("⏺") + " " + self.c("1", t) + self.c("2", f"  {n}/{tot}" + (f" · {spiega}" if spiega else "")))
+        self.out("")
+        self.out(self.acc("⏺") + " " + self.c("1", t) + self.c("2", f"  {n}/{tot}" + (f" · {spiega}" if spiega else "")))
         self.attacco = True
 
     def rientro(self):
@@ -844,34 +964,38 @@ class Terminale:
         return max(40, min(shutil.get_terminal_size((80, 24)).columns - 1, 100))
 
     def pulisci(self):
-        """Schermo pulito all'avvio, come Claude Code (solo in un terminale vero)."""
-        if self.colori and sys.stdout.isatty():
+        """Schermo pulito, come Claude Code (solo in un terminale vero)."""
+        if self.pieno:
+            with self.blocco:
+                self.corpo = []
+            self.disegna()
+        elif self.colori and sys.stdout.isatty():
             sys.stdout.write("\033[2J\033[3J\033[H")
             sys.stdout.flush()
 
     def info(self, t):
         if "\033" in t:  # già colorato: niente a capo calcolati sui codici
-            print("    " + t)
+            self.out("    " + t)
             return
-        print(textwrap.fill(t, self.largo_testo(), initial_indent="    ", subsequent_indent="    ",
-                            break_on_hyphens=False, break_long_words=False))
+        self.out(textwrap.fill(t, self.largo_testo(), initial_indent="    ", subsequent_indent="    ",
+                               break_on_hyphens=False, break_long_words=False))
 
     def fai(self, t):
         """Cosa deve fare la persona: in giallo, con il nome esatto di pulsanti e menu."""
         for r in t.split("\n"):
             righe = textwrap.wrap(r, self.largo_testo() - 6, break_on_hyphens=False, break_long_words=False) or [""]
-            print("    " + self.acc("→") + " " + righe[0])
+            self.out("    " + self.acc("→") + " " + righe[0])
             for x in righe[1:]:
-                print("      " + x)
+                self.out("      " + x)
 
     def esito(self, e):
         self.esiti.append(e)
         if e.saltato:
-            print(self.rientro() + self.c("2", f"✓ {e.nome}" + (f" · {e.nota}" if e.nota else "")))
+            self.out(self.rientro() + self.c("2", f"✓ {e.nome}" + (f" · {e.nota}" if e.nota else "")))
         elif e.ok:
-            print(self.rientro() + self.c("32", "✓") + f" {e.nome}" + (self.c("2", f" · {e.nota}") if e.nota else ""))
+            self.out(self.rientro() + self.c("32", "✓") + f" {e.nome}" + (self.c("2", f" · {e.nota}") if e.nota else ""))
         else:
-            print(self.rientro() + self.c("31", "✗") + f" {e.nome}")
+            self.out(self.rientro() + self.c("31", "✗") + f" {e.nome}")
             if e.cosa:
                 self.fai(e.cosa)
             while e.riprova and sys.stdin.isatty() and self.conferma("Fatto?", "Riprova adesso", "Salta per ora"):
@@ -880,15 +1004,17 @@ class Terminale:
                 except Exception as x:  # un errore nel riprovare non ferma la guida
                     self.fai(f"non ancora: {x}")
                 if e.ok:
-                    print("    " + self.c("32", "✓") + f" {e.nome}")
+                    self.out("    " + self.c("32", "✓") + f" {e.nome}")
                     break
-                print("    " + self.c("31", "✗") + f" {e.nome} · ancora no")
+                self.out("    " + self.c("31", "✗") + f" {e.nome} · ancora no")
         return e.ok
 
     def link(self, nome, url):
-        print("    " + self.c("2", f"{nome:<26}") + " " + (self.c("4", url) if url.startswith("http") else url))
+        self.out("    " + self.c("2", f"{nome:<26}") + " " + (self.c("4", url) if url.startswith("http") else url))
 
     def chiedi(self, domanda, base=""):
+        if self.pieno:
+            return self._scrivi(domanda, base)
         try:
             r = input("\n  " + self.acc("?") + " " + self.c("1", domanda) + self.c("2", f" [{base}]" if base else "")
                       + "\n  " + self.acc("❯") + " ").strip()
@@ -899,14 +1025,15 @@ class Terminale:
     def scegli(self, domanda, opzioni):
         """opzioni = [testo]; la prima è la consigliata. Torna l'indice. Frecce ↑↓ e Invio, come in Claude Code
         (o il numero); senza un terminale vero: scrivi il numero."""
-        print("\n  " + self.acc("?") + " " + self.c("1", domanda))
+        self.out("")
+        self.out("  " + self.acc("?") + " " + self.c("1", domanda))
         if self.colori and sys.stdin.isatty():
             try:
                 return self._menu(opzioni)
             except (OSError, ImportError):
                 pass  # niente tasti singoli (es. console strana): si ripiega sul numero
         for i, o in enumerate(opzioni, 1):
-            print(f"    {i}. {o}" + (self.c("2", "  (consigliata)") if i == 1 else ""))
+            self.out(f"    {i}. {o}" + (self.c("2", "  (consigliata)") if i == 1 else ""))
         while True:
             r = self.chiedi("Scrivi il numero e premi Invio:", "1")
             if r.isdigit() and 1 <= int(r) <= len(opzioni):
@@ -919,6 +1046,28 @@ class Terminale:
             nota = self.c("2", "  (consigliata)") if i == 0 and len(o) + 15 <= w else ""
             return (self.acc(f"  ❯ {i + 1}. {o}") if i == sel else f"    {i + 1}. {o}") + nota
         sel, n = 0, len(opzioni)
+        if self.pieno:  # le scelte restano ferme al loro posto; dopo, una riga sola con la risposta
+            with self.blocco:
+                inizio = len(self.corpo)
+                self.corpo += [riga(i, o) for i, o in enumerate(opzioni)]
+            self.piede = self.c("2", "  ↑↓ per scegliere · Invio per confermare · Ctrl+C esci")
+            self.disegna()
+            try:
+                while True:
+                    k = tasto()
+                    if k == "invio":
+                        break
+                    sel = ((sel - 1) % n if k == "su" else (sel + 1) % n if k == "giu" else
+                           int(k) - 1 if k.isdigit() and 1 <= int(k) <= n else sel)
+                    with self.blocco:
+                        self.corpo[inizio:inizio + n] = [riga(i, o) for i, o in enumerate(opzioni)]
+                    self.disegna()
+            finally:
+                self.piede = ""
+            with self.blocco:
+                self.corpo[inizio:] = ["    " + self.acc("❯ ") + opzioni[sel]]
+            self.disegna()
+            return sel
         sys.stdout.write("\033[?25l")  # cursore nascosto mentre si sceglie
         try:
             for i, o in enumerate(opzioni):
@@ -945,6 +1094,29 @@ class Terminale:
             sys.stdout.write("\033[?25h")
             sys.stdout.flush()
 
+    def _scrivi(self, domanda, base):
+        """Una risposta scritta, a schermo intero: si scrive nella riga di stato in basso, ferma."""
+        self.out("")
+        self.out("  " + self.acc("?") + " " + self.c("1", domanda) + self.c("2", f" [{base}]" if base else ""))
+        testo = ""
+        sys.stdout.write("\033[?25h")
+        try:
+            while True:
+                self.piede = "  " + self.acc("❯ ") + testo
+                self.disegna()
+                k = tasto()
+                if k == "invio":
+                    break
+                if k == "indietro":
+                    testo = testo[:-1]
+                elif len(k) == 1 and k.isprintable():
+                    testo += k
+        finally:
+            self.piede = ""
+            sys.stdout.write("\033[?25l")
+        self.out("    " + self.acc("❯ ") + (testo.strip() or self.c("2", base or "—")))
+        return testo.strip() or base
+
     def conferma(self, domanda, si="Sì", no="No"):
         """Sì/no con le frecce; la prima (sì) è la consigliata."""
         return self.scegli(domanda, [si, no]) == 0
@@ -961,6 +1133,7 @@ class Terminale:
         if not tutto:
             righe.append(self.c("2", f"  rilancia `{self.nome}`: salta ciò che è già fatto"))
         self.riquadro(righe)
+        self.ultimo = self.cornice(righe)  # resta sullo schermo normale dopo l'uscita
 
 
 class _Attesa:
@@ -1014,7 +1187,18 @@ class _Attesa:
 
     def __enter__(self):
         LIVE.append(self)
-        if self.ui.colori:
+        if self.ui.pieno:
+            self.ui.apri()
+
+            def gira():
+                i = 0
+                while not self.fine.wait(0.12):
+                    self.ui.piede = self.riga(self.ui.GIRO[i % len(self.ui.GIRO)]).lstrip("\r").replace("\033[K", "")
+                    self.ui.disegna()
+                    i += 1
+            self.t = threading.Thread(target=gira, daemon=True)
+            self.t.start()
+        elif self.ui.colori:
             def gira():
                 i = 0
                 while not self.fine.wait(0.12):
@@ -1031,7 +1215,11 @@ class _Attesa:
         self.fine.set()
         if self in LIVE:
             LIVE.remove(self)
-        if self.ui.colori:
+        if self.ui.pieno:
+            self.t.join()
+            self.ui.piede = ""
+            self.ui.disegna()
+        elif self.ui.colori:
             self.t.join()
             sys.stdout.write("\r\033[K")
 
@@ -1054,10 +1242,19 @@ class Marchio(Terminale):
         return super().c(codice, t)
 
     def intestazione(self, t):
-        self.m.intestazione(t)
+        if not self.pieno:
+            return self.m.intestazione(t)
+        alto = shutil.get_terminal_size((80, 24)).lines
+        if alto >= 32 and hasattr(self.m, "_intestazione"):  # il cielo grande, fermo, se la finestra è alta
+            self.testa = self.m._intestazione(t)
+            self.apri()
+            self.disegna()
+        else:
+            super().intestazione(t)
 
     def titolo(self, t):
-        print("\n" + self.m.c("✦ " + t, "brillio", forte=True) if self.colori else "\n✦ " + t)
+        self.out("")
+        self.out(self.m.c("✦ " + t, "brillio", forte=True) if self.colori else "✦ " + t)
 
 
 def interfaccia():
@@ -1437,8 +1634,8 @@ def guida(ui, richiesti, solo_progetti=False):
             installa_comando(r[1]["comando"])
     if pronti and type(ui) is Terminale and file_marchio():  # il progetto ha un marchio: da qui in poi il suo aspetto
         nuova = interfaccia()
-        nuova.esiti = ui.esiti
-        ui = nuova
+        if isinstance(nuova, Marchio):  # stesso schermo, stessi esiti: cambia solo l'aspetto
+            ui.__class__, ui.m, ui.nome = Marchio, nuova.m, nuova.nome
     if pronti and file_marchio():
         m = getattr(ui, "m", None)
         f = icona_desktop(file_marchio()[1], m.png_sfondo(512, 512) if m and hasattr(m, "png_sfondo") else None)
@@ -1655,8 +1852,13 @@ def main():
         print(f"pleyades-cli: comando «{cmd}» sconosciuto. `pleyades-cli --help` per l'elenco.")
         return 2
     except KeyboardInterrupt:
+        for x in list(SCHERMI):
+            x.chiudi()
         print("\n   Interrotto. Rilancia `pleyades-cli` quando vuoi: riparte da dove eri.")
         return 130
+    finally:
+        for x in list(SCHERMI):
+            x.chiudi()
 
 
 if __name__ == "__main__":
