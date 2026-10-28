@@ -43,7 +43,7 @@ if [ "$(uname)" = Darwin ] && ! xcode-select -p >/dev/null 2>&1; then
       s=$(( $(date +%s) - t0 )); resto=''
       if [ -n "$pc" ] && [ "$pc" -gt 0 ]; then
         [ "$pc" -gt 100 ] && pc=100
-        n=$(( pc / 5 )); barra="$(printf '%*s' $n '' | tr ' ' '━')$(printf '%*s' $((20 - n)) '' | tr ' ' '─')"
+        n=$(( pc * 16 / 100 )); barra="$(printf '%*s' $n '' | tr ' ' '━')$(printf '%*s' $((16 - n)) '' | tr ' ' '─')"  # sta in 80 colonne
         [ "$pc" -ge 3 ] && [ $s -ge 5 ] && [ "$pc" -lt 100 ] && resto=" · ~$(( (s * (100 - pc) / pc + 59) / 60 )) min"
         printf "\r  ${A}%s${Z} %s gli strumenti di Apple  ${A}%s${Z} %3d%%${F}  %s%s${Z}\033[K" \
           "${giro[i++%6]}" "$fase" "$barra" "$pc" "$(tempo $t0)" "$resto"

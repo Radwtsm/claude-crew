@@ -706,7 +706,17 @@ class Terminale:
         self.nome = NOME_CLI
 
     def intestazione(self, t):
-        self.titolo(f"{self.nome} · {t}")
+        """Il riquadro d'apertura, come quello di Claude Code."""
+        self.riquadro([self.acc("✦ ") + self.c("1", "Pleyades tools") + self.c("2", f"  {self.nome}"), "  " + t,
+                       self.c("2", "  ↑↓ scegli · Invio conferma · Ctrl+C esci (riprende da dove eri)")])
+
+    def riquadro(self, righe):
+        vis = [len(re.sub(r"\x1b\[[0-9;]*m", "", r)) for r in righe]
+        w = max(vis) + 2
+        print("\n" + self.c("2", "╭" + "─" * w + "╮"))
+        for r, n in zip(righe, vis):
+            print(self.c("2", "│") + " " + r + " " * (w - n - 1) + self.c("2", "│"))
+        print(self.c("2", "╰" + "─" * w + "╯"))
 
     def c(self, codice, t):
         return f"\033[{codice}m{t}\033[0m" if self.colori else t
@@ -715,29 +725,35 @@ class Terminale:
         return self.c(ACCENTO, t)
 
     def titolo(self, t):
-        print("\n" + self.c("1", t))
+        print("\n" + self.acc("✦") + " " + self.c("1", t))
+        self.attacco = True
 
     def passo(self, n, tot, t, spiega=""):
-        print("\n" + self.c("1", t) + self.c("2", f"  {n}/{tot}"))
-        if spiega:
-            print(self.c("2", "  " + spiega))
+        """⏺ Passo  n/tot · spiegazione, poi i risultati attaccati sotto con ⎿ (come le azioni di Claude Code)."""
+        print("\n" + self.acc("⏺") + " " + self.c("1", t) + self.c("2", f"  {n}/{tot}" + (f" · {spiega}" if spiega else "")))
+        self.attacco = True
+
+    def rientro(self):
+        r = "  ⎿ " if getattr(self, "attacco", False) else "    "
+        self.attacco = False
+        return self.c("2", r)
 
     def info(self, t):
-        print("  " + t)
+        print("    " + t)
 
     def fai(self, t):
         """Cosa deve fare la persona: in giallo, con il nome esatto di pulsanti e menu."""
         for r in t.split("\n"):
-            print("  " + self.acc("→") + " " + r)
+            print("    " + self.acc("→") + " " + r)
 
     def esito(self, e):
         self.esiti.append(e)
         if e.saltato:
-            print(self.c("2", f"  ✓ {e.nome}" + (f" · {e.nota}" if e.nota else "")))
+            print(self.rientro() + self.c("2", f"✓ {e.nome}" + (f" · {e.nota}" if e.nota else "")))
         elif e.ok:
-            print("  " + self.c("32", "✓") + f" {e.nome}" + (self.c("2", f" · {e.nota}") if e.nota else ""))
+            print(self.rientro() + self.c("32", "✓") + f" {e.nome}" + (self.c("2", f" · {e.nota}") if e.nota else ""))
         else:
-            print("  " + self.c("31", "✗") + f" {e.nome}")
+            print(self.rientro() + self.c("31", "✗") + f" {e.nome}")
             if e.cosa:
                 self.fai(e.cosa)
             while e.riprova and sys.stdin.isatty() and self.conferma("Fatto?", "Riprova adesso", "Salta per ora"):
@@ -746,13 +762,13 @@ class Terminale:
                 except Exception as x:  # un errore nel riprovare non ferma la guida
                     self.fai(f"non ancora: {x}")
                 if e.ok:
-                    print("  " + self.c("32", "✓") + f" {e.nome}")
+                    print("    " + self.c("32", "✓") + f" {e.nome}")
                     break
-                print("  " + self.c("31", "✗") + f" {e.nome} · ancora no")
+                print("    " + self.c("31", "✗") + f" {e.nome} · ancora no")
         return e.ok
 
     def link(self, nome, url):
-        print("  " + self.c("2", f"{nome:<28}") + " " + (self.c("4", url) if url.startswith("http") else url))
+        print("    " + self.c("2", f"{nome:<26}") + " " + (self.c("4", url) if url.startswith("http") else url))
 
     def chiedi(self, domanda, base=""):
         try:
@@ -818,12 +834,13 @@ class Terminale:
 
     def riepilogo(self, minuti):
         fatti = [e for e in self.esiti if e.ok or e.saltato]
-        self.titolo(f"Riepilogo: {len(fatti)}/{len(self.esiti)} a posto in {minuti} min")
-        for e in self.esiti:
-            print("  " + (self.c("32", "✓") if e.ok or e.saltato else self.c("31", "✗")) + f" {e.nome}")
-        if len(fatti) < len(self.esiti):
-            print("\n  " + self.acc("→") + " fai i passi con ✗ (sopra c'è cosa fare) e rilancia `" + self.nome
-                  + "`: salta ciò che è già fatto")
+        tutto = len(fatti) == len(self.esiti)
+        righe = [(self.c("32", "✓ ") if tutto else self.acc("✦ ")) + self.c("1", f"{len(fatti)}/{len(self.esiti)} a posto")
+                 + self.c("2", f" · {minuti} min")]
+        righe += ["  " + self.c("31", "✗") + f" {e.nome}" for e in self.esiti if not (e.ok or e.saltato)]
+        if not tutto:
+            righe.append(self.c("2", f"  rilancia `{self.nome}`: salta ciò che è già fatto"))
+        self.riquadro(righe)
 
 
 class _Attesa:
@@ -840,29 +857,40 @@ class _Attesa:
         if dettaglio is not None:
             self.dettaglio = " ".join(str(dettaglio).split())
 
-    def luccica(self):
+    def luccica(self, testo):
         """Una luce che scorre sul testo, come quando Claude Code pensa."""
         if not self.ui.colori:
-            return self.testo
+            return testo
         self.k = getattr(self, "k", -1) + 1
-        pos = self.k % (len(self.testo) + 12) - 3
+        pos = self.k % (len(testo) + 12) - 3
         return "".join(self.ui.c("1", x) if abs(i - pos) <= 1 else self.ui.c("2", x) if abs(i - pos) > 4 else x
-                       for i, x in enumerate(self.testo))
+                       for i, x in enumerate(testo))
 
     def riga(self, giro):
+        """Sempre dentro la larghezza della finestra (una riga che va a capo sporca lo schermo a ogni giro): si
+        accorcia prima il dettaglio, poi la barra, poi il testo."""
         ui, sec = self.ui, int(time.time() - self.inizio)
         tempo = f"{sec // 60}:{sec % 60:02d}" if sec >= 60 else f"{sec} s"
+        if self.frazione is not None and 0.03 < self.frazione < 1 and sec >= 5:  # quanto manca, dal ritmo finora
+            resta = int(sec * (1 - self.frazione) / self.frazione)
+            tempo += f" · ~{resta // 60} min" if resta >= 90 else f" · ~{resta} s"
+        w = shutil.get_terminal_size((80, 24)).columns - 1
+        lb = 20 if self.frazione is not None else 0
+        testo = self.testo
+        libero = w - 6 - len(testo) - (lb + 7 if lb else 0) - len(tempo) - 2
+        if libero < 0 and lb:
+            lb = max(6, lb + libero)
+            libero = w - 6 - len(testo) - lb - 7 - len(tempo) - 2
+        if libero < 0:
+            testo = testo[:max(8, len(testo) + libero - 1)] + "…"
+            libero = 0
+        dett = self.dettaglio if len(self.dettaglio) + 2 <= libero else ""
         barra = ""
-        if self.frazione is not None:
-            n = round(self.frazione * 20)
-            barra = "  " + ui.acc("━" * n) + ui.c("2", "─" * (20 - n)) + f" {round(self.frazione * 100):3d}%"
-            if 0.03 < self.frazione < 1 and sec >= 5:  # quanto manca, dal ritmo finora
-                resta = int(sec * (1 - self.frazione) / self.frazione)
-                tempo += f" · ~{resta // 60} min" if resta >= 90 else f" · ~{resta} s"
-        spazio = shutil.get_terminal_size((80, 24)).columns - len(self.testo) - (28 if barra else 0) - 16
-        dett = self.dettaglio[:max(0, spazio)]
-        return ("\r  " + ui.acc(giro) + " " + self.luccica() + barra + ui.c("2", ("  " + dett if dett else "") + f"  {tempo}")
-                + "\033[K")
+        if lb:
+            n = round(self.frazione * lb)
+            barra = "  " + ui.acc("━" * n) + ui.c("2", "─" * (lb - n)) + f" {round(self.frazione * 100):3d}%"
+        return ("\r    " + ui.acc(giro) + " " + self.luccica(testo) + barra
+                + ui.c("2", ("  " + dett if dett else "") + f"  {tempo}") + "\033[K")
 
     def __enter__(self):
         LIVE.append(self)
@@ -876,7 +904,7 @@ class _Attesa:
             self.t = threading.Thread(target=gira, daemon=True)
             self.t.start()
         else:
-            print("  … " + self.testo)
+            print("    … " + self.testo)
         return self
 
     def __exit__(self, *a):
@@ -970,14 +998,37 @@ def passo_sistema(ui):
     return ui.esito(Esito(f"Python {platform.python_version()} e git", True))
 
 
+def claude_collegato():
+    try:
+        return json.loads(run("claude", "auth", "status", "--json", timeout=30)[1] or "{}").get("loggedIn") is True
+    except ValueError:
+        return False
+
+
+SPIEGA_CLAUDE = """Accesso a Claude: serve un account Claude (claude.ai) con un abbonamento Pro o Max.
+Si apre il browser: accedi (o crea l'account) e premi «Autorizza», poi torna qui."""
+
+
 def passo_claude(ui):
     path_aggiornato()
     if ha("claude"):
-        return ui.esito(Esito("Claude Code", True, saltato=True, nota="già installato"))
-    with ui.attesa("installo Claude Code dal sito ufficiale (claude.ai), 1-3 minuti"):
-        ok, out = installa_claude()
-    return ui.esito(Esito("Claude Code", ok, "" if ok else "controlla internet"
-                          + (f" (ultime righe: {out[-150:]})" if out else ""), riprova=lambda: installa_claude()[0]))
+        ui.esito(Esito("Claude Code", True, saltato=True, nota="già installato"))
+    else:
+        with ui.attesa("installo Claude Code dal sito ufficiale (claude.ai), 1-3 minuti"):
+            ok, out = installa_claude()
+        if not ui.esito(Esito("Claude Code", ok, "" if ok else "controlla internet"
+                              + (f" (ultime righe: {out[-150:]})" if out else ""), riprova=lambda: installa_claude()[0])):
+            return False
+    if claude_collegato():
+        return ui.esito(Esito("accesso a Claude", True, saltato=True, nota="già fatto"))
+    ui.fai(SPIEGA_CLAUDE)
+
+    def accedi():
+        run("claude", "auth", "login", vivo=True)
+        return claude_collegato()
+    ui.esito(Esito("accesso a Claude", ui.conferma("Accediamo a Claude?", "Sì, apri il browser", "Dopo") and
+                   accedi(), "accedi con il tuo account Claude", riprova=accedi))
+    return True  # senza accesso la guida va avanti: lo chiede Claude la prima volta che si apre
 
 
 def passo_github(ui):
