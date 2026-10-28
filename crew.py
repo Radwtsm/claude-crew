@@ -1591,13 +1591,22 @@ def menu(ui):
             ui.titolo("Cantieri aperti (operazioni in corso)")
             for r in aperti.splitlines()[:6]:
                 ui.info(r)
-    i = ui.scegli("Cosa vuoi fare?", [v[0] for v in voci] + ["Esci"])
-    if i == len(voci):
-        return 0
-    if voci[i][1] is None:
-        r = ui.chiedi("Nome del progetto (PROPRIETARIO/NOME, te lo dà chi ti ha invitato):")
-        return guida(ui, [r], solo_progetti=True) if "/" in r else 1
-    return voci[i][1](ui)
+    codice = 0
+    while True:  # si torna al menu dopo ogni cosa, finché non si sceglie «Esci»
+        i = ui.scegli("Cosa vuoi fare?", [v[0] for v in voci] + ["Esci"])
+        if i == len(voci):
+            return codice
+        if voci[i][1] is None:
+            r = ui.chiedi("Nome del progetto (PROPRIETARIO/NOME, te lo dà chi ti ha invitato):")
+            codice = guida(ui, [r], solo_progetti=True) if "/" in r else 1
+        else:
+            codice = voci[i][1](ui) or 0
+        ui.esiti = []  # il riepilogo di ogni voce conta solo i suoi passi
+        if not sys.stdin.isatty():
+            return codice
+        ui.chiedi(ui.c("2", "Invio per tornare al menu"))
+        ui.pulisci()
+        ui.intestazione("cosa c'è e cosa manca")
 
 
 def main():
