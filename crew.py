@@ -1722,16 +1722,26 @@ def guida(ui, richiesti, solo_progetti=False):
         mostra_link(ui, *r)
         for x in r[1].get("dopo", []):
             ui.fai(x)
+    if not lavoro():  # da subito si allinea da solo, senza aspettare il primo avvio di Claude
+        ok, cosa = pianifica()
+        ui.esito(Esito("aggiornamento automatico pianificato", ok, f"{cosa} → `{NOME_CLI} pianifica`", nota=cosa))
     minuti = round((time.time() - inizio) / 60, 1)
     ui.riepilogo(minuti)
     ui.titolo("Regole d'uso")
     for r in REGOLE_USO.split("\n")[1:]:
         ui.info(r.strip())
     verdi = sum(e.ok or e.saltato for e in ui.esiti)
+    manca = [e.nome for e in ui.esiti if not (e.ok or e.saltato)]  # chi aiuta vede subito cosa, senza chiederlo
     for etichetta, (d, c, t, conf) in pronti:
         if t and stanza_collegata(t, c.get("stanza")):
-            scrivi_in_stanza(d, c, f"🆕 pleyades-cli guida su {platform.system()}: {verdi}/{len(ui.esiti)} a posto in "
-                             f"{minuti} min ({etichetta.split('/')[-1]})")
+            scrivi_in_stanza(d, c, (f"🆕 pleyades-cli guida su {platform.system()}: {verdi}/{len(ui.esiti)} a posto in "
+                                    f"{minuti} min ({etichetta.split('/')[-1]})"
+                                    + (" · manca: " + ", ".join(manca) if manca else ""))[:390])
+    if pronti and not lavoro():  # il primo 🔎 con le versioni: `squadra` lo vede subito (28/10: luco «senza controllo»)
+        subprocess.Popen([sys.executable, os.path.join(CARTELLA, "crew.py"), "auto", "--subito"], cwd=CASA,
+                         stdin=subprocess.DEVNULL, stdout=open(LOG_AUTO, "w", encoding="utf-8"), stderr=subprocess.STDOUT,
+                         env={**os.environ, "NO_COLOR": "1"}, **({"creationflags": 0x00000008 | 0x00000200} if WIN
+                                                              else {"start_new_session": True}))
     primo = pronti[0][1][0] if pronti else CASA
     for _, (d, c, t, conf) in pronti:  # il kit del ruolo a portata di mano, prima di cominciare
         codice, out = kit_ruolo(d, c)
