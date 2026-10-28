@@ -8,3 +8,5 @@ Letto da `SKILL.md` prima di: rinomine, spostamenti, rimozioni in blocco, Swift,
 - Spostare un tipo in un altro modulo: cerca ogni file che lo usa e aggiungi l'import; poi build completa.
 - Rimozioni in blocco da script: dopo, controlla il diff per dichiarazioni tolte che non erano nel bersaglio.
 - Strumenti di "codice inutilizzato" = lista da verificare, non da cancellare; build + test dopo ogni lotto.
+- `re.sub` con un percorso Windows nel testo di sostituzione (`~\agenzia`) → `\a` diventa un carattere speciale
+  → passa una funzione come sostituzione (`lambda _: testo`).
