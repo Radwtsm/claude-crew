@@ -21,7 +21,8 @@
     pleyades-cli pianifica [--togli]   l'attività del sistema che lancia `auto` all'accesso e ogni 5 minuti, anche a
                                     Claude chiuso (launchd, Utilità di pianificazione, cron); `auto` la rimette da sola
     pleyades-cli intro              le 7 Pleiadi in pixel art con la frase dello studio (un tasto la salta)
-    pleyades-cli tema               (Mac) profilo «Pleiad Fire Red» del Terminale: nero pieno, intro a ogni finestra
+    pleyades-cli tema               parole Pleyades nella rotella di Claude + terminale «Pleiad Fire Red» nero con
+                                    l'intro (Mac: profilo del Terminale; Windows: Windows Terminal e PowerShell)
     pleyades-cli hook               (per un hook SessionStart) installa i plugin che il progetto aperto chiede e mancano
     pleyades-cli profilo casa|lavoro   che computer è: «lavoro» = solo le regole comuni, niente progetti, Talk o Nextcloud
     pleyades-cli prendi NOME ["perché"] / pleyades-cli togli NOME   un plugin di Pleyades tools solo su questo computer (per il lavoro),
@@ -2396,7 +2397,32 @@ def intro(durata=3.2):
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, vecchio)
             while select.select([sys.stdin], [], [], 0)[0]:
                 os.read(sys.stdin.fileno(), 64)  # il tasto che ha saltato non finisce nel prompt
+    print(stato_in_parole())
+    print(" " * max(0, (cols - 46) // 2) + "\033[2m" + "claude  parla con Claude  ·  pley  menu Pleyades" + "\033[0m\n")
+    if not stato().get("intro_vista"):  # primo avvio: tre strade, poi mai più
+        salva_stato(intro_vista=time.strftime("%Y-%m-%d"))
+        ui = interfaccia()
+        i = ui.scegli("Da dove parti?", ["Parla con Claude", "Menu Pleyades: progetti, aggiornamenti, aiuto",
+                                         "Niente, uso il terminale"])
+        if i == 0 and shutil.which("claude"):
+            os.execvp("claude", ["claude"])
+        if i == 1:
+            return menu(ui)
     return 0
+
+
+def stato_in_parole():
+    """Una riga per chi non programma: questo computer e la squadra, dall'ultimo giro automatico (niente rete)."""
+    st = stato()
+    a, sq = st.get("auto") or {}, st.get("squadra") or {}
+    if not a.get("t") or time.time() - a["t"] > 86400:
+        return ""
+    io = "✓ questo computer è aggiornato" if a.get("esito") == "ok" else f"✗ da sistemare: `{NOME_CLI} diagnosi`"
+    indietro = [x.split(" (")[0] for x in sq.get("indietro", [])]
+    gruppo = ("✓ squadra allineata" if not indietro else
+              "squadra: " + ", ".join(indietro) + " in aggiornamento") if sq.get("t") else ""
+    riga = "   ·   ".join(x for x in (io, gruppo) if x)
+    return " " * max(0, (shutil.get_terminal_size((80, 24)).columns - len(riga)) // 2) + "\033[2m" + riga + "\033[0m"
 
 
 def colore_ns(esa):
@@ -2409,14 +2435,99 @@ def colore_ns(esa):
                           fmt=plistlib.FMT_BINARY)
 
 
-def tema_terminale():
-    """`pleyades-cli tema`: il profilo «Pleiad Fire Red» del Terminale (nero pieno, colori del tema, intro all'apertura),
-    predefinito per le finestre nuove. Solo Mac: altrove lo sfondo nero si sceglie nelle impostazioni del terminale."""
-    if not MAC:
-        return False, "solo Mac: nel tuo terminale scegli uno sfondo nero pieno"
+PAROLE_ROTELLA = ["Allineo le stelle", "Consulto le Pleiadi", "Accendo la nebulosa", "Traccio la rotta",
+                  "Lucido le costellazioni"]
+COLORI_ANSI = ["#000000", "#e8253f", "#5fd4a0", "#f5c26b", "#6c8cff", "#ff6b7d", "#7fd6e0", "#d8d8d8",
+               "#555555", "#ff4d5e", "#7fe8b8", "#ffd98a", "#93abff", "#ff9aa5", "#a6eef5", "#ffffff"]
+
+
+def tema():
+    """`pleyades-cli tema`: parole della rotella in Claude Code (se non ne hai già di tue) + il terminale nero con
+    l'intro (Mac: profilo del Terminale; Windows: schema di Windows Terminal + intro nel profilo di PowerShell)."""
+    p = os.path.join(CASA, ".claude", "settings.json")
+    s = leggi_json(p, {})
+    if "spinnerVerbs" not in s:  # mai sopra a quelle scelte dalla persona
+        if os.path.exists(p):
+            shutil.copy(p, p + ".prima-di-crew")
+        s["spinnerVerbs"] = {"mode": "append", "verbs": PAROLE_ROTELLA}
+        scrivi_json(p, s)
+    if MAC:
+        return tema_terminale()
+    if WIN:
+        return tema_windows()
+    return True, "parole della rotella messe; nel tuo terminale scegli uno sfondo nero pieno"
+
+
+def jsonc(testo):
+    """JSON con commenti (Windows Terminal): toglie // e /* */ fuori dalle stringhe."""
+    out, i, n, dentro = [], 0, len(testo), False
+    while i < n:
+        ch = testo[i]
+        if dentro:
+            out.append(ch)
+            if ch == "\\":
+                out.append(testo[i + 1]); i += 1
+            elif ch == '"':
+                dentro = False
+        elif ch == '"':
+            dentro = True; out.append(ch)
+        elif testo.startswith("//", i):
+            i = testo.find("\n", i)
+            i = n if i < 0 else i
+            continue
+        elif testo.startswith("/*", i):
+            i = testo.find("*/", i) + 2 or n
+            continue
+        else:
+            out.append(ch)
+        i += 1
+    return json.loads(re.sub(r",(\s*[}\]])", r"\1", "".join(out)))
+
+
+def tema_windows():
     nome = "Pleiad Fire Red"
-    ansi = ["#000000", "#e8253f", "#5fd4a0", "#f5c26b", "#6c8cff", "#ff6b7d", "#7fd6e0", "#d8d8d8",
-            "#555555", "#ff4d5e", "#7fe8b8", "#ffd98a", "#93abff", "#ff9aa5", "#a6eef5", "#ffffff"]
+    loc = os.environ.get("LOCALAPPDATA", "")
+    cand = [os.path.join(loc, "Packages", f"Microsoft.WindowsTerminal{x}_8wekyb3d8bbwe", "LocalState", "settings.json")
+            for x in ("", "Preview")] + [os.path.join(loc, "Microsoft", "Windows Terminal", "settings.json")]
+    f = next((c for c in cand if os.path.isfile(c)), None)
+    if not f:
+        return False, "Windows Terminal non trovato: installalo dal Microsoft Store e rilancia"
+    try:
+        with open(f, encoding="utf-8-sig") as fh:
+            w = jsonc(fh.read())
+    except (OSError, ValueError) as e:
+        return False, f"impostazioni di Windows Terminal illeggibili ({e}): non le tocco"
+    nomi = ["black", "red", "green", "yellow", "blue", "purple", "cyan", "white"]
+    schema = {"name": nome, "background": "#000000", "foreground": "#F2F2F2", "cursorColor": "#E8253F",
+              "selectionBackground": "#5A101B"}
+    for i, c in enumerate(COLORI_ANSI):
+        k = nomi[i % 8]
+        schema[("bright" + k.capitalize()) if i > 7 else k] = c.upper()
+    w["schemes"] = [x for x in w.get("schemes", []) if x.get("name") != nome] + [schema]
+    prof = w.setdefault("profiles", {})
+    if isinstance(prof, list):
+        prof = w["profiles"] = {"list": prof}
+    prof.setdefault("defaults", {}).update(colorScheme=nome, opacity=100, useAcrylic=False)
+    shutil.copy(f, f + ".prima-di-crew")
+    scrivi_json(f, w)
+    # l'intro a ogni scheda nuova: una riga nel profilo di PowerShell (solo dentro Windows Terminal)
+    ps = shutil.which("powershell") and subprocess.run(["powershell", "-NoProfile", "-Command", "$PROFILE"],
+                                                       capture_output=True, text=True).stdout.strip()
+    if ps:
+        riga = "if ($env:WT_SESSION) { pleyades-cli intro }  # Pleyades tools"
+        esiste = open(ps, encoding="utf-8-sig").read() if os.path.isfile(ps) else ""
+        if riga not in esiste:
+            os.makedirs(os.path.dirname(ps), exist_ok=True)
+            with open(ps, "a", encoding="utf-8") as fh:
+                fh.write(("\n" if esiste and not esiste.endswith("\n") else "") + riga + "\n")
+    return True, f"schema «{nome}» predefinito in Windows Terminal (copia: settings.json.prima-di-crew), intro nelle schede nuove"
+
+
+def tema_terminale():
+    """Mac: il profilo «Pleiad Fire Red» del Terminale (nero pieno, colori del tema, intro all'apertura),
+    predefinito per le finestre nuove. Solo Mac: altrove lo sfondo nero si sceglie nelle impostazioni del terminale."""
+    nome = "Pleiad Fire Red"
+    ansi = COLORI_ANSI
     nomi = ["Black", "Red", "Green", "Yellow", "Blue", "Magenta", "Cyan", "White"]
     p = {"name": nome, "type": "Window Settings", "ProfileCurrentVersion": 2.07, "columnCount": 110, "rowCount": 32,
          "BackgroundColor": colore_ns("#000000"), "TextColor": colore_ns("#f2f2f2"), "TextBoldColor": colore_ns("#ffffff"),
@@ -2483,7 +2594,7 @@ def main():
                            nota="valido dalla prossima sessione di Claude Code"))
             return 0 if ok else 1
         if cmd == "tema":
-            ok, cosa = tema_terminale()
+            ok, cosa = tema()
             ui.esito(Esito("tema del Terminale", ok, cosa, nota=cosa))
             return 0 if ok else 1
         if cmd == "pianifica":

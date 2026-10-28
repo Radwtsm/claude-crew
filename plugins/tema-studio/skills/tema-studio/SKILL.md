@@ -9,19 +9,17 @@ description: I temi di Claude Code con i colori dello studio (blu notte o rosso 
 1. In Claude Code (terminale): scrivi `/theme` e scegli «Pleyades Studio» o «Pleiad Fire Red».
 2. Vale per quel computer; per tornare indietro, `/theme` e un tema di base.
 Il rosso vuole uno sfondo nero pieno: lo decide il programma del terminale, non Claude.
-- Mac: `pleyades-cli tema` installa il profilo «Pleiad Fire Red» del Terminale (nero, colori intonati, intro con le
-  Pleiadi a ogni finestra) e lo rende predefinito. Per toglierlo: Terminale → Impostazioni → Profili → un altro →
-  Predefinito.
-- Windows Terminal / iTerm: Impostazioni → Profilo → Colori → sfondo `#000000`, opacità piena.
+`pleyades-cli tema` fa tutto: parole Pleyades nella rotella (solo se non ne hai già di tue) e terminale nero con
+l'intro (stato tuo e della squadra, i comandi `claude` e `pley`; al primo avvio tre strade).
+- Mac: profilo «Pleiad Fire Red» del Terminale, predefinito. Toglierlo: Terminale → Impostazioni → Profili → un
+  altro → Predefinito. Opzione-clic sposta il cursore nella riga; col mouse in tutto, l'app desktop di Claude.
+- Windows: schema in Windows Terminal (copia in `settings.json.prima-di-crew`) e una riga nel profilo di PowerShell.
+- Altri terminali (iTerm, Linux): sfondo `#000000`, opacità piena.
 - L'intro da sola: `pleyades-cli intro` (un tasto la salta).
 
-## Parole della rotella (facoltativo)
-Sono un'impostazione personale, non del plugin: aggiungile in `~/.claude/settings.json` (con l'ok dell'utente):
-```
-"spinnerVerbs": { "mode": "replace", "verbs": ["Allineo le stelle", "Consulto le Pleiadi",
-  "Accendo la nebulosa", "Traccio la rotta", "Lucido le costellazioni"] }
-```
-`"append"` invece di `"replace"` le aggiunge a quelle di Claude.
+## Parole della rotella
+`pleyades-cli tema` le aggiunge a quelle di Claude (`spinnerVerbs`, `"mode": "append"`) in `~/.claude/settings.json`,
+solo se non ce ne sono già; `"replace"` per avere solo quelle di Pleyades.
 
 ## Cambiare i colori
 I temi sono in `themes/` di questo plugin (`name`, `base`, `overrides`: nome del colore → `#rrggbb`). I colori
