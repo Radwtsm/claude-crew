@@ -804,7 +804,7 @@ class Terminale:
 
     def riquadro(self, righe):
         vis = [len(re.sub(r"\x1b\[[0-9;]*m", "", r)) for r in righe]
-        w = max(vis) + 2
+        w = self.largo = max(max(vis) + 2, getattr(self, "largo", 0))  # tutti i riquadri larghi uguali
         print("\n" + self.c("2", "╭" + "─" * w + "╮"))
         for r, n in zip(righe, vis):
             print(self.c("2", "│") + " " + r + " " * (w - n - 1) + self.c("2", "│"))
