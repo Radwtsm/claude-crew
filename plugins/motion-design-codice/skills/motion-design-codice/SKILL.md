@@ -1,6 +1,6 @@
 ---
 name: motion-design-codice
-description: Creare animazioni di motion design (reel, intro di logo, video di brand) generandole in codice con Node, canvas e ffmpeg, da consegnare in clip pronte per il montaggio. Usala quando l'utente dice "fammi un'animazione", "un reel animato", "motion graphics per il brand", "animazione del logo", "video senza After Effects", o quando un'animazione ha scatti, momenti fermi o forme che spariscono.
+description: Motion design generato in codice (Node, canvas, ffmpeg): reel, intro di logo, video di brand in clip pronte. Usala per "fammi un'animazione", "reel animato", "animazione del logo", "video senza After Effects", o animazioni con scatti o forme che spariscono.
 ---
 
 # Motion design in codice

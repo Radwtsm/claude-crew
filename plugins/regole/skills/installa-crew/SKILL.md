@@ -1,6 +1,6 @@
 ---
 name: installa-crew
-description: Scegliere, aggiungere o togliere plugin della crew, tenerli tutti sincronizzati (anche quelli nuovi), aggiornarli o controllare che siano installati bene, in Claude Code o nell'app. Usala quando l'utente chiede "che skill della crew ci sono", "aggiungi/togli la skill X", "aggiorna la crew", "voglio tutte le skill sempre aggiornate".
+description: Scegliere, aggiungere, togliere e aggiornare i plugin della crew, anche quelli nuovi, in Claude Code o nell'app. Usala per "che skill della crew ci sono", "aggiungi/togli la skill X", "aggiorna la crew", o quando un plugin manca.
 ---
 
 # Gestire i plugin della crew

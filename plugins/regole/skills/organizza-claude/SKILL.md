@@ -1,6 +1,6 @@
 ---
 name: organizza-claude
-description: La struttura comune della crew per organizzare il proprio Claude (regole personali, skill private, regole di progetto, plugin della crew) in Claude Code e nell'app, e la procedura per riorganizzare un setup esistente senza perdere niente. Usala quando l'utente dice "organizza il mio Claude", "dove metto questa regola/skill", "sistema i miei CLAUDE.md", "configura Claude come la crew", o quando una regola o skill sta nel posto sbagliato.
+description: Struttura comune per organizzare il proprio Claude (regole personali, skill, progetti, plugin) e riorganizzare un setup senza perdere niente; risparmio di token. Usala per "organizza il mio Claude", "dove metto questa regola", "sistema i miei CLAUDE.md".
 ---
 
 # Organizzare il proprio Claude (struttura della crew)
@@ -54,10 +54,11 @@ Ogni risposta di Claude rilegge tutto ciò che è sempre caricato; in una sessio
   quando serve. Descrizione corta ma con i casi d'uso ("Usala prima di…").
 - **Hook d'avvio corti** (sotto ~8 KB): oltre ~10 KB Claude Code salva l'output in un file e ne mostra solo
   l'inizio. Prima gli avvisi, poi gli elenchi; un elenco lungo = numeri + "dettagli con <comando>".
-- **Plugin: tutti attivi, si usano da soli quando servono.** Di una skill resta in memoria solo la descrizione
-  (~100 token); il contenuto si legge quando il lavoro lo chiede. Non spegnerli per risparmiare: costa poco e li
-  perdi. Da tenere d'occhio solo ciò che entra sempre per intero: testi iniettati all'avvio (hook) e connettori con
-  molti strumenti; quelli si spengono nel progetto dove non servono (`enabledPlugins` / connettori della chat).
+- **Plugin accesi per progetto**: ogni descrizione di skill entra a ogni risposta, quindi in un repo restano accesi
+  solo i plugin del suo lavoro (`enabledPlugins` nel `.claude/settings.json` del progetto, nel repo così arriva a
+  tutti); uno spento si accende con una riga quando serve. Descrizioni ≤ 300 caratteri (il lint lo controlla).
+- **Testi all'avvio solo se servono sempre**: il resto entra al primo uso (es. le regole del codice al primo file
+  di codice modificato, plugin `codice`) o con una skill.
 - **Un controllo, non solo una regola**: un file `limiti-contesto.txt` (byte massimi per file, glob ammessi) letto
   dal check del pre-commit blocca chi fa ricrescere CLAUDE.md, regole e lezioni; alzare un limite = scelta nel commit.
 - **Una sessione per argomento**, `/clear` dopo il commit: lo stato sta nel backlog e nella memoria, non nella chat.

@@ -1,6 +1,6 @@
 ---
 name: raccogli-skill
-description: Fare l'inventario di TUTTI gli strumenti dell'utente (skill, procedure, comandi, plugin, server MCP, hook, lezioni imparate) in ogni progetto e nell'app, confrontarli con la crew e portare nella crew quelli utili ad altri, unendo i doppioni. Usala quando l'utente dice "raccogli le mie skill", "porta tutto nella crew", "sincronizza i miei strumenti con la crew", "cosa posso condividere".
+description: Inventario di tutti gli strumenti dell'utente (skill, comandi, plugin, MCP, hook, lezioni) in ogni progetto, confronto con la crew e condivisione di quelli utili, senza doppioni. Usala per "raccogli le mie skill", "porta tutto nella crew", "cosa posso condividere".
 ---
 
 # Raccogli le skill nella crew

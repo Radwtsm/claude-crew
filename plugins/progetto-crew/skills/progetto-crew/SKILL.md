@@ -1,6 +1,6 @@
 ---
 name: progetto-crew
-description: Solo per i progetti fatti insieme dalla crew - portare avanti un progetto che tocca più settori (es. server + sito + negozio online + campagna SEO + video promozionale) con una sola identità coerente in ogni pezzo - scheda di progetto, piano per settori, consegne tra le skill, controllo di coerenza, lezioni a fine progetto. Usala quando l'utente dice "progetto della crew", "progetto insieme", "lanciamo X insieme", "facciamo sito e video per il nostro progetto", "progetto per un cliente", "proponiamo a un negozio", o quando c'è un progetto.md nella cartella. Anche per progetti per clienti esterni (piccole attività): demo, pilota, proposta, consegna.
+description: Progetti fatti insieme dalla crew o per un cliente esterno, su più settori (server, sito, negozio, SEO, video) con una sola identità: scheda progetto.md, piano, consegne, coerenza. Usala per "progetto della crew", "lanciamo X insieme", "progetto per un cliente", o con un progetto.md.
 ---
 
 # Progetto con più settori

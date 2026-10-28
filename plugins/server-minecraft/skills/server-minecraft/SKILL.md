@@ -1,6 +1,6 @@
 ---
 name: server-minecraft
-description: Gestire un server Minecraft Java (Paper, Purpur, Fabric, Forge/NeoForge) - installazione, avvio con flag JVM giusti, plugin e mod, backup, prestazioni (lag, TPS, RAM), lettura di crash report e log, whitelist e permessi, aggiornamento di versione. Usala quando si parla di server Minecraft, plugin Paper/Spigot, mod server-side, lag del server o crash.
+description: Server Minecraft Java (Paper, Purpur, Fabric, Forge/NeoForge): installazione, flag JVM, plugin e mod, backup, lag e TPS, crash report, whitelist, aggiornamenti. Usala quando si parla di server Minecraft, plugin Paper/Spigot, mod server-side, lag o crash.
 ---
 
 # Server Minecraft

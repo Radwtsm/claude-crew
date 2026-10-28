@@ -1,6 +1,6 @@
 ---
 name: shopify-tema
-description: Lavorare sul codice di un tema Shopify con la Shopify CLI senza rompere il negozio né cancellare le modifiche fatte dall'editor. Usala quando l'utente dice "personalizza il mio negozio Shopify", "modifica il tema", "carica le modifiche su Shopify", "aggiungi una sezione", "importa i prodotti", o quando un push ha cancellato qualcosa o l'intestazione Horizon si è scomposta.
+description: Codice di un tema Shopify con la Shopify CLI senza rompere il negozio né perdere le modifiche dell'editor. Usala per "personalizza il negozio Shopify", "modifica il tema", "carica le modifiche", "aggiungi una sezione", o un push che ha cancellato qualcosa.
 ---
 
 # Tema Shopify con la CLI

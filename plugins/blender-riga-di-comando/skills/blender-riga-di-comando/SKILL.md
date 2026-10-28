@@ -1,6 +1,6 @@
 ---
 name: blender-riga-di-comando
-description: Usare Blender da script Python senza aprire l'interfaccia, per costruire scene, materiali e render (Cycles su GPU) in modo ripetibile. Usala quando l'utente dice "fammi un render in Blender", "crea la scena 3D", "modella questo oggetto", "render realistico", "lancia Blender da script", o quando un render esce troppo scuro, bruciato, sfocato o "di gesso".
+description: Blender da script Python senza interfaccia: scene, materiali, render Cycles su GPU ripetibili. Usala per "render in Blender", "scena 3D", "modella questo oggetto", "Blender da script", o render troppo scuri, bruciati, sfocati o "di gesso".
 ---
 
 # Blender da riga di comando

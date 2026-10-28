@@ -1,6 +1,6 @@
 ---
 name: annota-lezione
-description: Trasformare un problema appena risolto in una lezione per tutta la crew, così nessuno ci ricasca. Usala subito dopo aver risolto un problema non ovvio - un errore strano, un comando o un'impostazione che non funzionava come sembrava, un tuo consiglio sbagliato, una soluzione trovata dopo vari tentativi - e quando l'utente dice "finalmente funziona", "era questo il problema", "ricordatelo", "segnatelo per la prossima volta".
+description: Trasforma un problema appena risolto in una lezione per tutta la crew, così nessuno ci ricasca. Usala subito dopo un errore strano o un consiglio sbagliato risolto, e quando l'utente dice "finalmente funziona", "era questo il problema", "segnatelo".
 ---
 
 # Annota una lezione

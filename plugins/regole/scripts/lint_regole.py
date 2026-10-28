@@ -6,7 +6,7 @@
   python3 lint_regole.py --hook                 hook PostToolUse: controlla il file appena scritto (JSON su stdin)
 
 Cosa controlla (README della crew → Formato):
-- SKILL.md: frontmatter con `name` uguale alla cartella e `description` di 80-1024 caratteri che dice quando usarla
+- SKILL.md: frontmatter con `name` uguale alla cartella e `description` di 80-300 caratteri che dice quando usarla (si paga a ogni risposta: corta)
   ("Usala…" o "Use when…"); un titolo `# …` nel corpo.
 - Righe sotto un titolo "Insidie"/"Trappole": `sintomo → causa → cosa fare` (almeno una freccia).
 - Ogni .md di regole o skill: righe ≤ 120 caratteri (fuori dai blocchi di codice e dalle tabelle), niente spazi in
@@ -49,8 +49,8 @@ def problemi(path, rel):
             if campi.get("name") != cartella:
                 out.append(f"name '{campi.get('name')}' diverso dalla cartella '{cartella}'")
             desc = campi.get("description", "")
-            if not 80 <= len(desc) <= 1024:
-                out.append(f"description di {len(desc)} caratteri (80-1024)")
+            if not 80 <= len(desc) <= 300:  # 2026-10-28: was 1024; every description is in context at every turn
+                out.append(f"description di {len(desc)} caratteri (80-300)")
             if not re.search(r"\b(Usala|Usalo|Use (it )?when|Use this)\b", desc):
                 out.append("description senza 'Usala quando/prima di…'")
             if not re.search(r"^# ", corpo, re.M):

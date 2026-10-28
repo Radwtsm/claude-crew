@@ -1,6 +1,6 @@
 ---
 name: indesign-script
-description: Costruire un impaginato InDesign (magazine, libro, brochure) da uno script ExtendScript lanciato da Claude, con griglia, stili, immagini ed esportazione PDF ripetibili. Usala quando l'utente dice "impagina in InDesign", "fammi le pagine del magazine", "esporta il PDF con la griglia", "script per InDesign", o quando uno script InDesign dà "L'utente ha interrotto questa operazione", caratteri strani tipo "âœ" o immagini tagliate nel PDF.
+description: Impaginati InDesign (magazine, libro, brochure) da script ExtendScript: griglia, stili, immagini, PDF ripetibili. Usala per "impagina in InDesign", "pagine del magazine", "script per InDesign", o errori come "L'utente ha interrotto questa operazione" e caratteri strani.
 ---
 
 # Impaginati InDesign da script

@@ -1,6 +1,6 @@
 ---
 name: after-effects-pannelli
-description: Costruire un pannello (plugin CEP) per After Effects con interfaccia HTML/JS che crea layer, keyframe con curve, testi animati, effetti, maschere ed espressioni via ExtendScript. Usala quando l'utente dice "voglio un plugin per After Effects", "un pannello per AE", "uno script che crea animazioni in AE", "estensione CEP", o quando un pannello AE dà errori come "L'oggetto non è valido" o "fuori gamma".
+description: Pannelli (plugin CEP) per After Effects in HTML/JS che creano layer, keyframe, testi animati, effetti ed espressioni via ExtendScript. Usala per "plugin/pannello per AE", "script che anima in AE", "estensione CEP", o errori AE come "L'oggetto non è valido".
 ---
 
 # Pannelli per After Effects (CEP + ExtendScript)

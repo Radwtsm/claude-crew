@@ -1,6 +1,6 @@
 ---
 name: trappole-tecniche
-description: Trappole tecniche già incontrate dalla crew, con la soluzione - shell (bash, zsh, Git Bash su Windows), hook, ssh, Docker e firewall, Cloudflare Access, SQLite, Python http.server, Swift, macOS (launchd, File Provider, sips), Playwright e test end-to-end, immagini ed EXIF, layout web (CLS), Node. Usala prima di scrivere script shell o hook, comandi ssh, test end-to-end, codice che tocca file di sistema, immagini o layout web, e quando qualcosa si comporta in modo strano o un test fallisce solo ogni tanto.
+description: Trappole tecniche già incontrate, con la soluzione: shell (bash, zsh, Git Bash), hook, ssh, Docker, Cloudflare, SQLite, Swift, macOS, Playwright, immagini, layout web, Node. Usala prima di script, hook, ssh, test end-to-end, e quando qualcosa si comporta in modo strano.
 ---
 
 # Trappole tecniche

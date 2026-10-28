@@ -1,6 +1,6 @@
 ---
 name: grafica
-description: Lavori di grafica - loghi, miniature YouTube, post e storie social, banner, icone, poster, texture e skin per giochi. Formati di esport, dimensioni giuste per ogni piattaforma, colori, font, immagini per il web e per la stampa, programmi (Photoshop, Illustrator, Affinity, Figma, Canva, GIMP, Krita, Blender). Usala quando si crea o si sistema un'immagine o un design.
+description: Grafica: loghi, miniature, post e storie social, banner, icone, poster, texture. Formati ed export giusti per ogni piattaforma, colori, font, web e stampa (Photoshop, Illustrator, Affinity, Figma, Canva, GIMP, Krita). Usala quando si crea o si sistema un'immagine o un design.
 ---
 
 # Grafica

@@ -50,7 +50,7 @@ errore. Come si fa: `CLAUDE.md` → "Strumenti: tutti qui" e "Lezioni".
 Le stesse regole per la crew, i tuoi repo e quelli di progetto, controllate da `plugins/regole/scripts/lint_regole.py`: il plugin
 `regole` lo lancia **mentre Claude scrive** (hook su ogni regola o skill modificata), `check.sh` prima di ogni commit;
 nei tuoi repo, nel pre-commit: `python3 ~/.claude/plugins/marketplaces/claude-crew/plugins/regole/scripts/lint_regole.py .`
-- **Skill**: frontmatter con `name` uguale alla cartella e `description` di 80–1024 caratteri che dice cosa fa e
+- **Skill**: frontmatter con `name` uguale alla cartella e `description` di 80–300 caratteri che dice cosa fa e
   "Usala quando/prima di…"; un titolo `# …`; corpo corto, i dettagli in file per tema letti quando servono.
 - **Insidie e trappole**: una voce per errore, `sintomo → causa → cosa fare`, sotto un titolo "Insidie" o "Trappole".
 - **Righe** di massimo 120 caratteri (tabelle e link esclusi), niente spazi in fondo, a capo finale.

@@ -1,6 +1,6 @@
 ---
 name: configura-claude
-description: Configurare il Claude Code di un amico come quello del manutentore, su Mac o Windows - regole personali in un repo GitHub privato uguale su ogni computer, una sola memoria per tutti i progetti, sincronizzazione automatica, barra di stato (modello, contesto, uso 5h/7g), avviso di uso alto, plugin aggiornati da soli. Usala quando l'utente dice "configura il mio Claude", "voglio Claude come il tuo", "setup di Claude", "sincronizza le mie regole tra i PC", "memoria unica".
+description: Configura il Claude Code di un amico come quello del manutentore, su Mac o Windows: regole personali in repo privato, memoria unica, sincronizzazione, barra di stato, avviso di uso alto. Usala per "configura il mio Claude", "setup di Claude", "sincronizza le mie regole".
 ---
 
 # Configurare il proprio Claude Code

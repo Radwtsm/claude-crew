@@ -1,6 +1,6 @@
 ---
 name: video-ffmpeg
-description: Lavori sui video - tagliare, unire, comprimere, convertire formati, estrarre audio, sottotitoli, cambiare risoluzione o fps, video per YouTube/TikTok/Instagram/Discord, registrazioni di gameplay (OBS), montaggio (DaVinci Resolve, Premiere, CapCut). Comandi ffmpeg pronti e spiegati. Usala quando si parla di video, clip, registrazioni, codec o dimensioni dei file video.
+description: Video con ffmpeg: tagliare, unire, comprimere, convertire, audio, sottotitoli, risoluzione e fps, formati per YouTube, TikTok, Instagram, Discord; OBS e montaggio. Usala quando si parla di video, clip, registrazioni, codec o dimensioni dei file video.
 ---
 
 # Video e ffmpeg
