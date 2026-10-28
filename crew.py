@@ -607,6 +607,32 @@ def file_marchio():
 
 # ───────────────────────────── terminale (la sola parte che stampa) ─────────────────────────────
 
+def tasto():
+    """Un tasto senza Invio: "su", "giu", "invio" o il carattere. Ctrl+C esce come sempre."""
+    if WIN:
+        import msvcrt
+        k = msvcrt.getwch()
+        if k in ("\x00", "\xe0"):
+            return {"H": "su", "P": "giu"}.get(msvcrt.getwch(), "")
+    else:
+        import termios, tty
+        fd = sys.stdin.fileno()
+        prima = termios.tcgetattr(fd)
+        try:
+            tty.setcbreak(fd)
+            k = os.read(fd, 1).decode(errors="ignore")
+            if k == "\x1b":
+                k += os.read(fd, 2).decode(errors="ignore")
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, prima)
+        k = {"\x1b[A": "su", "\x1bOA": "su", "\x1b[B": "giu", "\x1bOB": "giu"}.get(k, k)
+    if k == "\x03":
+        raise KeyboardInterrupt
+    if k in ("j", "k"):
+        return {"k": "su", "j": "giu"}[k]
+    return "invio" if k in ("\r", "\n") else k
+
+
 class Terminale:
     def __init__(self):
         self.colori = sys.stdout.isatty() and not os.environ.get("NO_COLOR") and os.environ.get("TERM") != "dumb"
@@ -675,14 +701,55 @@ class Terminale:
         return r or base
 
     def scegli(self, domanda, opzioni):
-        """opzioni = [testo]; la prima è la consigliata. Torna l'indice."""
+        """opzioni = [testo]; la prima è la consigliata. Torna l'indice. Frecce ↑↓ e Invio, come in Claude Code
+        (o il numero); senza un terminale vero: scrivi il numero."""
         print(self.c("1", "   ❓ " + domanda))
+        if self.colori and sys.stdin.isatty():
+            try:
+                return self._menu(opzioni)
+            except (OSError, ImportError):
+                pass  # niente tasti singoli (es. console strana): si ripiega sul numero
         for i, o in enumerate(opzioni, 1):
             print(f"      {self.c('1;36', str(i))}  {o}" + (self.c("2", "  (consigliata)") if i == 1 else ""))
         while True:
             r = self.chiedi("Scrivi il numero e premi Invio:", "1")
             if r.isdigit() and 1 <= int(r) <= len(opzioni):
                 return int(r) - 1
+
+    def _menu(self, opzioni):
+        def riga(i, o):
+            nota = self.c("2", "  (consigliata)") if i == 0 else ""
+            return (self.c("1;36", f"    ❯ {i + 1}. {o}") if i == sel else f"      {i + 1}. {o}") + nota
+        sel, n = 0, len(opzioni)
+        sys.stdout.write("\033[?25l")  # cursore nascosto mentre si sceglie
+        try:
+            for i, o in enumerate(opzioni):
+                print(riga(i, o))
+            print(self.c("2", "      ↑↓ per scegliere, Invio per confermare"))
+            while True:
+                k = tasto()
+                if k == "su":
+                    sel = (sel - 1) % n
+                elif k == "giu":
+                    sel = (sel + 1) % n
+                elif k.isdigit() and 1 <= int(k) <= n:
+                    sel = int(k) - 1
+                elif k == "invio":
+                    return sel
+                else:
+                    continue
+                sys.stdout.write(f"\033[{n + 1}F")  # torna su e riscrive le opzioni
+                for i, o in enumerate(opzioni):
+                    sys.stdout.write("\033[2K" + riga(i, o) + "\n")
+                sys.stdout.write("\n")
+                sys.stdout.flush()
+        finally:
+            sys.stdout.write("\033[?25h")
+            sys.stdout.flush()
+
+    def conferma(self, domanda, si="Sì", no="No"):
+        """Sì/no con le frecce; la prima (sì) è la consigliata."""
+        return self.scegli(domanda, [si, no]) == 0
 
     def attesa(self, testo):
         return _Attesa(self, testo)
@@ -801,7 +868,7 @@ def passo_profilo(ui):
         ui.fai("Computer di lavoro: prima di installare qualcosa controlla le regole della tua azienda (policy IT)\n"
                "su programmi e servizi esterni. Qui installo solo Claude Code e le regole comuni della crew;\n"
                "niente progetti, Talk o Nextcloud. Un plugin in più: `crew prendi NOME`.")
-        if ui.chiedi("Le regole dell'azienda lo permettono? Continuo? [s/n]", "n").lower()[:1] != "s":
+        if ui.conferma("Le regole dell'azienda lo permettono?", "No, mi fermo qui", "Sì, continua"):
             return ui.esito(Esito("profilo lavoro", False, "rilancia `crew` quando hai controllato"))
         return ui.esito(Esito("profilo: lavoro", True, nota="solo il minimo"))
     return ui.esito(Esito("profilo: casa", True, saltato=True, nota="cambia con `crew profilo lavoro`"))
@@ -846,7 +913,7 @@ def passo_github(ui):
         if not ok:
             return ui.esito(Esito("GitHub CLI", False, f"{out}: scaricalo da cli.github.com e rilancia"))
     ui.fai(SPIEGA_GH)
-    if ui.chiedi("Premi Invio per cominciare (o scrivi «salta»):").lower() != "salta":
+    if ui.conferma("Colleghiamo GitHub?", "Sì, apri il browser", "Salta per ora"):
         run("gh", "auth", "login", "--hostname", "github.com", "--web", "--git-protocol", "https", vivo=True)
     if not gh_collegato():
         return ui.esito(Esito("GitHub", False, "accesso non completato: rilancia `crew` e rifai i passi qui sopra"))
@@ -873,7 +940,7 @@ def scegli_progetti(ui, richiesti):
             trovati = progetti_github()
         nuovi = [r for r in trovati if r not in noti]
         for r in nuovi:
-            if ui.chiedi(f"Fai parte di {r}: lo preparo su questo computer? [s/n]", "s").lower().startswith("s"):
+            if ui.conferma(f"Fai parte di {r}: lo preparo su questo computer?"):
                 noti.append(r)
     if not noti and not richiesti:
         r = ui.chiedi("Ti hanno dato il nome di un progetto (es. PROPRIETARIO/NOME)? Scrivilo, o Invio per nessuno:")
@@ -890,7 +957,7 @@ SPIEGA_ACCESSO = """Accesso allo studio: si apre il browser su Nextcloud.
 
 def accedi_studio(ui, server):
     ui.fai(SPIEGA_ACCESSO)
-    if ui.chiedi("Premi Invio per aprire il browser (o scrivi «salta»):").lower() == "salta":
+    if not ui.conferma("Entriamo nello studio?", "Sì, apri il browser", "Salta per ora"):
         return None
     try:
         pagina, poll = inizia_accesso(server)
@@ -1008,7 +1075,7 @@ def prepara(ui, d, c, etichetta, cred=None, studio=False):
             else:
                 ui.fai(SPIEGA_APP.format(s=t.SERVER) + "\nNon hai ancora un utente Nextcloud? Chiedilo a chi ti ha "
                        "invitato e rilancia `crew` quando ce l'hai.")
-                if ui.chiedi("Premi Invio per collegarti a mano (o scrivi «salta»):").lower() != "salta":
+                if ui.conferma("Ti colleghi a mano?", "Sì, collegami", "Salta per ora"):
                     collega_stanza(d, c)
             conf = stanza_collegata(t, c.get("stanza"))
         ui.esito(Esito(f"stanza Talk «{nome}»", bool(conf), "rilancia `crew`: ti richiede utente e password per app"))
@@ -1089,9 +1156,8 @@ def guida(ui, richiesti, solo_progetti=False):
     prima = not stato().get("guida_fatta")
     salva_stato(guida_fatta=True)
     primo_prompt = pronti[0][1][1].get("primo_prompt") if pronti else None
-    if prima and primo_prompt and ha("claude") and ui.chiedi(
-            "Premi Invio: apro Claude qui e finisce lui (regole, CLAUDE.md, la tua scheda) — o scrivi «salta»:"
-            ).lower() != "salta":
+    if prima and primo_prompt and ha("claude") and ui.conferma(
+            "Apro Claude qui? Finisce lui: le tue regole, il CLAUDE.md, la tua scheda", "Sì, apri Claude", "Dopo"):
         run("claude", primo_prompt, cwd=primo, vivo=True)  # la prima conversazione, già nella cartella giusta
     return 0 if verdi == len(ui.esiti) else 1
 
