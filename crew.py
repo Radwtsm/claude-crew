@@ -17,7 +17,7 @@
                             segnato in locale con data e motivo; `crew aggiorna` non ne aggiunge mai altri
 
 Un progetto dice cosa gli serve in `.claude/progetto.json` del suo repo (stanza, talk, cartelle, plugin,
-marketplace, passi, dopo, moduli, marchio, comando); i plugin di `.claude/settings.json` con valore true contano anche loro.
+marketplace, passi, dopo, primo_prompt, moduli, marchio, comando); i plugin di `.claude/settings.json` con valore true contano anche loro.
 L'indirizzo di Nextcloud viene dal `talk.py` del progetto, l'aspetto dal suo `marchio` (se c'è) e `comando` dà un
 secondo nome allo stesso programma (es. il nome dello studio): questo file è pubblico e non ne contiene.
 Progetti dallo studio: ogni cartella condivisa che contiene `.claude/progetto.json` (copia di sola lettura del repo,
@@ -40,6 +40,12 @@ STATO = os.path.join(CASA, ".config", "crew", "stato.json")  # scelte della pers
 BIN = os.path.join(CASA, ".local", "bin")
 CODICE = os.path.join(CASA, "code")
 WIN, MAC = os.name == "nt", sys.platform == "darwin"
+SPIEGA_APP_E_CLI = """Claude ha due porte, con le stesse regole, skill e progetti:
+  · nel terminale: `claude` nella cartella del progetto (comandi, file, i tool del progetto)
+  · nell'app Claude (claude.ai/download), scheda «Code»: scegli la stessa cartella; comoda per leggere e guardare
+  Una conversazione per argomento, in tutte e due."""
+
+
 REGOLE_USO = """Regole d'uso (1 minuto):
   1. Un argomento per conversazione; finito, scrivi /clear.
   2. Frasi brevi: cosa vuoi ottenere. «sì» o «1» bastano per rispondere.
@@ -1079,7 +1085,14 @@ def guida(ui, richiesti, solo_progetti=False):
     ui.info("la prima volta scrivi «configura il mio Claude». Per rivedere tutto: " + ui.c("1", ui.nome))
     if pronti and ui.nome == "crew" and file_marchio():
         ui.info(f"Da adesso c'è anche il comando {ui.c('1', file_marchio()[1])} (lo stesso, con il marchio del progetto).")
+    ui.info(SPIEGA_APP_E_CLI)
+    prima = not stato().get("guida_fatta")
     salva_stato(guida_fatta=True)
+    primo_prompt = pronti[0][1][1].get("primo_prompt") if pronti else None
+    if prima and primo_prompt and ha("claude") and ui.chiedi(
+            "Premi Invio: apro Claude qui e finisce lui (regole, CLAUDE.md, la tua scheda) — o scrivi «salta»:"
+            ).lower() != "salta":
+        run("claude", primo_prompt, cwd=primo, vivo=True)  # la prima conversazione, già nella cartella giusta
     return 0 if verdi == len(ui.esiti) else 1
 
 
