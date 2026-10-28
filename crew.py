@@ -20,7 +20,8 @@
                                     `controlla --talk` solo se il riassunto è cambiato o ha più di 3 giorni
     pleyades-cli pianifica [--togli]   l'attività del sistema che lancia `auto` all'accesso e ogni 5 minuti, anche a
                                     Claude chiuso (launchd, Utilità di pianificazione, cron); `auto` la rimette da sola
-    pleyades-cli intro              le 7 Pleiadi in pixel art con la frase dello studio (un tasto la salta)
+    pleyades-cli intro [--256]      le 7 Pleiadi in pixel art con la frase dello studio (un tasto la salta);
+                                    --256: colori per i terminali vecchi (anche PLEYADES_COLORI=256)
     pleyades-cli tema               parole Pleyades nella rotella di Claude + terminale «Pleiad Fire Red» nero con
                                     l'intro (Mac: profilo del Terminale; Windows: Windows Terminal e PowerShell)
     pleyades-cli hook               (per un hook SessionStart) installa i plugin che il progetto aperto chiede e mancano
@@ -2239,13 +2240,24 @@ def intro(durata=3.2):
             or tp in ("iTerm.app", "WezTerm", "ghostty", "vscode")
             or (tp == "Apple_Terminal" and int((platform.mac_ver()[0] or "0").split(".")[0]) >= 26))
 
-    def col(c, sfondo):
-        r, g, b = (min(255, max(0, int(x))) for x in c)
+    forza = os.environ.get("PLEYADES_COLORI", "")
+    vero = forza != "256" and (forza == "24" or vero)
+    LIV = (0, 95, 135, 175, 215, 255)  # i livelli veri del cubo a 256 colori (non a passi uguali)
+    def livello(v, soglia):
+        i = next(k for k in range(5) if v <= LIV[k + 1])  # fra LIV[i] e LIV[i+1]
+        return i + ((v - LIV[i]) / (LIV[i + 1] - LIV[i]) > soglia)
+
+    def col(c, sfondo, x=0, y=0):
+        r, g, b = (min(255, max(0, int(v))) for v in c)
         if vero:
             return f"\033[{48 if sfondo else 38};2;{r};{g};{b}m"
-        if r == g == b:  # grigi della rampa: niente macchie colorate nei toni scuri
-            return f"\033[{48 if sfondo else 38};5;{16 if r < 8 else 231 if r > 246 else 232 + (r - 8) // 10}m"
-        return f"\033[{48 if sfondo else 38};5;{16 + 36 * round(r / 51) + 6 * round(g / 51) + round(b / 51)}m"
+        ir, ig, ib = livello(r, 0.5), livello(g, 0.5), livello(b, 0.5)  # il più vicino (un retino fa scacchiera)
+        cubo = 16 + 36 * ir + 6 * ig + ib
+        grigio = (r + g + b) / 3
+        gi = min(23, max(0, round((grigio - 8) / 10)))
+        if max(r, g, b) - min(r, g, b) < 14 and abs(8 + 10 * gi - grigio) < abs(LIV[ir] - r) + 6:
+            cubo = 232 + gi if grigio > 4 else 16  # quasi grigio: la rampa dei grigi è più fine del cubo
+        return f"\033[{48 if sfondo else 38};5;{cubo}m"
 
     rnd = random.Random(7)
     cx, cy = W / 2, PH * 0.4
@@ -2294,7 +2306,7 @@ def intro(durata=3.2):
             p[0] += c[0] * a; p[1] += c[1] * a; p[2] += c[2] * a
 
     def fotogramma(t):
-        neb = max(0.0, min(1.0, (t - 0.35) / 0.4))
+        neb = max(0.0, min(1.0, (t - 0.35) / 0.4)) if vero else 0.0  # a 256 colori il rosso scuro più tenue è già acceso
         buf = [[[p[0] * neb, p[1] * neb, p[2] * neb] for p in riga] for riga in nebbia]
         v = max(0.0, 1 - t / 0.5) ** 2  # volo fra le stelle: veloce all'inizio, si ferma a metà
         for st in volo:
@@ -2357,23 +2369,32 @@ def intro(durata=3.2):
 
     nero = col((0, 0, 0), True)
 
+    prima = {}  # cella → cosa c'era: si riscrivono solo le celle cambiate (meno byte, meglio sui computer lenti)
+
     def schermo(buf, t):
         out = []
         for r in range(A):
-            s_, ultimo = [f"\033[{r + 1};1H"], None
+            s_, ultimo, salto = [], None, True
             for x in range(W):
                 a, b = buf[2 * r][x], buf[2 * r + 1][x]
                 sa, sb = sum(a) > 9, sum(b) > 9
                 if sa and sb and max(abs(a[q] - b[q]) for q in range(3)) < 6:
-                    cod = (col(a, True), " ")  # cella intera dallo sfondo: nessun bordo del glifo
+                    cod = (col(a, True, x, 2 * r), " ")  # cella intera dallo sfondo: nessun bordo del glifo
                 elif sa and sb:
-                    cod = (col(a, False) + col(b, True), "▀")
+                    cod = (col(a, False, x, 2 * r) + col(b, True, x, 2 * r + 1), "▀")
                 elif sa:
-                    cod = (col(a, False) + nero, "▀")
+                    cod = (col(a, False, x, 2 * r) + nero, "▀")
                 elif sb:
-                    cod = (col(b, False) + nero, "▄")
+                    cod = (col(b, False, x, 2 * r + 1) + nero, "▄")
                 else:
                     cod = (nero, " ")
+                if prima.get((r, x)) == cod:
+                    salto = True
+                    continue
+                prima[(r, x)] = cod
+                if salto:
+                    s_.append(f"\033[{r + 1};{x + 1}H")
+                    salto, ultimo = False, None
                 s_.append(("" if cod[0] == ultimo else cod[0]) + cod[1])
                 ultimo = cod[0]
             out.append("".join(s_))
@@ -2603,6 +2624,8 @@ def main():
         except Exception:
             return 0
     if a[:1] == ["intro"]:
+        if "--256" in a:
+            os.environ["PLEYADES_COLORI"] = "256"
         return intro()
     if a[:1] in (["-h"], ["--help"], ["aiuto"]):
         print(__doc__)
