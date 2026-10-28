@@ -10,10 +10,15 @@
     crew progetti           i tuoi progetti e a che punto sono
     crew link               i link giusti (studio, Talk, Dashboard, cartelle)
     crew hook               (per un hook SessionStart) installa i plugin che il progetto aperto chiede e mancano
+    crew profilo casa|lavoro   che computer è: «lavoro» = solo le regole comuni, niente progetti, Talk o Nextcloud
+    crew prendi NOME ["perché"] / crew togli NOME   un plugin della crew solo su questo computer (per il lavoro),
+                            segnato in locale con data e motivo; `crew aggiorna` non ne aggiunge mai altri
 
 Un progetto dice cosa gli serve in `.claude/progetto.json` del suo repo (stanza, talk, cartelle, plugin,
-marketplace, passi, dopo, moduli); i plugin di `.claude/settings.json` con valore true contano anche loro.
-L'indirizzo di Nextcloud viene dal `talk.py` del progetto: questo file è pubblico e non ne contiene.
+marketplace, passi, dopo, moduli, marchio, comando); i plugin di `.claude/settings.json` con valore true contano anche loro.
+L'indirizzo di Nextcloud viene dal `talk.py` del progetto, l'aspetto dal suo `marchio` (se c'è) e `comando` dà un
+secondo nome allo stesso programma (es. il nome dello studio): questo file è pubblico e non ne contiene.
+Il profilo e i plugin presi stanno solo in ~/.config/crew/stato.json di questo computer: mai inviati a nessuno.
 Mac, Linux e Windows (python3 o python). Solo libreria standard. Le funzioni non stampano: la stampa è in
 `Terminale`, così un'app con finestra può riusare le stesse funzioni con un'altra interfaccia.
 """
@@ -359,21 +364,21 @@ def scrivi_in_stanza(d, c, testo):
 
 # Il comando crew stesso
 
-def installa_comando():
-    """~/.crew/crew.py + il comando `crew` in ~/.local/bin (crew.cmd su Windows), nel PATH."""
+def installa_comando(nome="crew"):
+    """~/.crew/crew.py + il comando `nome` in ~/.local/bin (nome.cmd su Windows), nel PATH."""
     os.makedirs(CARTELLA, exist_ok=True)
     qui, dest = os.path.abspath(__file__), os.path.join(CARTELLA, "crew.py")
     if os.path.normcase(qui) != os.path.normcase(dest):
         shutil.copy(qui, dest)
     os.makedirs(BIN, exist_ok=True)
     if WIN:
-        with open(os.path.join(BIN, "crew.cmd"), "w", encoding="utf-8") as f:
+        with open(os.path.join(BIN, nome + ".cmd"), "w", encoding="utf-8") as f:
             f.write(f'@"{sys.executable}" "{dest}" %*\n')
         run("powershell", "-NoProfile", "-Command",
             "$p=[Environment]::GetEnvironmentVariable('Path','User'); $b=\"$HOME\\.local\\bin\"; "
             "if (($p -split ';') -notcontains $b) { [Environment]::SetEnvironmentVariable('Path', \"$p;$b\", 'User') }")
     else:
-        lanc = os.path.join(BIN, "crew")
+        lanc = os.path.join(BIN, nome)
         with open(lanc, "w", encoding="utf-8") as f:
             f.write(f'#!/bin/sh\nexec "{sys.executable}" "{dest}" "$@"\n')
         os.chmod(lanc, 0o755)
@@ -385,7 +390,7 @@ def installa_comando():
                 with open(p, "a", encoding="utf-8") as f:
                     f.write(f"\n# crew: i comandi in ~/.local/bin (crew, claude, gh)\n{riga}\n")
     path_aggiornato()
-    return ha("crew")
+    return ha(nome)
 
 
 def aggiorna_comando():
@@ -404,6 +409,63 @@ def aggiorna_comando():
         f.write(nuovo)
     os.replace(dest + ".tmp", dest)
     return True, "aggiornato"
+
+
+# Profilo del computer e plugin presi uno per volta (solo locale)
+
+def lavoro():
+    return stato().get("profilo") == "lavoro"
+
+
+def catalogo_crew():
+    """I plugin della crew (repo pubblico, controllato da check.sh: niente segreti né servizi privati)."""
+    m = leggi_json(os.path.join(CASA, ".claude", "plugins", "marketplaces", "claude-crew", ".claude-plugin",
+                                "marketplace.json"), {})
+    return {p["name"]: p.get("description", "") for p in m.get("plugins", []) if "source" in p
+            and str(p["source"]).startswith("./")}  # esclusi i plugin di terzi (esterni.json)
+
+
+def prendi(nome, perche=""):
+    if nome not in catalogo_crew():
+        return False, "non è un plugin della crew (elenco: `crew prendi` senza nome)"
+    codice, out = run("claude", "plugin", "install", f"{nome}@claude-crew")
+    if codice != 0 and f"{nome}@claude-crew" not in plugin_installati():
+        return False, out[-200:]
+    presi = [x for x in stato().get("presi", []) if x["cosa"] != nome]
+    presi.append({"cosa": nome, "quando": time.strftime("%Y-%m-%d"), "perche": perche})
+    salva_stato(presi=presi)
+    return True, ""
+
+
+def togli(nome):
+    presi = stato().get("presi", [])
+    if not any(x["cosa"] == nome for x in presi):
+        return False, "non l'hai preso con `crew prendi` (quelli presi: `crew controlla`)"
+    codice, out = run("claude", "plugin", "uninstall", f"{nome}@claude-crew")
+    salva_stato(presi=[x for x in presi if x["cosa"] != nome])
+    return codice == 0 or f"{nome}@claude-crew" not in plugin_installati(), out[-200:]
+
+
+def cantieri_aperti():
+    """Le righe di `talk.py cantieri` del primo progetto collegato (operazioni in corso su risorse condivise)."""
+    for repo in stato().get("progetti", []):
+        d = cartella_progetto(repo)
+        c = config_progetto(d) if os.path.isdir(d) else {}
+        if c.get("talk") and os.path.isfile(os.path.join(d, c["talk"])):
+            codice, out = run(sys.executable, os.path.join(d, c["talk"]), "cantieri", cwd=d, timeout=20)
+            return out if codice == 0 else ""
+    return ""
+
+
+def file_marchio():
+    if lavoro():
+        return None
+    for repo in stato().get("progetti", []):
+        d = cartella_progetto(repo)
+        c = config_progetto(d) if os.path.isdir(d) else {}
+        if c.get("marchio") and os.path.isfile(os.path.join(d, c["marchio"])):
+            return os.path.join(d, c["marchio"]), c.get("comando") or "crew"
+    return None
 
 
 # ───────────────────────────── terminale (la sola parte che stampa) ─────────────────────────────
@@ -426,6 +488,10 @@ class Terminale:
             except (OSError, AttributeError):
                 self.colori = False
         self.esiti = []
+        self.nome = "crew"
+
+    def intestazione(self, t):
+        self.titolo(f"{self.nome} · {t}")
 
     def c(self, codice, t):
         return f"\033[{codice}m{t}\033[0m" if self.colori else t
@@ -491,7 +557,7 @@ class Terminale:
             segno = "⏭ " if e.saltato else ("✅" if e.ok else "❌")
             print(f"   {segno} {e.nome}")
         if len(fatti) < len(self.esiti):
-            print(self.c("33", "\n   Fai i passi con ❌ (sopra c'è cosa fare) e rilancia `crew`: salta ciò che è già fatto."))
+            print(self.c("33", "\n   Fai i passi con ❌ (sopra c'è cosa fare) e rilancia `" + self.nome + "`: salta ciò che è già fatto."))
 
 
 class _Attesa:
@@ -519,6 +585,61 @@ class _Attesa:
             sys.stdout.write("\r" + " " * (len(self.testo) + 10) + "\r")
 
 
+class Marchio(Terminale):
+    """Lo stesso Terminale con l'aspetto del marchio di un progetto (il suo `marchio.py`)."""
+    def __init__(self, m, nome):
+        super().__init__()
+        self.m, self.nome = m, nome
+
+    def intestazione(self, t):
+        self.m.intestazione(t)
+
+    def titolo(self, t):
+        print("\n " + self.m.c("✦ " + t, "brillio", forte=True))
+
+    def passo(self, n, tot, t, spiega=""):
+        self.m.passo(n, tot, t)
+        if spiega:
+            self.m.info(spiega)
+
+    def fai(self, t):
+        for r in t.split("\n"):
+            self.m.avviso("👉 " + r)
+
+    def esito(self, e):
+        self.esiti.append(e)
+        if e.saltato:
+            self.m.info(f"⏭  {e.nome}" + (f" — {e.nota}" if e.nota else ""))
+        elif e.ok:
+            self.m.ok(e.nome + (self.m.c(f" — {e.nota}", "fioco") if e.nota else ""))
+        else:
+            self.m.errore(e.nome)
+            if e.cosa:
+                self.fai(e.cosa)
+        return e.ok
+
+    def link(self, nome, url):
+        print("   " + (self.m.link(nome, url) if url.startswith("http") else f"{nome}: {url}"))
+
+    def attesa(self, testo):
+        return self.m.attesa(testo)
+
+
+def interfaccia():
+    """Il Terminale semplice, o quello col marchio del progetto se ce n'è uno (mai sul computer di lavoro)."""
+    f = file_marchio()
+    if f:
+        sys.dont_write_bytecode = True
+        try:
+            spec = importlib.util.spec_from_file_location("marchio", f[0])
+            m = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(m)
+            return Marchio(m, f[1])
+        except Exception:
+            pass
+    return Terminale()
+
+
 # ───────────────────────────── i passi della guida ─────────────────────────────
 
 SPIEGA_GH = """GitHub ti fa alcune domande; rispondi così:
@@ -531,6 +652,22 @@ SPIEGA_APP = """Serve una «password per app» di Nextcloud (non la tua password
   2. in alto a destra la tua foto → «Impostazioni personali» → a sinistra «Sicurezza»
   3. in fondo, «Nome dell'app»: scrivi Claude → premi «Crea nuova password per app»
   4. copia la password che compare e incollala qui sotto quando la chiede (non si vede mentre scrivi)"""
+
+
+def passo_profilo(ui):
+    if "profilo" not in stato():
+        i = ui.scegli("Di chi è questo computer?",
+                      ["Mio: preparo tutto ciò che serve ai miei progetti",
+                       "Dell'azienda (lavoro): solo le regole comuni; il resto lo prendi tu, uno per volta"])
+        salva_stato(profilo="lavoro" if i == 1 else "casa")
+    if lavoro():
+        ui.fai("Computer di lavoro: prima di installare qualcosa controlla le regole della tua azienda (policy IT)\n"
+               "su programmi e servizi esterni. Qui installo solo Claude Code e le regole comuni della crew;\n"
+               "niente progetti, Talk o Nextcloud. Un plugin in più: `crew prendi NOME`.")
+        if ui.chiedi("Le regole dell'azienda lo permettono? Continuo? [s/n]", "n").lower()[:1] != "s":
+            return ui.esito(Esito("profilo lavoro", False, "rilancia `crew` quando hai controllato"))
+        return ui.esito(Esito("profilo: lavoro", True, nota="solo il minimo"))
+    return ui.esito(Esito("profilo: casa", True, saltato=True, nota="cambia con `crew profilo lavoro`"))
 
 
 def passo_sistema(ui):
@@ -668,25 +805,34 @@ def passo_progetto(ui, repo):
 
 def guida(ui, richiesti, solo_progetti=False):
     inizio = time.time()
-    ui.titolo("crew · la guida da zero a pronto")
+    ui.intestazione("la guida da zero a pronto")
     ui.info("Faccio io quello che posso; quando serve te, te lo dico in giallo con 👉.")
     ui.info("Si può interrompere (Ctrl+C) e rilanciare quando vuoi: salta ciò che è già fatto.")
+    if solo_progetti and lavoro():
+        ui.esito(Esito("progetti", False, "computer di lavoro: i progetti non si installano qui "
+                       "(se è davvero tuo: `crew profilo casa`)"))
+        return 1
     if not solo_progetti:
-        passi = [("Sistema", "controllo che ci siano Python e git", passo_sistema),
+        passi = [("Questo computer", "tuo o dell'azienda: decide cosa installo", passo_profilo),
+                 ("Sistema", "controllo che ci siano Python e git", passo_sistema),
                  ("Claude Code", "il programma di Claude nel terminale", passo_claude),
                  ("GitHub", "dove stanno i progetti: con o senza account", passo_github),
                  ("Crew", "le regole comuni e il comando `crew`", passo_crew)]
         for n, (t, spiega, f) in enumerate(passi, 1):
             ui.passo(n, len(passi) + 1, t, spiega)
-            if not f(ui) and f in (passo_sistema, passo_claude):
+            if not f(ui) and f in (passo_profilo, passo_sistema, passo_claude):
                 ui.riepilogo(round((time.time() - inizio) / 60, 1))
                 return 1
-        ui.passo(len(passi) + 1, len(passi) + 1, "Progetti", "i progetti di cui fai parte, con stanza e cartelle")
+        if not lavoro():
+            ui.passo(len(passi) + 1, len(passi) + 1, "Progetti", "i progetti di cui fai parte, con stanza e cartelle")
     pronti = []
-    for repo in scegli_progetti(ui, richiesti):
+    scelti = richiesti if solo_progetti else scegli_progetti(ui, richiesti)  # entra X = solo X
+    for repo in ([] if lavoro() else scelti):
         r = passo_progetto(ui, repo)
         if r:
             pronti.append(repo)
+            if r[1].get("comando"):
+                installa_comando(r[1]["comando"])
             mostra_link(ui, *r)
             for x in r[1].get("dopo", []):
                 ui.fai(x)
@@ -705,7 +851,9 @@ def guida(ui, richiesti, solo_progetti=False):
     primo = cartella_progetto(pronti[0]) if pronti else CASA
     ui.titolo("E adesso")
     ui.info(f"Apri il terminale nella cartella {primo.replace(CASA, '~')}, scrivi {ui.c('1', 'claude')} e premi Invio;")
-    ui.info("la prima volta scrivi «configura il mio Claude». Per rivedere tutto: " + ui.c("1", "crew"))
+    ui.info("la prima volta scrivi «configura il mio Claude». Per rivedere tutto: " + ui.c("1", ui.nome))
+    if pronti and ui.nome == "crew" and file_marchio():
+        ui.info(f"Da adesso c'è anche il comando {ui.c('1', file_marchio()[1])} (lo stesso, con il marchio del progetto).")
     salva_stato(guida_fatta=True)
     return 0 if verdi == len(ui.esiti) else 1
 
@@ -718,7 +866,8 @@ def mostra_link(ui, d, c, t, conf):
 
 def controlla(ui):
     path_aggiornato()
-    ui.titolo("crew · controllo (non installo niente)")
+    ui.titolo(f"{ui.nome} · controllo (non installo niente)")
+    ui.info(f"Profilo di questo computer: {stato().get('profilo', 'non scelto')}")
     ui.esito(Esito("git", ha("git"), "rilancia la riga di installazione"))
     ui.esito(Esito("Claude Code", ha("claude"), "rilancia `crew guida`"))
     ui.esito(Esito("GitHub", gh_collegato(), "rilancia `crew guida` (o va bene così se lavori senza account)",
@@ -726,6 +875,9 @@ def controlla(ui):
     inst = plugin_installati() if ha("claude") else ""
     if inst:
         ui.esito(Esito("crew: regole comuni", "regole@claude-crew" in inst, "rilancia `crew guida`"))
+        for x in stato().get("presi", []):
+            ui.esito(Esito(f"preso: {x['cosa']}", f"{x['cosa']}@claude-crew" in inst, f"crew prendi {x['cosa']}",
+                           nota=f"dal {x['quando']}" + (f", {x['perche']}" if x.get("perche") else "")))
     for repo in stato().get("progetti", []):
         d = cartella_progetto(repo)
         if not os.path.isdir(os.path.join(d, ".git")):
@@ -742,14 +894,14 @@ def controlla(ui):
 
 
 def aggiorna(ui):
-    ui.titolo("crew · aggiorno tutto")
+    ui.titolo(f"{ui.nome} · aggiorno ciò che c'è già")
     ok, cosa = aggiorna_comando()
     ui.esito(Esito("comando crew", ok, cosa, nota=cosa))
     if ha("claude"):
         with ui.attesa("aggiorno i plugin"):
             codice, _ = run("claude", "plugin", "marketplace", "update")
         ui.esito(Esito("plugin (marketplace)", codice == 0, "in Claude Code: /plugin → «Marketplaces» → «Update»"))
-    for repo in stato().get("progetti", []):
+    for repo in ([] if lavoro() else stato().get("progetti", [])):
         d = cartella_progetto(repo)
         if os.path.isdir(os.path.join(d, ".git")):
             ok, d, out = clona(repo)
@@ -763,7 +915,7 @@ def aggiorna(ui):
 
 
 def progetti(ui):
-    ui.titolo("crew · i tuoi progetti")
+    ui.titolo(f"{ui.nome} · i tuoi progetti")
     elenco = stato().get("progetti", [])
     if not elenco:
         ui.info("Nessuno ancora: `crew entra PROPRIETARIO/NOME` o `crew guida`.")
@@ -776,7 +928,7 @@ def progetti(ui):
 
 
 def link(ui):
-    ui.titolo("crew · link")
+    ui.titolo(f"{ui.nome} · link")
     for repo in stato().get("progetti", []):
         d = cartella_progetto(repo)
         if os.path.isdir(d):
@@ -807,7 +959,13 @@ def menu(ui):
     voci = [("Controlla che sia tutto a posto", controlla), ("Aggiorna crew, plugin e progetti", aggiorna),
             ("I miei progetti", progetti), ("Entra in un nuovo progetto", None), ("I link", link),
             ("Rifai la guida da capo", lambda u: guida(u, []))]
-    ui.titolo("crew")
+    ui.intestazione("cosa c'è e cosa manca")
+    if not lavoro():
+        aperti = cantieri_aperti()
+        if aperti and "nessun" not in aperti.lower():
+            ui.titolo("Cantieri aperti (operazioni in corso)")
+            for r in aperti.splitlines()[:6]:
+                ui.info(r)
     i = ui.scegli("Cosa vuoi fare?", [v[0] for v in voci] + ["Esci"])
     if i == len(voci):
         return 0
@@ -828,7 +986,7 @@ def main():
         print(__doc__)
         return 0
     path_aggiornato()
-    ui = Terminale()
+    ui = interfaccia()
     try:
         if not a:
             return menu(ui) if stato().get("guida_fatta") else guida(ui, [])
@@ -839,6 +997,20 @@ def main():
             return guida(ui, resto)
         if cmd == "entra" and resto:
             return guida(ui, resto, solo_progetti=True)
+        if cmd == "profilo" and a[1:2] in (["casa"], ["lavoro"]):
+            salva_stato(profilo=a[1])
+            print(f"✅ profilo di questo computer: {a[1]}")
+            return 0
+        if cmd in ("prendi", "togli"):
+            if len(a) < 2:
+                ui.titolo("Plugin della crew che puoi prendere su questo computer")
+                for nome, descr in catalogo_crew().items():
+                    ui.info(f"{ui.c('1', nome)}  {descr[:90]}")
+                return 0
+            ok, cosa = prendi(a[1], " ".join(a[2:])) if cmd == "prendi" else togli(a[1])
+            ui.esito(Esito(f"{'preso' if cmd == 'prendi' else 'tolto'}: {a[1]}", ok, cosa,
+                           nota="valido dalla prossima sessione di Claude Code"))
+            return 0 if ok else 1
         f = {"controlla": controlla, "aggiorna": aggiorna, "progetti": progetti, "link": link}.get(cmd)
         if f:
             return f(ui)
