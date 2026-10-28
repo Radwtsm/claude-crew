@@ -9,7 +9,8 @@ privato, una sola memoria per tutti i progetti, sincronizzazione automatica, bar
   personale.py inizio       hook SessionStart: pull, memoria collegata anche per il progetto aperto, limiti
   personale.py fine         hook Stop: commit + push di regole e memoria cambiate
   personale.py statusline   barra di stato: modello · contesto · uso 5h/7g con reset · durata
-  personale.py avviso       hook UserPromptSubmit: una riga a Claude se l'uso 5h o 7g supera SOGLIA
+  personale.py avviso       hook UserPromptSubmit: una riga a Claude quando l'uso 5h o 7g passa il 50% (risposte
+                            corte) o SOGLIA (chiudi e salva); solo al cambio di livello
 
 Senza ~/claude-personale gli hook non fanno niente. Mac, Linux e Windows (python o python3); solo libreria standard.
 """
@@ -22,6 +23,11 @@ CONFIG = os.path.expanduser(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(
 CACHE = os.path.join(CONFIG, "uso-cache.json")
 IMPORT = "@~/claude-personale/regole.md"
 SOGLIA = 85
+AVVISO = os.path.join(CONFIG, "uso-avviso.json")
+LIVELLI = ((SOGLIA, "niente lavori nuovi grandi: chiudi il passo in corso, salva lo stato (commit, backlog, prompt per "
+                    "ripartire) e dillo all'utente."),
+           (50, "risposte corte, letture mirate (grep, sezioni), niente subagent né ricerche larghe; a fine argomento "
+                "proponi /clear con un prompt per ripartire."))
 WIN = os.name == "nt"
 GIORNI = ["lun", "mar", "mer", "gio", "ven", "sab", "dom"]
 
@@ -351,10 +357,19 @@ def avviso():
     ora = time.time()
     if not c or ora - c.get("ts", 0) > 6 * 3600:
         return 0
-    alte = [f"{n} {p:.0f}% (reset {quando(r)})" for n, p, r in finestre(c.get("rate_limits"), ora) if p >= SOGLIA]
-    if alte:
-        print(f"uso alto: {', '.join(alte)}. Niente lavori nuovi grandi: chiudi il passo in corso, salva lo stato "
-              "(commit, backlog, prompt per ripartire) e dillo all'utente.")
+    w = finestre(c.get("rate_limits"), ora)
+    livello = next((i for i, (soglia, _) in enumerate(LIVELLI) if any(p >= soglia for _, p, _ in w)), None)
+    stato, f = leggi_json(AVVISO) or {}, AVVISO
+    if livello is None:
+        if stato:
+            os.remove(f)
+        return 0
+    # once per level change (and the top level again every 30 min): a line on every prompt would cost tokens
+    if stato.get("livello") == livello and (livello != 0 or ora - stato.get("ts", 0) < 1800):
+        return 0
+    scrivi_json(f, {"livello": livello, "ts": ora})
+    soglia, cosa = LIVELLI[livello]
+    print(f"uso {', '.join(f'{n} {p:.0f}% (reset {quando(r)})' for n, p, r in w if p >= soglia)}: {cosa}")
     return 0
 
 

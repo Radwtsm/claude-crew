@@ -3,7 +3,8 @@
 
   python3 lint_regole.py [cartella]           controlla e fallisce solo sui problemi NUOVI (exit 1)
   python3 lint_regole.py [cartella] --baseline  riscrive lint-regole-baseline.txt con i problemi di oggi
-  python3 lint_regole.py --hook                 hook PostToolUse: controlla il file appena scritto (JSON su stdin)
+  python3 lint_regole.py --hook                 hook PostToolUse: controlla il file appena scritto (JSON su stdin);
+                                                un .md fuori da ogni casa (repo, cloud, ~/.claude) → avviso a Claude
 
 Cosa controlla (README della crew → Formato):
 - SKILL.md: frontmatter con `name` uguale alla cartella e `description` di 80-300 caratteri che dice quando usarla (si paga a ogni risposta: corta)
@@ -128,6 +129,22 @@ def troppo_lungo(root, rel, path):
     return []
 
 
+def sparso(path):
+    """True se il file non sta in un repo git né in una delle case note (cloud sincronizzati, ~/.claude, temporanei)."""
+    import tempfile
+    d = os.path.dirname(path)
+    while d != os.path.dirname(d):
+        if os.path.exists(os.path.join(d, ".git")):
+            return False
+        d = os.path.dirname(d)
+    home = os.path.expanduser("~")
+    case = [os.path.join(home, x) for x in (".claude", "Nextcloud", os.path.join("Library", "CloudStorage"),
+                                            os.path.join("Library", "Mobile Documents"))]
+    case += [tempfile.gettempdir(), "/tmp", "/private/tmp", "/private/var/folders", "/var/folders"]
+    reale = os.path.realpath(path)
+    return not any(reale.startswith(os.path.realpath(c) + os.sep) or path.startswith(c + os.sep) for c in case)
+
+
 def hook():
     """PostToolUse (Edit/Write) del plugin regole: controlla subito il file appena scritto, se è una regola o una
     skill. Silenzioso se è a posto; exit 2 = Claude vede i problemi e li corregge prima di andare avanti."""
@@ -143,6 +160,11 @@ def hook():
         return 0
     path = os.path.abspath(path)
     nome, cartella = os.path.basename(path), os.path.dirname(path)
+    if nome.endswith(".md") and os.path.isfile(path) and sparso(path):
+        print(json.dumps({"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext":
+              f"{path} è un .md fuori da ogni casa (repo, studio Nextcloud, memoria): dillo all'utente in una riga "
+              "(dove sta e perché) e proponi la casa giusta, o spostalo (crew: una casa per ogni cosa)."}}))
+        return 0
     if not os.path.isfile(path) or not (nome in FILE or (nome.endswith(".md") and os.sep + "skills" + os.sep in cartella + os.sep)):
         return 0
     root = cartella
