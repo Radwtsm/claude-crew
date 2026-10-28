@@ -160,6 +160,24 @@
         "e-commerce",
         "negozio online"
       ]
+    },
+    {
+      "name": "design-app",
+      "source": "./plugins/design-app",
+      "description": "Design di app e siti per Pleyades: regole d'interfaccia (azioni, menu, conferme, parole, layout stabile), sistema visivo stile Apple e linee guida Apple (iPhone, iPad, Mac)",
+      "category": "design",
+      "keywords": [
+        "design",
+        "interfaccia",
+        "ui",
+        "ux",
+        "app",
+        "sito",
+        "menu",
+        "icone",
+        "hig",
+        "swiftui"
+      ]
     }
   ]
 }

@@ -1,0 +1,12 @@
+{
+  "name": "design-app",
+  "description": "Design di app e siti per Pleyades: regole d'interfaccia (azioni, menu, conferme, parole, layout stabile), sistema visivo stile Apple e linee guida Apple (iPhone, iPad, Mac)",
+  "author": {
+    "name": "Pleyades"
+  },
+  "keywords": [
+    "design",
+    "app",
+    "siti"
+  ]
+}

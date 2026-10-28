@@ -1,0 +1,4 @@
+apple-iphone.md, apple-ipad.md, apple-mac.md: copia di github.com/ehmo/platform-design-skills (MIT, licenza
+in LICENSE-platform-design-skills.txt) al commit dc2be825d8b439caea78e9eaa8fb3ac23b0ff3e9 (2026-10-10), letta per
+intero prima di copiarla (solo regole HIG, niente comandi). Aggiornare: riscaricare a un commit nuovo, diff, rileggere.
+sistema-apple.md: sistema visivo generico ispirato ad Apple (token, tipografia, componenti, spazi, raggi).
