@@ -1118,6 +1118,15 @@ def passo_sistema(ui):
     return ui.esito(Esito(f"Python {platform.python_version()} e git", True))
 
 
+def casa_di_prova():
+    """HOME spostata (es. una prova in /tmp): diversa dalla casa vera dell'utente del sistema."""
+    try:
+        import pwd
+        return os.path.realpath(CASA) != os.path.realpath(pwd.getpwuid(os.getuid()).pw_dir)
+    except (ImportError, KeyError):
+        return False
+
+
 def claude_collegato():
     try:
         return json.loads(run("claude", "auth", "status", "--json", timeout=30)[1] or "{}").get("loggedIn") is True
@@ -1141,12 +1150,19 @@ def passo_claude(ui):
             return False
     if claude_collegato():
         return ui.esito(Esito("accesso a Claude", True, saltato=True, nota="già fatto"))
+    if MAC and casa_di_prova():  # il Portachiavi sta nella casa vera: l'accesso non si salverebbe (login all'infinito)
+        return ui.esito(Esito("accesso a Claude", True, saltato=True, nota="cartella di casa di prova: lo salto"))
     if SENZA_SCHERMO:  # niente browser qui: il link lungo non si apre né si copia bene da un terminale remoto
         return ui.esito(Esito("accesso a Claude", True, saltato=True,
                               nota="dopo: apri `claude` e scrivi /login (computer senza schermo)"))
     ui.fai(SPIEGA_CLAUDE)
 
+    tentativi = [0]
+
     def accedi():
+        tentativi[0] += 1
+        if tentativi[0] > 2:  # accesso fatto ma non salvato: non farlo rifare all'infinito
+            raise RuntimeError("l'accesso non si salva su questo computer: salta, poi apri `claude` e scrivi /login")
         run("claude", "auth", "login", vivo=True)
         return claude_collegato()
     ui.esito(Esito("accesso a Claude", ui.conferma("Accediamo a Claude?", "Sì, apri il browser", "Dopo") and
