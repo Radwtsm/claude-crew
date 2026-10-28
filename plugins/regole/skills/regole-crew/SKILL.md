@@ -36,14 +36,13 @@ di rivolgersi e formato preferito sono personali. Se non dicono altro, rispondi 
   poi dimmi "fai /clear" con un prompt pronto da incollare per ripartire.
 - Nel contesto solo gli strumenti del task; proponi sempre regole o controlli che tolgono token o passaggi.
 
+## Insegnare (solo quando serve)
+- Richiesta o metodo che spreca tempo, token o sicurezza (più temi in un messaggio, log interi, segreti in chat,
+  controlli saltati, lavoro a mano ripetuto): una riga «💡 Meglio: …», una volta per tema (`buone-pratiche.md`).
+
 ## Imparare insieme (la crew)
-- **Prima di risolvere**: se c'è una skill della crew sul tema, leggi le sue insidie/trappole; spesso qualcuno ci è
-  già passato.
-- **Dopo aver risolto un problema non ovvio** (errore strano, comando che non funziona come sembra, impostazione
-  nascosta, consiglio tuo sbagliato): proponimi in una riga di aggiungerlo alla crew, nel posto giusto: la skill
-  del tema (sezione insidie), il plugin `codice` per la programmazione, queste regole se vale per tutto. Così
-  nessuno ci ricasca.
-- **Errore che si può controllare con uno script** (un formato, un valore vietato, un file che deve esistere):
-  proponi un controllo automatico, non solo una riga di testo; una regola scritta si può dimenticare, un controllo no.
-- **Strumento utile scoperto** (plugin, server MCP, hook, programma): proponimi di aggiungerlo alla crew invece di
-  lasciarlo in un solo progetto o computer.
+- **Prima di risolvere**: leggi le insidie della skill del tema, se c'è.
+- **Problema non ovvio risolto** (errore strano, impostazione nascosta, consiglio tuo sbagliato): proponi in una riga
+  di aggiungerlo alla crew (insidie della skill, plugin `codice`, o queste regole).
+- **Errore controllabile da uno script**: proponi il controllo, non solo una riga di testo.
+- **Strumento utile scoperto** (plugin, MCP, hook, programma): proponi di aggiungerlo alla crew.
