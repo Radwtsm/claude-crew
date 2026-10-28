@@ -71,7 +71,14 @@ def run(*cmd, cwd=None, timeout=300, vivo=False):
     """(codice, output). vivo=True: la persona vede e risponde (gh auth login, talk.py collega)."""
     try:
         if vivo:
-            return subprocess.run(list(cmd), cwd=cwd).returncode, ""
+            tty = None
+            if not WIN and sys.stdout.isatty():  # l'input dal terminale vero (/dev/ttys…), non da /dev/tty: Claude
+                tty = open(os.ttyname(sys.stdout.fileno()), "rb")  # Code (Bun) su macOS si ferma con «kqueue EINVAL»
+            try:
+                return subprocess.run(list(cmd), cwd=cwd, stdin=tty).returncode, ""
+            finally:
+                if tty:
+                    tty.close()
         r = subprocess.run(list(cmd), capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=cwd,
                            timeout=timeout)
         return r.returncode, (r.stdout + r.stderr).strip()

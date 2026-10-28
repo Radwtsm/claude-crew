@@ -78,7 +78,9 @@ if ! curl -fsSL https://raw.githubusercontent.com/Radwtsm/claude-crew/main/crew.
   exit 1
 fi
 mv "$HOME/.crew/crew.py.tmp" "$HOME/.crew/crew.py"
-if [ -r /dev/tty ]; then
-  exec python3 "$HOME/.crew/crew.py" guida "$@" </dev/tty
+term=/dev/$(ps -o tty= -p $$ 2>/dev/null | tr -d ' ')  # il terminale vero: da /dev/tty Claude Code (Bun) non legge su macOS
+[ -r "$term" ] || term=/dev/tty
+if [ -r "$term" ]; then
+  exec python3 "$HOME/.crew/crew.py" guida "$@" <"$term"
 fi
 exec python3 "$HOME/.crew/crew.py" guida "$@"
