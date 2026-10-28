@@ -1,5 +1,9 @@
 # Installare la crew (istruzioni per Claude Code)
 
+**Il modo più veloce (Mac, Linux)**: una riga nel Terminale, fa tutto da sola (strumenti di Apple, Claude Code,
+crew con aggiornamento automatico; con `-s -- PROPRIETARIO/REPO` anche un progetto privato e il suo onboarding):
+`curl -fsSL https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.sh | bash`
+
 Queste istruzioni sono per Claude: l'utente ha incollato una frase come "installa la crew seguendo INSTALLA.md".
 Fai tu i passi, spiegando in breve cosa fai; chiedi solo le scelte. Funziona su Windows, Mac e Linux.
 
