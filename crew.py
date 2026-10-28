@@ -633,6 +633,9 @@ def tasto():
     return "invio" if k in ("\r", "\n") else k
 
 
+ACCENTO = "38;5;173"  # un solo colore, quello di Claude; il resto testo normale o grigio
+
+
 class Terminale:
     def __init__(self):
         self.colori = sys.stdout.isatty() and not os.environ.get("NO_COLOR") and os.environ.get("TERM") != "dumb"
@@ -659,43 +662,44 @@ class Terminale:
     def c(self, codice, t):
         return f"\033[{codice}m{t}\033[0m" if self.colori else t
 
+    def acc(self, t):
+        return self.c(ACCENTO, t)
+
     def titolo(self, t):
-        print("\n" + self.c("1;36", "━━ " + t + " " + "━" * max(3, 60 - len(t))))
+        print("\n" + self.c("1", t))
 
     def passo(self, n, tot, t, spiega=""):
-        print("\n" + self.c("1;34", f"[{n}/{tot}] {t}"))
+        print("\n" + self.c("1", t) + self.c("2", f"  {n}/{tot}"))
         if spiega:
-            print(self.c("2", "      " + spiega))
+            print(self.c("2", "  " + spiega))
 
     def info(self, t):
-        print("      " + t)
+        print("  " + t)
 
     def fai(self, t):
         """Cosa deve fare la persona: in giallo, con il nome esatto di pulsanti e menu."""
         for r in t.split("\n"):
-            print(self.c("33", "   👉 " + r))
+            print("  " + self.acc("→") + " " + r)
 
     def esito(self, e):
         self.esiti.append(e)
         if e.saltato:
-            print(self.c("2", f"   ⏭  {e.nome}" + (f" — {e.nota}" if e.nota else "")))
+            print(self.c("2", f"  ✓ {e.nome}" + (f" · {e.nota}" if e.nota else "")))
         elif e.ok:
-            print(self.c("32", f"   ✅ {e.nome}") + (self.c("2", f" — {e.nota}") if e.nota else ""))
+            print("  " + self.c("32", "✓") + f" {e.nome}" + (self.c("2", f" · {e.nota}") if e.nota else ""))
         else:
-            print(self.c("31", f"   ❌ {e.nome}"))
+            print("  " + self.c("31", "✗") + f" {e.nome}")
             if e.cosa:
                 self.fai(e.cosa)
         return e.ok
 
     def link(self, nome, url):
-        if not url.startswith("http"):
-            print(f"   {nome:<30} {self.c('36', url)}")
-            return
-        print(f"   {nome:<30} {self.c('4;36', url)}")
+        print("  " + self.c("2", f"{nome:<28}") + " " + (self.c("4", url) if url.startswith("http") else url))
 
     def chiedi(self, domanda, base=""):
         try:
-            r = input(self.c("1", "   ❓ " + domanda + (f" [{base}]" if base else "") + " ")).strip()
+            r = input("\n  " + self.acc("?") + " " + self.c("1", domanda) + self.c("2", f" [{base}]" if base else "")
+                      + "\n  " + self.acc("❯") + " ").strip()
         except EOFError:
             r = ""
         return r or base
@@ -703,14 +707,14 @@ class Terminale:
     def scegli(self, domanda, opzioni):
         """opzioni = [testo]; la prima è la consigliata. Torna l'indice. Frecce ↑↓ e Invio, come in Claude Code
         (o il numero); senza un terminale vero: scrivi il numero."""
-        print(self.c("1", "   ❓ " + domanda))
+        print("\n  " + self.acc("?") + " " + self.c("1", domanda))
         if self.colori and sys.stdin.isatty():
             try:
                 return self._menu(opzioni)
             except (OSError, ImportError):
                 pass  # niente tasti singoli (es. console strana): si ripiega sul numero
         for i, o in enumerate(opzioni, 1):
-            print(f"      {self.c('1;36', str(i))}  {o}" + (self.c("2", "  (consigliata)") if i == 1 else ""))
+            print(f"    {i}. {o}" + (self.c("2", "  (consigliata)") if i == 1 else ""))
         while True:
             r = self.chiedi("Scrivi il numero e premi Invio:", "1")
             if r.isdigit() and 1 <= int(r) <= len(opzioni):
@@ -719,13 +723,13 @@ class Terminale:
     def _menu(self, opzioni):
         def riga(i, o):
             nota = self.c("2", "  (consigliata)") if i == 0 else ""
-            return (self.c("1;36", f"    ❯ {i + 1}. {o}") if i == sel else f"      {i + 1}. {o}") + nota
+            return (self.acc(f"  ❯ {i + 1}. {o}") if i == sel else f"    {i + 1}. {o}") + nota
         sel, n = 0, len(opzioni)
         sys.stdout.write("\033[?25l")  # cursore nascosto mentre si sceglie
         try:
             for i, o in enumerate(opzioni):
                 print(riga(i, o))
-            print(self.c("2", "      ↑↓ per scegliere, Invio per confermare"))
+            print(self.c("2", "    ↑↓ per scegliere · Invio per confermare"))
             while True:
                 k = tasto()
                 if k == "su":
@@ -758,10 +762,10 @@ class Terminale:
         fatti = [e for e in self.esiti if e.ok or e.saltato]
         self.titolo(f"Riepilogo: {len(fatti)}/{len(self.esiti)} a posto in {minuti} min")
         for e in self.esiti:
-            segno = "⏭ " if e.saltato else ("✅" if e.ok else "❌")
-            print(f"   {segno} {e.nome}")
+            print("  " + (self.c("32", "✓") if e.ok or e.saltato else self.c("31", "✗")) + f" {e.nome}")
         if len(fatti) < len(self.esiti):
-            print(self.c("33", "\n   Fai i passi con ❌ (sopra c'è cosa fare) e rilancia `" + self.nome + "`: salta ciò che è già fatto."))
+            print("\n  " + self.acc("→") + " fai i passi con ✗ (sopra c'è cosa fare) e rilancia `" + self.nome
+                  + "`: salta ciò che è già fatto")
 
 
 class _Attesa:
@@ -774,56 +778,43 @@ class _Attesa:
             def gira():
                 i = 0
                 while not self.fine.wait(0.12):
-                    sys.stdout.write("\r      " + self.ui.c("36", "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"[i % 10]) + " " + self.testo + " ")
+                    sys.stdout.write("\r  " + self.ui.acc("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"[i % 10]) + " " + self.ui.c("2", self.testo) + " ")
                     sys.stdout.flush()
                     i += 1
             self.t = threading.Thread(target=gira, daemon=True)
             self.t.start()
         else:
-            print("      … " + self.testo)
+            print("  … " + self.testo)
 
     def __exit__(self, *a):
         self.fine.set()
         if self.ui.colori:
             self.t.join()
-            sys.stdout.write("\r" + " " * (len(self.testo) + 10) + "\r")
+            sys.stdout.write("\r\033[K")
 
 
 class Marchio(Terminale):
-    """Lo stesso Terminale con l'aspetto del marchio di un progetto (il suo `marchio.py`)."""
+    """Lo stesso Terminale (stessa disposizione) con i colori e l'intestazione del marchio del progetto (`marchio.py`)."""
+    TEMA = {"1": ("stella", True), "2": ("fioco", False), "32": ("ok", False), "31": ("errore", False),
+            "33": ("avviso", False), ACCENTO: ("brillio", False)}
+
     def __init__(self, m, nome):
         super().__init__()
         self.m, self.nome = m, nome
+
+    def c(self, codice, t):
+        if not self.colori:
+            return t
+        if codice in self.TEMA:
+            colore, forte = self.TEMA[codice]
+            return self.m.c(t, colore, forte=forte)
+        return super().c(codice, t)
 
     def intestazione(self, t):
         self.m.intestazione(t)
 
     def titolo(self, t):
-        print("\n " + self.m.c("✦ " + t, "brillio", forte=True))
-
-    def passo(self, n, tot, t, spiega=""):
-        self.m.passo(n, tot, t)
-        if spiega:
-            self.m.info(spiega)
-
-    def fai(self, t):
-        for r in t.split("\n"):
-            self.m.avviso("👉 " + r)
-
-    def esito(self, e):
-        self.esiti.append(e)
-        if e.saltato:
-            self.m.info(f"⏭  {e.nome}" + (f" — {e.nota}" if e.nota else ""))
-        elif e.ok:
-            self.m.ok(e.nome + (self.m.c(f" — {e.nota}", "fioco") if e.nota else ""))
-        else:
-            self.m.errore(e.nome)
-            if e.cosa:
-                self.fai(e.cosa)
-        return e.ok
-
-    def link(self, nome, url):
-        print("   " + (self.m.link(nome, url) if url.startswith("http") else f"{nome}: {url}"))
+        print("\n" + self.m.c("✦ " + t, "brillio", forte=True) if self.colori else "\n✦ " + t)
 
     def attesa(self, testo):
         return self.m.attesa(testo)
@@ -1135,12 +1126,19 @@ def guida(ui, richiesti, solo_progetti=False):
     for _, r in pronti:
         if r[1].get("comando"):
             installa_comando(r[1]["comando"])
+    if pronti and type(ui) is Terminale and file_marchio():  # il progetto ha un marchio: da qui in poi il suo aspetto
+        nuova = interfaccia()
+        nuova.esiti = ui.esiti
+        ui = nuova
+    for _, r in pronti:
         mostra_link(ui, *r)
         for x in r[1].get("dopo", []):
             ui.fai(x)
     minuti = round((time.time() - inizio) / 60, 1)
     ui.riepilogo(minuti)
-    print("\n" + REGOLE_USO)
+    ui.titolo("Regole d'uso")
+    for r in REGOLE_USO.split("\n")[1:]:
+        ui.info(r.strip())
     verdi = sum(e.ok or e.saltato for e in ui.esiti)
     for etichetta, (d, c, t, conf) in pronti:
         if t and stanza_collegata(t, c.get("stanza")):
@@ -1148,11 +1146,10 @@ def guida(ui, richiesti, solo_progetti=False):
                              f"{minuti} min ({etichetta.split('/')[-1]})")
     primo = pronti[0][1][0] if pronti else CASA
     ui.titolo("E adesso")
-    ui.info(f"Apri il terminale nella cartella {primo.replace(CASA, '~')}, scrivi {ui.c('1', 'claude')} e premi Invio;")
-    ui.info("la prima volta scrivi «configura il mio Claude». Per rivedere tutto: " + ui.c("1", ui.nome))
-    if pronti and ui.nome == "crew" and file_marchio():
-        ui.info(f"Da adesso c'è anche il comando {ui.c('1', file_marchio()[1])} (lo stesso, con il marchio del progetto).")
-    ui.info(SPIEGA_APP_E_CLI)
+    ui.info(f"Nel terminale, nella cartella {primo.replace(CASA, '~')}: scrivi {ui.c('1', 'claude')} e premi Invio.")
+    ui.info(f"Per rivedere tutto: {ui.c('1', file_marchio()[1] if pronti and file_marchio() else ui.nome)}")
+    for r in SPIEGA_APP_E_CLI.split("\n"):
+        ui.info(r.strip())
     prima = not stato().get("guida_fatta")
     salva_stato(guida_fatta=True)
     primo_prompt = pronti[0][1][1].get("primo_prompt") if pronti else None
