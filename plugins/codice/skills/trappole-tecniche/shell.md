@@ -23,3 +23,5 @@ Letto da `SKILL.md` prima di: script bash/zsh/Git Bash, comandi ssh, hook, hered
   (`grep -q BEGIN || cat >>`) → riscrivi il blocco tra i marcatori a ogni esecuzione.
 - Windows: `python3` risponde "Python non è stato trovato… Microsoft Store" anche con Python installato → è l'alias
   dello Store in `WindowsApps` → negli script prova `python3 -c pass` e ripiega su `python` (o `py`).
+- CLI a schermo intero (`\033[?1049h`) provata solo da Claude (niente terminale vero) → all'uscita lo schermo
+  sparisce e il comando sembra muto → provala anche in un terminale finto: `script -q /dev/null comando`.
