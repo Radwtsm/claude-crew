@@ -7,7 +7,9 @@
                             Con --studio: accesso allo studio Nextcloud dal browser («Concedi accesso», la password
                             per app si salva da sola) e i progetti condivisi lì, anche senza GitHub
     pleyades-cli entra OWNER/REPO   entra in un progetto (clone, plugin, stanza, cartelle)
-    pleyades-cli controlla [--talk] solo i controlli, senza installare niente (--talk: il riassunto nella stanza Talk)
+    pleyades-cli controlla [--talk] solo i controlli, senza installare niente (--talk: riassunto e versioni in ogni stanza)
+    pleyades-cli squadra [PROGETTO] chi del progetto è allineato: l'ultimo `controlla --talk` di ognuno nella stanza
+                            contro l'ultima versione (comando, commit del progetto, plugin); rosso = da aggiornare
     pleyades-cli aggiorna           pleyades-cli, plugin e progetti all'ultima versione
     pleyades-cli progetti           i tuoi progetti e a che punto sono
     pleyades-cli link               i link giusti (studio, Talk, Dashboard, cartelle)
@@ -472,6 +474,48 @@ def scrivi_in_stanza(d, c, testo):
     if c.get("stanza"):
         args.append(f"--stanza={c['stanza']}")
     return run(*args, cwd=d)[0] == 0
+
+
+# Versioni: `controlla --talk` le scrive in ogni stanza, `squadra` le confronta con l'ultima pubblicata
+
+RE_CONTROLLO = re.compile(r"🔎 pleyades-cli controlla \((?P<sis>[^)]*)\): (?P<ok>\d+)/(?P<tot>\d+) a posto"
+                          r"(?: · versioni: (?P<ver>[^·]*))?")
+
+
+def sha7(dati):
+    return hashlib.sha1(dati).hexdigest()[:7]
+
+
+def versioni(d, c):
+    """Questo computer per il progetto: comando (hash di crew.py), progetto (commit; * = modifiche o commit non
+    pushati, «studio» = copia dallo studio), marketplace (commit dei plugin installati del progetto)."""
+    f = os.path.join(CARTELLA, "crew.py")
+    v = {"cli": sha7(open(f if os.path.isfile(f) else __file__, "rb").read())}
+    if os.path.isdir(os.path.join(d, ".git")):
+        testa = run("git", "-C", d, "rev-parse", "--short=7", "HEAD")[1].strip()
+        sporco = run("git", "-C", d, "status", "--porcelain", "-uno")[1].strip() or \
+            run("git", "-C", d, "rev-list", "@{u}..HEAD")[1].strip()
+        v["progetto"] = testa + ("*" if sporco else "")
+    else:
+        v["progetto"] = "studio"
+    inst = leggi_json(os.path.join(CASA, ".claude", "plugins", "installed_plugins.json"), {}).get("plugins", {})
+    for mk in marketplace_del_progetto(c):
+        x = [i[0].get("gitCommitSha", "")[:7] for p, i in inst.items() if p in c["plugin"] and p.endswith("@" + mk) and i]
+        v[mk] = x[0] if x else "manca"
+    return v
+
+
+def riferimento(d, c, cli):
+    """L'ultima versione pubblicata: crew.py su GitHub, il main del progetto, il main di ogni marketplace."""
+    def remoto(*a):
+        r = run("git", "ls-remote", *a, "HEAD", timeout=30)[1].split()
+        return r[0][:7] if r else "?"
+    v = {"cli": cli or "?"}
+    v["progetto"] = remoto("--", run("git", "-C", d, "remote", "get-url", "origin")[1].strip()) \
+        if os.path.isdir(os.path.join(d, ".git")) else "studio"
+    for mk, repo in marketplace_del_progetto(c).items():
+        v[mk] = remoto(f"https://github.com/{repo}.git")
+    return v
 
 
 # Studio (Nextcloud) senza GitHub: Login Flow v2 e WebDAV
@@ -1707,10 +1751,10 @@ def controlla(ui):
     for repo in stato().get("progetti", []):
         if not os.path.isdir(os.path.join(cartella_progetto(repo), ".git")):
             ui.esito(Esito(repo, False, f"rilancia `pleyades-cli entra {repo}`"))
-    squadra = False
+    in_squadra = False
     for repo, d in cartelle_progetti():
         c = config_progetto(d)
-        squadra = squadra or di_squadra(c)
+        in_squadra = in_squadra or di_squadra(c)
         manca = [p for p in c["plugin"] if ha("claude") and p not in inst]
         ui.esito(Esito(f"{repo}: plugin", not manca, "pleyades-cli aggiorna"))
         t = modulo_talk(d, c)
@@ -1728,7 +1772,7 @@ def controlla(ui):
             ui.esito(Esito("app Nextcloud", app_nextcloud(), "pleyades-cli guida (la installa)"))
     if ha("claude") and not lavoro():
         ui.esito(Esito("accesso a Claude", claude_collegato(), "apri `claude` e scrivi /login"))
-    if ha("claude") and not lavoro() and squadra:  # solo l'agenzia unifica i workflow; un progetto singolo no
+    if ha("claude") and not lavoro() and in_squadra:  # solo l'agenzia unifica i workflow; un progetto singolo no
         cm = os.path.join(CASA, ".claude", "CLAUDE.md")
         eccezione = "@~/claude-rules/" in (open(cm, encoding="utf-8").read() if os.path.isfile(cm) else "")
         ui.esito(Esito("regole personali (claude-personale)", os.path.isdir(os.path.join(CASA, "claude-personale")),
@@ -1738,12 +1782,62 @@ def controlla(ui):
         if os.path.isfile(os.path.join(CARTELLA, "crew.py")) else 99
     ui.esito(Esito("pleyades-cli aggiornato", eta < 2, "pleyades-cli aggiorna", nota=f"{eta:.0f} giorni fa"))
     ui.riepilogo(0)
-    if "--talk" in sys.argv:  # il riassunto nella stanza: chi cura gli strumenti vede cosa manca a ognuno
+    if "--talk" in sys.argv:  # il riassunto in ogni stanza; `pleyades-cli squadra` confronta le versioni di tutti
         manca = [e.nome for e in ui.esiti if not (e.ok or e.saltato)]
-        for _, d in cartelle_progetti()[:1]:
-            scrivi_in_stanza(d, config_progetto(d), f"🔎 pleyades-cli controlla ({platform.system()}): "
-                             f"{len(ui.esiti) - len(manca)}/{len(ui.esiti)} a posto" + (" · manca: " + ", ".join(manca)
-                                                                                     if manca else "")[:300])
+        testo = f"🔎 pleyades-cli controlla ({platform.system()}): {len(ui.esiti) - len(manca)}/{len(ui.esiti)} a posto"
+        for _, d in cartelle_progetti():
+            c = config_progetto(d)
+            if c.get("talk"):
+                v = " ".join(f"{k}={x}" for k, x in versioni(d, c).items())
+                scrivi_in_stanza(d, c, (f"{testo} · versioni: {v}" + (" · manca: " + ", ".join(manca) if manca else ""))[:390])
+    return 0 if all(e.ok or e.saltato for e in ui.esiti) else 1
+
+
+def squadra(ui):
+    """Chi del progetto è allineato: l'ultimo «🔎 controlla --talk» di ognuno nella stanza contro l'ultima versione."""
+    filtro = (sys.argv[2:] or [""])[0]
+    try:
+        cli = sha7(scarica(CREW_PY))
+    except (OSError, ValueError):
+        cli = None
+    for repo, d in cartelle_progetti():
+        if filtro not in repo:
+            continue
+        c = config_progetto(d)
+        t = modulo_talk(d, c)
+        conf = t and stanza_collegata(t, c.get("stanza"))
+        ui.titolo(f"{ui.nome} · squadra · {c['nome']}")
+        if not conf:
+            ui.esito(Esito("stanza Talk", False, f"pleyades-cli entra {repo}"))
+            continue
+        with ui.attesa("leggo la stanza e l'ultima versione"):
+            rif = riferimento(d, c, cli)
+            try:
+                ultimi = {}
+                for m in t.messaggi(conf, 200):
+                    r = RE_CONTROLLO.search(m.get("message", ""))
+                    if r:
+                        ultimi[(m.get("actorDisplayName") or "?", r.group("sis"))] = (m, r)
+                persone = {p.get("displayName") for p in t.api(conf, "GET", f"/v4/room/{conf['stanza']}/participants")
+                           if p.get("actorType") == "users"}
+            except Exception as e:  # rete giù o accesso scaduto: lo dice e passa al progetto dopo
+                ultimi, persone = None, str(e)[:120]
+        if ultimi is None:
+            ui.esito(Esito("stanza Talk", False, f"rete o accesso: {persone}"))
+            continue
+        ui.info("ultima versione: " + " ".join(f"{k}={x}" for k, x in rif.items()))
+        for (nome, sis), (m, r) in sorted(ultimi.items()):
+            v = dict(x.split("=", 1) for x in (r.group("ver") or "").split() if "=" in x)
+            diverso = [f"{k}={v.get(k, '?')}" for k, x in rif.items() if v.get(k) != x]
+            giorni = (time.time() - m["timestamp"]) / 86400
+            ui.esito(Esito(f"{nome} ({sis})", not diverso and r.group("ok") == r.group("tot") and giorni < 7,
+                           f"lì: pleyades-cli aggiorna, poi pleyades-cli controlla --talk · "
+                           + (f"diverso: {' '.join(diverso)}" if diverso else f"{r.group('ok')}/{r.group('tot')}")
+                           + (f" · controllo di {giorni:.0f} giorni fa" if giorni >= 7 else ""),
+                           nota=f"{r.group('ok')}/{r.group('tot')} · {time.strftime('%d/%m %H:%M', time.localtime(m['timestamp']))}"))
+        mai = sorted(persone - {n for n, _ in ultimi})
+        if mai:
+            ui.info("nella stanza, senza controllo: " + ", ".join(mai) + " (`pleyades-cli controlla --talk`)")
     return 0 if all(e.ok or e.saltato for e in ui.esiti) else 1
 
 
@@ -1883,7 +1977,7 @@ def main():
             ui.esito(Esito(f"{'preso' if cmd == 'prendi' else 'tolto'}: {a[1]}", ok, cosa,
                            nota="valido dalla prossima sessione di Claude Code"))
             return 0 if ok else 1
-        f = {"controlla": controlla, "aggiorna": aggiorna, "progetti": progetti, "link": link, "kit": mio_kit}.get(cmd)
+        f = {"controlla": controlla, "squadra": squadra, "aggiorna": aggiorna, "progetti": progetti, "link": link, "kit": mio_kit}.get(cmd)
         if f:
             return f(ui)
         print(f"pleyades-cli: comando «{cmd}» sconosciuto. `pleyades-cli --help` per l'elenco.")
