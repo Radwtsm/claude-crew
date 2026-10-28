@@ -5,12 +5,14 @@ description: Trova e sistema perché un computer della squadra non è all'ultima
 
 # Ripara l'allineamento
 
-Ogni computer si allinea da solo: le cose da riparare sono i casi in cui questo non succede. Lavora sul computer di
-chi è indietro, con il suo Claude. Prima la diagnosi, poi le correzioni con l'ok dell'utente (domanda a crocette).
+Ogni computer acceso si allinea da solo entro ~5 minuti da un push: qui si ripara quando non succede. Lavora sul
+computer di chi è indietro, con il suo Claude. Prima la diagnosi, poi le correzioni con l'ok dell'utente (domanda a
+crocette).
 
 ## Come funziona (per capire dove si rompe)
 1. **Attività pianificata** (launchd sul Mac, Utilità di pianificazione su Windows «Pleyades tools», cron su Linux):
-   lancia `pleyades-cli auto` all'accesso e ogni 30 minuti, anche con Claude chiuso. `auto` la rimette da sola.
+   ogni 5 minuti `pleyades-cli auto --leggero`, anche con Claude chiuso: pochi `git ls-remote`; c'è un commit nuovo
+   (crew.py, progetto, plugin) → il giro intero. `auto` rimette l'attività da sola. Un solo giro alla volta.
 2. **Avvio di Claude**: l'hook del plugin `regole` lancia lo stesso `auto` in background.
 3. `auto` = `aggiorna` (crew.py da GitHub, cataloghi, `claude plugin update` di ogni plugin, `git pull` dei
    progetti) + `controlla --talk` (il resoconto 🔎 nella stanza, solo se è cambiato) + `squadra`.
@@ -45,6 +47,8 @@ Dopo ogni aggiornamento dei plugin: chiudi e riapri Claude (`/clear` non basta).
 - Rosso ma `diagnosi` tutto ✓ → il 🔎 nella stanza è vecchio → `pleyades-cli controlla --talk`.
 - «mai controllato» → nella stanza ma senza 🔎 → `pleyades-cli controlla --talk` dalla cartella del progetto
   (o `pleyades-cli entra PROPRIETARIO/REPO` se non è ancora entrato).
+- «accesso a Claude» ✗ ma il login è riuscito → `claude auth status` nello stesso terminale: se dice logged in,
+  pleyades-cli è vecchio (`aggiorna`); se no il login era in un altro programma (app desktop ≠ Claude Code).
 - `auto` «mai partito» → manca il plugin `regole` o il suo hook non trova python → `pleyades-cli controlla`;
   Windows: `python --version` deve rispondere (non lo Store).
 - `auto` «interrotto» o «da sistemare: …» → le righe di log in `diagnosi` dicono quale passo; rilancia quel passo a

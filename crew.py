@@ -18,7 +18,7 @@
     pleyades-cli kit                il tuo kit in base al ruolo: skill, cosa leggere, a chi chiedere
     pleyades-cli auto [--subito]    (hook d'avvio di regole e «📦 Push» nella stanza, in background) aggiorna tutto, poi
                                     `controlla --talk` solo se il riassunto è cambiato o ha più di 3 giorni
-    pleyades-cli pianifica [--togli]   l'attività del sistema che lancia `auto` all'accesso e ogni 30 minuti, anche a
+    pleyades-cli pianifica [--togli]   l'attività del sistema che lancia `auto` all'accesso e ogni 5 minuti, anche a
                                     Claude chiuso (launchd, Utilità di pianificazione, cron); `auto` la rimette da sola
     pleyades-cli hook               (per un hook SessionStart) installa i plugin che il progetto aperto chiede e mancano
     pleyades-cli profilo casa|lavoro   che computer è: «lavoro» = solo le regole comuni, niente progetti, Talk o Nextcloud
@@ -1394,10 +1394,16 @@ def casa_di_prova():
 
 
 def claude_collegato():
-    try:
-        return json.loads(run("claude", "auth", "status", "--json", timeout=30)[1] or "{}").get("loggedIn") is True
-    except ValueError:
-        return False
+    """Avvisi o righe in più prima del JSON (versione nuova, Windows lento al primo avvio) non vogliono dire «non
+    collegato» (owner 28/10: login riuscito ma il controllo diceva di no): si cerca il JSON nell'output."""
+    for _ in range(2):
+        out = run("claude", "auth", "status", "--json", timeout=90)[1]
+        m = re.search(r'"loggedIn"\s*:\s*(true|false)', out)
+        if m:
+            return m.group(1) == "true"
+        if re.search(r"(?i)logged in|signed in", out) and not re.search(r"(?i)not (logged|signed) in", out):
+            return True  # versione senza --json
+    return False
 
 
 SPIEGA_CLAUDE = """Accesso a Claude: serve un account Claude (claude.ai) con un abbonamento Pro o Max.
@@ -1788,7 +1794,8 @@ def controlla(ui):
         if c.get("cartelle"):
             ui.esito(Esito("app Nextcloud", app_nextcloud(), "pleyades-cli guida (la installa)"))
     if ha("claude") and not lavoro():
-        ui.esito(Esito("accesso a Claude", claude_collegato(), "apri `claude` e scrivi /login"))
+        ui.esito(Esito("accesso a Claude", claude_collegato(), "apri `claude` e scrivi /login; se il login è già "
+                       "riuscito: `claude auth status` nello stesso terminale e manda la risposta (senza email)"))
     if ha("claude") and not lavoro() and in_squadra:  # solo l'agenzia unifica i workflow; un progetto singolo no
         cm = os.path.join(CASA, ".claude", "CLAUDE.md")
         eccezione = "@~/claude-rules/" in (open(cm, encoding="utf-8").read() if os.path.isfile(cm) else "")
@@ -1960,11 +1967,48 @@ def hook():
     return 0
 
 
+def teste_remote():
+    """L'ultimo commit di ogni repo da cui arriva qualcosa (crew.py, progetti, marketplace): pochi `git ls-remote`."""
+    url, nomi = set(), {CREW}
+    for _, d in cartelle_progetti():
+        c = config_progetto(d)
+        if os.path.isdir(os.path.join(d, ".git")):
+            url.add(run("git", "-C", d, "remote", "get-url", "origin")[1].strip())
+        nomi |= set(marketplace_del_progetto(c).values())
+    url |= {f"https://github.com/{repo}.git" for repo in nomi}
+    with ThreadPoolExecutor(8) as ex:
+        teste = ex.map(lambda r: (run("git", "ls-remote", "--", r, "HEAD", timeout=30)[1].split() or ["?"])[0][:7],
+                       sorted(x for x in url if x))
+    return " ".join(teste)
+
+
 def auto(ui):
-    """Hook d'avvio (in background): tutti gli strumenti all'ultima versione prima di lavorare, poi il controllo
-    nella stanza se è cambiato; l'esito resta in stato.json e l'hook lo dice a Claude al prossimo avvio."""
-    if time.time() - stato().get("auto", {}).get("t", 0) < (60 if "--subito" in sys.argv else 1800):
+    """Hook d'avvio e attività pianificata (in background): tutti gli strumenti all'ultima versione prima di lavorare,
+    poi il controllo nella stanza se è cambiato; l'esito resta in stato.json e l'hook lo dice a Claude al prossimo
+    avvio. L'attività gira ogni 5 minuti: senza commit nuovi da nessuna parte esce dopo pochi `ls-remote`."""
+    ultimo = stato().get("auto", {})
+    fa = time.time() - ultimo.get("t", 0)
+    if "--leggero" in sys.argv and fa < 6 * 3600:
+        t = teste_remote()
+        if "?" not in t and t == ultimo.get("teste") and (ultimo.get("esito") == "ok" or fa < 1800):
+            return 0  # niente di nuovo pubblicato (owner 28/10: allineamento in pochi minuti); un ✗ si riprova ogni 30'
+    if "--leggero" not in sys.argv and time.time() - ultimo.get("t", 0) < (60 if "--subito" in sys.argv else 1800):
         return 0  # più sessioni aperte di seguito: una volta ogni mezz'ora basta; --subito = un push nella stanza
+    blocco = os.path.join(CARTELLA, "auto.lock")  # attività + avvio di Claude insieme: i due `claude plugin` si pestano
+    try:
+        os.close(os.open(blocco, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+    except FileExistsError:
+        if time.time() - os.path.getmtime(blocco) < 900:
+            return 0
+        os.utime(blocco)  # rimasto da un giro interrotto
+    try:
+        return giro_auto(ui)
+    finally:
+        os.remove(blocco)
+
+
+def giro_auto(ui):
+    teste = teste_remote()  # prima del giro: un push arrivato durante il giro lo rifà quello dopo
     salva_stato(auto={"t": time.time(), "esito": "in corso"})
     aggiorna(ui)
     ko = [e.nome for e in ui.esiti if not (e.ok or e.saltato)]
@@ -1975,7 +2019,8 @@ def auto(ui):
     ok, cosa = pianifica()
     if not ok:
         ko.append(f"attività pianificata ({cosa})")
-    salva_stato(auto={"t": time.time(), "esito": "ok" if not ko else "da sistemare: " + ", ".join(dict.fromkeys(ko))})
+    salva_stato(auto={"t": time.time(), "esito": "ok" if not ko else "da sistemare: " + ", ".join(dict.fromkeys(ko)),
+                      "teste": teste})
     ui.esiti = []
     squadra(ui)
     return 0
@@ -1983,30 +2028,30 @@ def auto(ui):
 
 def pianifica(togli=False):
     """L'allineamento anche a Claude chiuso (owner 28/10: imposto, non affidato a chi riapre Claude): un'attività del
-    sistema lancia `auto` all'accesso e ogni 30 minuti. Si rimette da sola a ogni `auto`. Torna (ok, cosa)."""
+    sistema lancia `auto` all'accesso e ogni 5 minuti. Si rimette da sola a ogni `auto`. Torna (ok, cosa)."""
     if lavoro():
         return True, "computer di lavoro: niente attività pianificate"
     crew = os.path.join(CARTELLA, "crew.py")
     if WIN:
         pyw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")  # senza finestra
-        tr = f'"{pyw if os.path.isfile(pyw) else sys.executable}" "{crew}" auto'
+        tr = f'"{pyw if os.path.isfile(pyw) else sys.executable}" "{crew}" auto --leggero'
         if togli:
             return run("schtasks", "/Delete", "/TN", "Pleyades tools", "/F")[0] == 0, "tolta"
         if tr in run("schtasks", "/Query", "/TN", "Pleyades tools", "/V", "/FO", "LIST")[1]:
-            return True, "attiva (Utilità di pianificazione, ogni 30 minuti)"
-        c, out = run("schtasks", "/Create", "/TN", "Pleyades tools", "/SC", "MINUTE", "/MO", "30", "/TR", tr, "/F")
-        return c == 0, "attivata (Utilità di pianificazione, ogni 30 minuti)" if c == 0 else out[:200]
+            return True, "attiva (Utilità di pianificazione, ogni 5 minuti)"
+        c, out = run("schtasks", "/Create", "/TN", "Pleyades tools", "/SC", "MINUTE", "/MO", "5", "/TR", tr, "/F")
+        return c == 0, "attivata (Utilità di pianificazione, ogni 5 minuti)" if c == 0 else out[:200]
     if MAC:
         p = os.path.join(CASA, "Library", "LaunchAgents", PIANO + ".plist")
         dominio = f"gui/{os.getuid()}"
         dati = plistlib.dumps({
-            "Label": PIANO, "ProgramArguments": [sys.executable, crew, "auto"], "RunAtLoad": True,
-            "StartInterval": 1800, "ProcessType": "Background", "StandardOutPath": LOG_PIANO,
+            "Label": PIANO, "ProgramArguments": [sys.executable, crew, "auto", "--leggero"], "RunAtLoad": True,
+            "StartInterval": 300, "ProcessType": "Background", "StandardOutPath": LOG_PIANO,
             "StandardErrorPath": LOG_PIANO, "EnvironmentVariables": {
                 "PATH": f"{BIN}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin", "NO_COLOR": "1"}})
         uguale = os.path.isfile(p) and open(p, "rb").read() == dati
         if uguale and not togli and run("launchctl", "print", f"{dominio}/{PIANO}")[0] == 0:
-            return True, "attiva (launchd, ogni 30 minuti)"
+            return True, "attiva (launchd, ogni 5 minuti)"
         run("launchctl", "bootout", f"{dominio}/{PIANO}")
         if togli:
             if os.path.isfile(p):
@@ -2016,17 +2061,17 @@ def pianifica(togli=False):
         with open(p, "wb") as f:
             f.write(dati)
         c, out = run("launchctl", "bootstrap", dominio, p)
-        return c == 0, "attivata (launchd, ogni 30 minuti)" if c == 0 else out[:200]
+        return c == 0, "attivata (launchd, ogni 5 minuti)" if c == 0 else out[:200]
     if not ha("crontab"):
         return False, f"manca crontab: fai partire `{NOME_CLI} auto` all'accesso"
     attuale = run("crontab", "-l")[1]
-    riga = f'*/30 * * * * NO_COLOR=1 "{sys.executable}" "{crew}" auto >"{LOG_PIANO}" 2>&1'
+    riga = f'*/5 * * * * NO_COLOR=1 "{sys.executable}" "{crew}" auto --leggero >"{LOG_PIANO}" 2>&1'
     if not togli and riga in attuale:
-        return True, "attiva (cron, ogni 30 minuti)"
+        return True, "attiva (cron, ogni 5 minuti)"
     resto = [r for r in attuale.splitlines() if r.strip() and f'"{crew}" auto' not in r and not r.startswith("no crontab")]
     r = subprocess.run(["crontab", "-"], input="\n".join(resto + ([] if togli else [riga])) + "\n", text=True,
                        capture_output=True)
-    return r.returncode == 0, ("tolta" if togli else "attivata (cron, ogni 30 minuti)") if r.returncode == 0 else r.stderr[:200]
+    return r.returncode == 0, ("tolta" if togli else "attivata (cron, ogni 5 minuti)") if r.returncode == 0 else r.stderr[:200]
 
 
 def diagnosi(ui):

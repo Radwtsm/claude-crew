@@ -96,7 +96,7 @@ def main():
     fuori = sq.get("indietro", []) + [f"{n} (mai controllato)" for n in sq.get("senza", [])]
     if fuori:  # allineamento costante del team = priorità assoluta (owner 2026-10-28)
         print(f"Squadra non allineata: {', '.join(fuori)}. Priorità assoluta: dillo all'utente prima del resto. "
-              "Ogni computer acceso si allinea da solo ogni 30 minuti: dopo un push recente è normale; se resta "
+              "Ogni computer acceso si allinea da solo entro ~5 minuti da un push; se resta "
               "indietro, skill `ripara-allineamento`.")
     sid = sessione()
     if sid:
