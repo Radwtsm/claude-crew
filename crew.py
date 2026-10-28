@@ -18,7 +18,9 @@
                             segnato in locale con data e motivo; `pleyades-cli aggiorna` non ne aggiunge mai altri
 
 Un progetto dice cosa gli serve in `.claude/progetto.json` del suo repo (stanza, talk, cartelle, plugin,
-marketplace, passi, dopo, primo_prompt, moduli, marchio, comando); i plugin di `.claude/settings.json` con valore true contano anche loro.
+marketplace, passi, dopo, primo_prompt, moduli, marchio, comando, tipo); i plugin di `.claude/settings.json` con valore true contano anche loro.
+`tipo`: «squadra» (l'agenzia: workflow unificati, regole personali, kit) o «progetto» (solo comunicare su quel
+progetto, in automatico); senza `tipo` è squadra chi ha `ruolo` o `cartelle`.
 L'indirizzo di Nextcloud viene dal `talk.py` del progetto, l'aspetto dal suo `marchio` (se c'è) e `comando` dà un
 secondo nome allo stesso programma (es. il nome dello studio): questo file è pubblico e non ne contiene.
 Progetti dallo studio: ogni cartella condivisa che contiene `.claude/progetto.json` (copia di sola lettura del repo,
@@ -337,6 +339,12 @@ def config_progetto(d):
     if not c.get("stanza"):
         c["stanza"] = (leggi_json(os.path.join(d, ".claude", "talk.json"), {}) or {}).get("stanza")
     return c
+
+
+def di_squadra(c):
+    """Progetto di squadra (l'agenzia: ruolo, cartelle dello studio) = workflow unificati; altrimenti progetto
+    singolo = solo la comunicazione su quel progetto, niente configurazione personale. `tipo` lo dice esplicito."""
+    return c.get("tipo") == "squadra" if c.get("tipo") else bool(c.get("ruolo") or c.get("cartelle"))
 
 
 def marketplace_del_progetto(c):
@@ -1699,8 +1707,10 @@ def controlla(ui):
     for repo in stato().get("progetti", []):
         if not os.path.isdir(os.path.join(cartella_progetto(repo), ".git")):
             ui.esito(Esito(repo, False, f"rilancia `pleyades-cli entra {repo}`"))
+    squadra = False
     for repo, d in cartelle_progetti():
         c = config_progetto(d)
+        squadra = squadra or di_squadra(c)
         manca = [p for p in c["plugin"] if ha("claude") and p not in inst]
         ui.esito(Esito(f"{repo}: plugin", not manca, "pleyades-cli aggiorna"))
         t = modulo_talk(d, c)
@@ -1718,6 +1728,7 @@ def controlla(ui):
             ui.esito(Esito("app Nextcloud", app_nextcloud(), "pleyades-cli guida (la installa)"))
     if ha("claude") and not lavoro():
         ui.esito(Esito("accesso a Claude", claude_collegato(), "apri `claude` e scrivi /login"))
+    if ha("claude") and not lavoro() and squadra:  # solo l'agenzia unifica i workflow; un progetto singolo no
         cm = os.path.join(CASA, ".claude", "CLAUDE.md")
         eccezione = "@~/claude-rules/" in (open(cm, encoding="utf-8").read() if os.path.isfile(cm) else "")
         ui.esito(Esito("regole personali (claude-personale)", os.path.isdir(os.path.join(CASA, "claude-personale")),
