@@ -2418,14 +2418,16 @@ def solido(nome):
     return v, lati, facce
 
 
-def intro(durata=3.2, resta=False, domanda=True):
+def intro(durata=3.2, resta=False, domanda=True, sfuma=False):
     """`pleyades-cli intro`: a tutto schermo, su nero pieno in ogni cella (uguale in ogni terminale, anche col fondo
     chiaro): sale dal nero, volo fra le stelle, le 7 Pleiadi, due forme 3D che ruotano, il titolo, la frase, il nome
     e lo stato, con l'aspetto della persona (`aspetto()`). Pixel = mezza cella (▀/▄); un tasto salta alla fine.
     `resta`: le forme continuano a girare finché non premi un tasto. La prima volta (`domanda`) poi chiede l'aspetto
-    e da dove partire. Fuori da un terminale non fa niente."""
+    e da dove partire. Transizioni sempre graduali: un tasto accelera fino alla fine (non salta), `sfuma` (quando dopo
+    viene altro a schermo) dissolve tutto nel nero prima di lasciare lo schermo. Fuori da un terminale non fa niente."""
     import math, random
     asp = aspetto()
+    sfuma = sfuma or (domanda and not stato().get("intro_vista"))  # dopo vengono le domande: niente schermo che salta
     ROSSO, ROSA, BIANCO = asp["colori"]
     FRASE_INTRO = asp["frase"]
     if not sys.stdout.isatty():
@@ -2642,7 +2644,7 @@ def intro(durata=3.2, resta=False, domanda=True):
             memo.clear()
         return memo[chiave]
 
-    def schermo(buf, t):
+    def schermo(buf, t, luce=1.0):
         out = []
         for r in range(A):
             s_, ultimo, salto = [], None, True
@@ -2684,7 +2686,7 @@ def intro(durata=3.2, resta=False, domanda=True):
         testi = [(FRASE_INTRO[:n], ROSA, "\033[3m"), (sotto if t >= 1 else "", (150, 150, 160), ""),
                  ("claude  parla con Claude  ·  pley  menu Pleiadi Studio" if t >= 1 else "", (110, 110, 120), "")]
         for i, (testo, c, stile) in enumerate(testi):
-            testo = testo[:C]
+            testo, c = testo[:C], tuple(v * luce for v in c)
             pieno = len(FRASE_INTRO) if i == 0 else len(testo)
             out.append(f"\033[{A + 1 + i};1H" + nero + " " * C + f"\033[{A + 1 + i};{max(1, (C - pieno) // 2 + 1)}H"
                        + nero + col(c, False) + stile + testo + "\033[0m")
@@ -2705,12 +2707,13 @@ def intro(durata=3.2, resta=False, domanda=True):
             vecchio = None
     sys.stdout.write("\033[?25l\033[2J")
     try:
-        t0 = time.time()
+        t0, svelto = time.time(), None
         while True:  # t dal tempo vero: su un computer lento meno fotogrammi, stessa durata
             inizio = time.time()
-            t = min(1.0, (inizio - t0) / durata)
-            if tasto():
-                t = 1.0
+            if svelto is None and tasto():
+                svelto = (min(1.0, (inizio - t0) / durata), inizio)  # un tasto: fino alla fine in 0,35 s, senza salto
+            t = (min(1.0, (inizio - t0) / durata) if svelto is None else
+                 min(1.0, svelto[0] + (1 - svelto[0]) * (inizio - svelto[1]) / 0.35))
             sys.stdout.write(schermo(fotogramma(t), t))
             sys.stdout.flush()
             if t >= 1.0:
@@ -2721,6 +2724,15 @@ def intro(durata=3.2, resta=False, domanda=True):
             sys.stdout.write(schermo(fotogramma(1.0, time.time() - prima_t), 1.0))
             sys.stdout.flush()
             time.sleep(0.06)
+        if sfuma:  # dissolve nel nero (0,4 s), poi lo schermo pulito per quello che viene dopo
+            giro, inizio = time.time() - prima_t, time.time()
+            while (k := (time.time() - inizio) / 0.4) < 1:
+                luce = (1 - k) ** 2
+                buf = [[[v * luce for v in p] for p in riga] for riga in fotogramma(1.0, giro + k * 0.4)]
+                sys.stdout.write(schermo(buf, 1.0, luce))
+                sys.stdout.flush()
+                time.sleep(0.03)
+            sys.stdout.write(nero + "\033[2J\033[H")
     finally:
         sys.stdout.write(f"\033[0m\033[{A + 4};1H\033[?25h")
         sys.stdout.flush()
@@ -2771,7 +2783,7 @@ def voce_aspetto(ui, primo=False):
         a["forme"][k:k + 1] = [scelte[ui.scegli(f"Forma 3D {q}", [x.capitalize() for x in scelte])]]
     salva_stato(aspetto=a)  # aspetto() legge da qui: l'anteprima è l'intro vera
     while True:
-        intro(domanda=False)
+        intro(domanda=False, sfuma=True)
         i = ui.scegli("Ti piace?", ["Sì, mettilo ovunque (Claude, terminale, prompt)", "Rivedi l'anteprima",
                                     "No, torna a prima"])
         if i != 1:
