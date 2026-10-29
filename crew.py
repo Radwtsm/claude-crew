@@ -25,6 +25,8 @@
                                     forme girano finché premi un tasto; --256: colori per i terminali vecchi
     pleyades-cli finestre [--togli] (Windows) i colori dell'aspetto su tutto Windows: modo scuro, la tinta su barre del
                                     titolo e bordi (Start e barra delle applicazioni scure); --togli rimette quelli di prima
+    pleyades-cli salvaschermo       la scena che fluttua finché premi un tasto, poi lo schermo com'era (parte da sola
+                                    dopo i minuti scelti in `aspetto` senza scrivere al prompt)
     pleyades-cli aspetto            il tuo aspetto (nome, titolo, frase, colori, forme 3D) con anteprima, poi
                                     uguale ovunque: Claude, terminale (Mac, iTerm2, Windows Terminal), prompt Starship
     pleyades-cli tema               parole Pleyades nella rotella di Claude + terminale «Pleiad Fire Red» nero con
@@ -2364,7 +2366,7 @@ TINTE = {"rosso": ("#e8253f", "#ff8a96", "#fff4f0"), "blu": ("#4a6cf7", "#a9c4ff
          "oro": ("#e09a1a", "#ffd98a", "#fffaf0"), "ciano": ("#16a9c2", "#94eef8", "#f0feff")}
 FORME_3D = ("stella", "merkaba", "cubo", "ottaedro", "icosaedro")
 ASPETTO_BASE = {"titolo": "PLEIADI STUDIO", "frase": "Sette stelle, una rotta", "nome": "", "tinta": "rosso",
-                "colori": None, "forme": ["stella", "merkaba"]}
+                "colori": None, "forme": ["stella", "merkaba"], "salvaschermo": 5}
 
 
 def aspetto():
@@ -2381,6 +2383,7 @@ def aspetto():
     a["titolo"] = "".join(ch for ch in str(a.get("titolo") or "").upper().translate(ACCENTI) if ch in FONT_PIXEL)[:24].strip()
     a["titolo"] = a["titolo"] or ASPETTO_BASE["titolo"]
     a["frase"], a["nome"] = str(a.get("frase") or "")[:80], str(a.get("nome") or "")[:30]
+    a["salvaschermo"] = a["salvaschermo"] if a.get("salvaschermo") in (0, 2, 5, 10, 20) else ASPETTO_BASE["salvaschermo"]
     return a
 
 
@@ -2418,15 +2421,19 @@ def solido(nome):
     return v, lati, facce
 
 
-def intro(durata=3.2, resta=False, domanda=True, sfuma=False):
+def intro(durata=3.2, resta=False, domanda=True, sfuma=False, salvaschermo=False):
     """`pleyades-cli intro`: a tutto schermo, su nero pieno in ogni cella (uguale in ogni terminale, anche col fondo
     chiaro): sale dal nero, volo fra le stelle, le 7 Pleiadi, due forme 3D che ruotano, il titolo, la frase, il nome
     e lo stato, con l'aspetto della persona (`aspetto()`). Pixel = mezza cella (▀/▄); un tasto salta alla fine.
     `resta`: le forme continuano a girare finché non premi un tasto. La prima volta (`domanda`) poi chiede l'aspetto
     e da dove partire. Transizioni sempre graduali: un tasto accelera fino alla fine (non salta), `sfuma` (quando dopo
-    viene altro a schermo) dissolve tutto nel nero prima di lasciare lo schermo. Fuori da un terminale non fa niente."""
+    viene altro a schermo) dissolve tutto nel nero prima di lasciare lo schermo. `salvaschermo`: sullo schermo di
+    riserva del terminale, la scena finale entra in dissolvenza e fluttua finché premi un tasto, poi sfuma e torna lo
+    schermo di prima com'era. Fuori da un terminale non fa niente."""
     import math, random
     asp = aspetto()
+    if salvaschermo:
+        resta, sfuma, domanda = True, True, False
     sfuma = sfuma or (domanda and not stato().get("intro_vista"))  # dopo vengono le domande: niente schermo che salta
     ROSSO, ROSA, BIANCO = asp["colori"]
     FRASE_INTRO = asp["frase"]
@@ -2560,7 +2567,7 @@ def intro(durata=3.2, resta=False, domanda=True, sfuma=False):
                 y, z = y * math.cos(ax) - z * math.sin(ax), y * math.sin(ax) + z * math.cos(ax)
                 k = 3 / (3 + z)
                 v3.append((x, y, z))
-                pp.append((ox + x * r * k, oy + y * r * k))
+                pp.append((ox + x * r * k, oy + y * r * k + math.sin(giro * 0.7 + ox) * r * 0.08))  # fluttua piano
             davanti = set()
             for fc in sorted(facce, key=lambda fc: -sum(v3[i][2] for i in fc) / len(fc)):  # dalla più lontana
                 (ax_, ay_, az_), (bx, by, bz), (cx_, cy_, cz) = v3[fc[0]], v3[fc[1]], v3[fc[2]]
@@ -2705,10 +2712,10 @@ def intro(durata=3.2, resta=False, domanda=True, sfuma=False):
             tasto = lambda: bool(select.select([sys.stdin], [], [], 0)[0])
         except Exception:
             vecchio = None
-    sys.stdout.write("\033[?25l\033[2J")
+    sys.stdout.write(("\033[?1049h" if salvaschermo else "") + "\033[?25l" + nero + "\033[2J")
     try:
         t0, svelto = time.time(), None
-        while True:  # t dal tempo vero: su un computer lento meno fotogrammi, stessa durata
+        while not salvaschermo:  # t dal tempo vero: su un computer lento meno fotogrammi, stessa durata
             inizio = time.time()
             if svelto is None and tasto():
                 svelto = (min(1.0, (inizio - t0) / durata), inizio)  # un tasto: fino alla fine in 0,35 s, senza salto
@@ -2720,8 +2727,13 @@ def intro(durata=3.2, resta=False, domanda=True, sfuma=False):
                 break
             time.sleep(max(0.0, durata / passi - (time.time() - inizio)))
         prima_t = time.time()
-        while resta and not tasto():  # le forme continuano a girare, piano
-            sys.stdout.write(schermo(fotogramma(1.0, time.time() - prima_t), 1.0))
+        while resta and not tasto():  # le forme continuano a girare, piano (il salvaschermo entra in dissolvenza)
+            giro = time.time() - prima_t
+            luce = min(1.0, giro / 0.8) ** 2 if salvaschermo else 1.0
+            buf = fotogramma(1.0, giro)
+            if luce < 1:
+                buf = [[[v * luce for v in p] for p in riga] for riga in buf]
+            sys.stdout.write(schermo(buf, 1.0, luce))
             sys.stdout.flush()
             time.sleep(0.06)
         if sfuma:  # dissolve nel nero (0,4 s), poi lo schermo pulito per quello che viene dopo
@@ -2734,7 +2746,7 @@ def intro(durata=3.2, resta=False, domanda=True, sfuma=False):
                 time.sleep(0.03)
             sys.stdout.write(nero + "\033[2J\033[H")
     finally:
-        sys.stdout.write(f"\033[0m\033[{A + 4};1H\033[?25h")
+        sys.stdout.write("\033[0m\033[?25h\033[?1049l" if salvaschermo else f"\033[0m\033[{A + 4};1H\033[?25h")
         sys.stdout.flush()
         if vecchio is not None:
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, vecchio)
@@ -2781,6 +2793,11 @@ def voce_aspetto(ui, primo=False):
         ora = a["forme"][k] if len(a["forme"]) > k and a["forme"][k] in forme else ASPETTO_BASE["forme"][k]
         scelte = [ora] + [x for x in forme if x != ora]
         a["forme"][k:k + 1] = [scelte[ui.scegli(f"Forma 3D {q}", [x.capitalize() for x in scelte])]]
+    durate = [5, 2, 10, 20, 0]
+    ora_ss = a.get("salvaschermo", 5) if a.get("salvaschermo") in durate else 5
+    durate = [ora_ss] + [x for x in durate if x != ora_ss]
+    a["salvaschermo"] = durate[ui.scegli("Salvaschermo: dopo quanto senza scrivere nel terminale?",
+                                         [f"{x} minuti" if x else "Mai" for x in durate])]
     salva_stato(aspetto=a)  # aspetto() legge da qui: l'anteprima è l'intro vera
     while True:
         intro(domanda=False, sfuma=True)
@@ -2933,6 +2950,27 @@ error_symbol = "[❯](bold #ff5f3a)"
     return "prompt Starship con i tuoi colori"
 
 
+def tema_salvaschermo(asp=None):
+    """Il salvaschermo della shell: dopo N minuti senza scrivere al prompt parte `salvaschermo` (un tasto torna com'era).
+    zsh: TMOUT + TRAPALRM in un blocco segnato di ~/.zshrc, tolto con 0 minuti. Windows: nel profilo di Terminale
+    (`tema_windows`). Mai mentre gira un programma (Claude Code compreso): solo al prompt."""
+    asp = asp or aspetto()
+    rc = os.path.join(CASA, ".zshrc")
+    if WIN or "zsh" not in os.environ.get("SHELL", "zsh"):
+        return ""
+    inizio, fine = "# >>> salvaschermo Pleiadi (pleyades-cli aspetto)", "# <<< salvaschermo Pleiadi"
+    testo = open(rc, encoding="utf-8").read() if os.path.exists(rc) else ""
+    testo = re.sub(rf"\n?{re.escape(inizio)}.*?{re.escape(fine)}\n?", "\n", testo, flags=re.S).rstrip("\n") + "\n"
+    minuti = asp["salvaschermo"]
+    if minuti:
+        cli = os.path.join(BIN, NOME_CLI)
+        testo += (f"\n{inizio}\nTMOUT={minuti * 60}\n"
+                  f"TRAPALRM() {{ [[ -t 1 ]] && \"{cli}\" salvaschermo; zle && zle reset-prompt }}\n{fine}\n")
+    with open(rc, "w", encoding="utf-8") as f:
+        f.write(testo)
+    return f"salvaschermo dopo {minuti} min" if minuti else "salvaschermo spento"
+
+
 def tema(forza=False, terminale_mac=True):
     """`pleyades-cli tema`: tema di Claude con la tinta dell'aspetto e parole della rotella in Claude Code + il
     terminale nero con l'intro (Mac: profilo del Terminale e iTerm2; Windows: schema di Windows Terminal + intro) +
@@ -2955,6 +2993,8 @@ def tema(forza=False, terminale_mac=True):
         if mancanti:
             return False, "plugin tema-studio non installato: `claude plugin marketplace add Radwtsm/claude-crew`, poi rilancia"
     pr = tema_prompt(asp)
+    ss = tema_salvaschermo(asp)
+    pr = f"{pr}; {ss}" if ss else pr
     if MAC:
         ok, cosa = (tema_terminale() if terminale_mac or os.environ.get("TERM_PROGRAM") == "Apple_Terminal"
                     else (True, "Terminale: invariato"))
@@ -3200,6 +3240,8 @@ def main():
             return hook()
         except Exception:
             return 0
+    if a[:1] == ["salvaschermo"]:
+        return intro(salvaschermo=True)
     if a[:1] == ["intro"]:
         if "--256" in a:
             os.environ["PLEYADES_COLORI"] = "256"
