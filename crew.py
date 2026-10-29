@@ -20,8 +20,13 @@
                                     `controlla --talk` solo se il riassunto è cambiato o ha più di 3 giorni
     pleyades-cli pianifica [--togli]   l'attività del sistema che lancia `auto` all'accesso e ogni 5 minuti, anche a
                                     Claude chiuso (launchd, Utilità di pianificazione, cron); `auto` la rimette da sola
-    pleyades-cli intro [--256]      le 7 Pleiadi in pixel art con la frase dello studio (un tasto la salta);
-                                    --256: colori per i terminali vecchi (anche PLEYADES_COLORI=256)
+    pleyades-cli intro [--256] [--resta]   le 7 Pleiadi in pixel art con forme 3D, titolo, frase e nome del tuo
+                                    aspetto (un tasto la salta); la prima volta poi chiede l'aspetto; --resta: le
+                                    forme girano finché premi un tasto; --256: colori per i terminali vecchi
+    pleyades-cli finestre [--togli] (Windows) i colori dell'aspetto su tutto Windows: modo scuro, la tinta su barre del
+                                    titolo e bordi (Start e barra delle applicazioni scure); --togli rimette quelli di prima
+    pleyades-cli aspetto            il tuo aspetto (nome, titolo, frase, colori, forme 3D) con anteprima, poi
+                                    uguale ovunque: Claude, terminale (Mac, iTerm2, Windows Terminal), prompt Starship
     pleyades-cli tema               parole Pleyades nella rotella di Claude + terminale «Pleiad Fire Red» nero con
                                     l'intro (Mac: profilo del Terminale; Windows: Windows Terminal e PowerShell)
     pleyades-cli hook               (per un hook SessionStart) installa i plugin che il progetto aperto chiede e mancano
@@ -2308,6 +2313,7 @@ def menu(ui):
             ("Il mio kit: skill, cosa leggere, a chi chiedere", mio_kit),
             ("I miei progetti", progetti), ("Entra in un nuovo progetto", None), ("I link", link),
             ("Look Pleyades: terminale nero con l'intro, Claude dello stesso colore", voce_tema),
+            ("Il tuo aspetto: nome, titolo, frase, colori e forme 3D", voce_aspetto),
             ("Rifai la guida da capo", lambda u: guida(u, []))]
     ui.intestazione("cosa c'è e cosa manca")
     if not lavoro():
@@ -2339,18 +2345,89 @@ def menu(ui):
 PLEIADI = [("Alcyone", 227.48, 24.100, 2.9), ("Atlas", 229.15, 24.050, 3.6), ("Electra", 224.87, 24.100, 3.7),
            ("Maia", 225.82, 24.367, 3.9), ("Merope", 226.32, 23.950, 4.2), ("Taygeta", 225.20, 24.467, 4.3),
            ("Celaeno", 224.80, 24.283, 5.4)]
-FONT_PIXEL = {"P": "111101111100100", "L": "100100100100111", "E": "111100110100111", "Y": "101101010010010",
-              "A": "010101111101101", "D": "110101101101110", "S": "011100010001110", "T": "111010010010010",
-              "U": "101101101101111", "I": "111010010010111", "O": "010101101101010", " ": "000000000000000"}
-ROSSO, ROSA, BIANCO = (232, 37, 63), (255, 138, 150), (255, 244, 240)
-FRASE_INTRO = "Sette stelle, una rotta"
+# lettere 3×5: 15 cifre per riga, da sinistra a destra e dall'alto in basso
+FONT_PIXEL = {"A": "010101111101101", "B": "110101110101110", "C": "011100100100011", "D": "110101101101110",
+              "E": "111100110100111", "F": "111100110100100", "G": "011100101101011", "H": "101101111101101",
+              "I": "111010010010111", "J": "001001001101010", "K": "101101110101101", "L": "100100100100111",
+              "M": "101111111101101", "N": "110101101101101", "O": "010101101101010", "P": "111101111100100",
+              "Q": "010101101110011", "R": "110101110101101", "S": "011100010001110", "T": "111010010010010",
+              "U": "101101101101111", "V": "101101101101010", "W": "101101111111101", "X": "101101010101101",
+              "Y": "101101010010010", "Z": "111001010100111", "0": "111101101101111", "1": "010110010010111",
+              "2": "110001010100111", "3": "110001010001110", "4": "101101111001001", "5": "111100110001110",
+              "6": "011100111101111", "7": "111001010010010", "8": "111101111101111", "9": "111101111001110",
+              "-": "000000111000000", ".": "000000000000010", "!": "010010010000010", "&": "010101010101011",
+              "'": "010010000000000", " ": "000000000000000"}
+ACCENTI = str.maketrans("ÀÁÈÉÌÍÒÓÙÚ", "AAEEIIOOUU")
+# colori dell'intro (base, chiaro, luce): il primo è il rosso del tema «Pleiad Fire Red», il secondo il blu dello studio
+TINTE = {"rosso": ("#e8253f", "#ff8a96", "#fff4f0"), "blu": ("#4a6cf7", "#a9c4ff", "#f0f4ff"),
+         "viola": ("#8a5cf0", "#c9b8ff", "#f6f0ff"), "verde": ("#1fae6a", "#8af0bf", "#effff6"),
+         "oro": ("#e09a1a", "#ffd98a", "#fffaf0"), "ciano": ("#16a9c2", "#94eef8", "#f0feff")}
+FORME_3D = ("stella", "merkaba", "cubo", "ottaedro", "icosaedro")
+ASPETTO_BASE = {"titolo": "PLEIADI STUDIO", "frase": "Sette stelle, una rotta", "nome": "", "tinta": "rosso",
+                "colori": None, "forme": ["stella", "merkaba"]}
 
 
-def intro(durata=3.2):
+def aspetto():
+    """L'aspetto della persona (stato.json di questo computer): titolo in pixel, frase, nome, colori, forme 3D.
+    Ogni campo mancante o sbagliato torna a quello dello studio."""
+    a = {**ASPETTO_BASE, **(stato().get("aspetto") or {})}
+    esa = re.compile(r"^#[0-9a-fA-F]{6}$")
+    c = a.get("colori")
+    if not (isinstance(c, list) and len(c) == 3 and all(isinstance(x, str) and esa.match(x) for x in c)):
+        c = list(TINTE.get(a.get("tinta"), TINTE["rosso"]))
+    a["colori"] = [tuple(int(x[i:i + 2], 16) for i in (1, 3, 5)) for x in c]
+    forme = [x for x in (a.get("forme") or []) if x in FORME_3D][:2]
+    a["forme"] = (forme + ASPETTO_BASE["forme"])[:2] if len(forme) < 2 else forme
+    a["titolo"] = "".join(ch for ch in str(a.get("titolo") or "").upper().translate(ACCENTI) if ch in FONT_PIXEL)[:24].strip()
+    a["titolo"] = a["titolo"] or ASPETTO_BASE["titolo"]
+    a["frase"], a["nome"] = str(a.get("frase") or "")[:80], str(a.get("nome") or "")[:30]
+    return a
+
+
+def solido(nome):
+    """(vertici, lati, facce) di una forma 3D piena, grande circa 1. Facce = indici dei vertici in giro."""
+    import math
+    if nome == "stella":
+        punte = [(math.cos(k * math.pi / 5 - math.pi / 2) * (1 if k % 2 == 0 else 0.42),
+                  math.sin(k * math.pi / 5 - math.pi / 2) * (1 if k % 2 == 0 else 0.42)) for k in range(10)]
+        return ([(x, y, z) for z in (-0.28, 0.28) for x, y in punte],
+                [(i + o, (i + 1) % 10 + o) for o in (0, 10) for i in range(10)] + [(i, i + 10) for i in range(0, 10, 2)],
+                [list(range(10)), list(range(10, 20))] + [[i, (i + 1) % 10, (i + 1) % 10 + 10, i + 10] for i in range(10)])
+    if nome == "merkaba":
+        tetra = [(1, 1, 1), (1, -1, -1), (-1, 1, -1), (-1, -1, 1)]
+        tri = [[a, b, c] for a in range(4) for b in range(a + 1, 4) for c in range(b + 1, 4)]
+        return ([(x * .62, y * .62, z * .62) for x, y, z in tetra] + [(-x * .62, -y * .62, -z * .62) for x, y, z in tetra],
+                [(a + o, b + o) for o in (0, 4) for a in range(4) for b in range(a + 1, 4)],
+                [[i + o for i in f] for o in (0, 4) for f in tri])
+    if nome == "cubo":
+        v = [(x * .58, y * .58, z * .58) for x in (-1, 1) for y in (-1, 1) for z in (-1, 1)]
+    elif nome == "ottaedro":
+        v = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]
+    else:  # icosaedro
+        p = (1 + 5 ** 0.5) / 2
+        v = [(x * .53, y * .53, z * .53) for s in (-1, 1) for q in (-1, 1)
+             for x, y, z in ((0, s, q * p), (s, q * p, 0), (q * p, 0, s))]
+    corto = min(math.dist(v[i], v[j]) for i in range(len(v)) for j in range(i + 1, len(v)))
+    # i lati sono le coppie di vertici alla distanza minima; le facce i triangoli di lati (il cubo: i 6 quadrati)
+    lati = [(i, j) for i in range(len(v)) for j in range(i + 1, len(v)) if math.dist(v[i], v[j]) < corto * 1.01]
+    if nome == "cubo":
+        facce = [[0, 1, 3, 2], [4, 5, 7, 6], [0, 1, 5, 4], [2, 3, 7, 6], [0, 2, 6, 4], [1, 3, 7, 5]]
+    else:
+        vicini = set(lati)
+        facce = [[a, b, c] for a, b in lati for c in range(b + 1, len(v)) if (a, c) in vicini and (b, c) in vicini]
+    return v, lati, facce
+
+
+def intro(durata=3.2, resta=False, domanda=True):
     """`pleyades-cli intro`: a tutto schermo, su nero pieno in ogni cella (uguale in ogni terminale, anche col fondo
-    chiaro): volo fra le stelle, le 7 Pleiadi, due stelle 3D che ruotano, il nome, la frase e lo stato. Pixel = mezza
-    cella (▀/▄); un tasto salta alla fine. Fuori da un terminale non fa niente."""
+    chiaro): sale dal nero, volo fra le stelle, le 7 Pleiadi, due forme 3D che ruotano, il titolo, la frase, il nome
+    e lo stato, con l'aspetto della persona (`aspetto()`). Pixel = mezza cella (▀/▄); un tasto salta alla fine.
+    `resta`: le forme continuano a girare finché non premi un tasto. La prima volta (`domanda`) poi chiede l'aspetto
+    e da dove partire. Fuori da un terminale non fa niente."""
     import math, random
+    asp = aspetto()
+    ROSSO, ROSA, BIANCO = asp["colori"]
+    FRASE_INTRO = asp["frase"]
     if not sys.stdout.isatty():
         return 0
     cols, righe_t = shutil.get_terminal_size((80, 24))
@@ -2397,8 +2474,9 @@ def intro(durata=3.2):
     fondo = [(rnd.uniform(0, W), rnd.uniform(0, PH), rnd.uniform(0.15, 0.6), rnd.uniform(0, 6.3))
              for _ in range(int(W * PH / 55))]
     # nebulosa calcolata una volta: ogni fotogramma la scala soltanto
+    toni = [tuple(v * k + d for v, d in zip(ROSSO, sp)) for k, sp in ((0.3, (0, 0, 4)), (0.24, (0, 0, 32)), (0.38, (0, 0, 0)))]
     nubi = [(sx + rnd.uniform(-5, 5) * g, sy + rnd.uniform(-3, 3) * g, rnd.uniform(7, 13) * g, rnd.uniform(4, 7) * g,
-             rnd.choice([(70, 6, 22), (60, 8, 48), (90, 14, 20)])) for sx, sy, _ in stelle for _ in range(2)]
+             rnd.choice(toni)) for sx, sy, _ in stelle for _ in range(2)]
     nebbia = [[[0.0, 0.0, 0.0] for _ in range(W)] for _ in range(PH)]
     for bx, by, rx, ry, c in nubi:
         for y in range(max(0, int(by - 2.5 * ry)), min(PH, int(by + 2.5 * ry) + 1)):
@@ -2408,19 +2486,15 @@ def intro(durata=3.2):
                     a = 0.42 * math.exp(-d) * rnd.uniform(0.55, 1.0)
                     p = nebbia[y][x]
                     p[0] += c[0] * a; p[1] += c[1] * a; p[2] += c[2] * a
-    punte = [(math.cos(k * math.pi / 5 - math.pi / 2) * (1 if k % 2 == 0 else 0.42),
-              math.sin(k * math.pi / 5 - math.pi / 2) * (1 if k % 2 == 0 else 0.42)) for k in range(10)]
-    stella5 = ([(x, y, z) for z in (-0.28, 0.28) for x, y in punte],
-               [(i + o, (i + 1) % 10 + o) for o in (0, 10) for i in range(10)] + [(i, i + 10) for i in range(0, 10, 2)])
-    tetra = [(1, 1, 1), (1, -1, -1), (-1, 1, -1), (-1, -1, 1)]
-    merkaba = ([(x * .62, y * .62, z * .62) for x, y, z in tetra] + [(-x * .62, -y * .62, -z * .62) for x, y, z in tetra],
-               [(a + o, b + o) for o in (0, 4) for a in range(4) for b in range(a + 1, 4)])
     r3 = 7 * g
     lato = 0.5 * s + 2.2 * r3
-    solidi = [(stella5, max(r3 + 1, cx - lato), cy - 0.12 * s, r3, 1, 0.0, 0.0),  # finiscono in posa: angoli finali
-              (merkaba, min(W - r3 - 2, cx + lato), cy + 0.18 * s, r3, -1, 0.6, 0.45)]
-    f = max(1, min(int(W * 0.8 / 59), int(PH * 0.16 / 5)))  # grandezza del pixel del nome
-    nome = "PLEYADES STUDIO" if W >= 61 * f else "PLEYADES"
+    posa = lambda f, k: (0.0, 0.0) if f == "stella" else (0.6 * k, 0.45)  # la stella finisce di fronte, il resto di sbieco
+    solidi = [(solido(asp["forme"][0]), max(r3 + 1, cx - lato), cy - 0.12 * s, r3, 1, *posa(asp["forme"][0], -1)),
+              (solido(asp["forme"][1]), min(W - r3 - 2, cx + lato), cy + 0.18 * s, r3, -1, *posa(asp["forme"][1], 1))]
+    nome = asp["titolo"]
+    if len(nome) * 4 - 1 > W * 0.9:  # non ci sta neanche a pixel di una cella: la prima parola
+        nome = nome.split()[0][:max(1, int(W * 0.9 + 1) // 4)]
+    f = max(1, min(int(W * 0.8 / (len(nome) * 4 - 1)), int(PH * 0.16 / 5)))  # grandezza del pixel del nome
     tx0 = int(cx - (len(nome) * 4 - 1) * f / 2)
     ty0 = int(PH * 0.8) - 5 * f // 2
     ty0 += (ty0 % 2 == 0) if f == 1 else (ty0 % 2)  # f=1: riga dispari (▀/▄ del Mac); f pari: celle intere
@@ -2431,7 +2505,21 @@ def intro(durata=3.2):
             p = buf[y][x]
             p[0] += c[0] * a; p[1] += c[1] * a; p[2] += c[2] * a
 
-    def fotogramma(t):
+    def riempi(buf, poli, c, a):
+        """Poligono pieno (anche non convesso: pari e dispari) che copre quello che c'è sotto."""
+        ys = [y for _, y in poli]
+        for y in range(max(0, int(math.ceil(min(ys) - 0.5))), min(PH, int(max(ys) + 0.5) + 1)):
+            yc, xs = y + 0.5, []
+            for (x0, y0), (x1, y1) in zip(poli, poli[1:] + poli[:1]):
+                if (y0 <= yc) != (y1 <= yc):
+                    xs.append(x0 + (yc - y0) * (x1 - x0) / (y1 - y0))
+            xs.sort()
+            for x_a, x_b in zip(xs[::2], xs[1::2]):
+                for x in range(max(0, int(math.ceil(x_a - 0.5))), min(W, int(x_b - 0.5) + 1)):
+                    p = buf[y][x]
+                    p[0] += (c[0] - p[0]) * a; p[1] += (c[1] - p[1]) * a; p[2] += (c[2] - p[2]) * a
+
+    def fotogramma(t, giro=0.0):
         neb = max(0.0, min(1.0, (t - 0.35) / 0.4)) if vero else 0.0  # a 256 colori il rosso scuro più tenue è già acceso
         buf = [[[p[0] * neb, p[1] * neb, p[2] * neb] for p in riga] for riga in nebbia]
         v = max(0.0, 1 - t / 0.5) ** 2  # volo fra le stelle: veloce all'inizio, si ferma a metà
@@ -2441,7 +2529,7 @@ def intro(durata=3.2):
             if st[2] < 0.06:
                 st[0], st[1], st[2] = rnd.uniform(-1, 1), rnd.uniform(-1, 1), 1.0
                 continue
-            a = min(1.0, (1 - st[2]) * 1.7 + 0.15) * max(0.0, 1 - t / 0.55)
+            a = min(1.0, (1 - st[2]) * 1.7 + 0.15) * max(0.0, 1 - t / 0.55) * min(1.0, t / 0.1)  # sale dal nero
             k = W * 0.24
             x1, y1, x0, y0 = cx + st[0] / st[2] * k, cy + st[1] / st[2] * k * 0.5, cx + st[0] / z0 * k, cy + st[1] / z0 * k * 0.5
             n = max(1, int(abs(x1 - x0) + abs(y1 - y0)))
@@ -2450,23 +2538,38 @@ def intro(durata=3.2):
                 disegna(buf, x0 + (x1 - x0) * fr, y0 + (y1 - y0) * fr, BIANCO if fr > 0.8 else ROSA, a * (0.25 + 0.75 * fr))
         fa = max(0.0, min(1.0, (t - 0.3) / 0.3))
         for x, y, b, ph in fondo:
-            disegna(buf, x, y, BIANCO, fa * b * (0.6 + 0.4 * math.sin(t * 9 + ph)))
+            disegna(buf, x, y, BIANCO, fa * b * (0.6 + 0.4 * math.sin((t + giro / 3) * 9 + ph)))
         sa = max(0.0, min(1.0, (t - 0.25) / 0.25))
-        for (vert, lati), ox, oy, r, verso, fy, fx in solidi if sa else []:
-            ay, ax = verso * t * 2 * math.pi + fy, (1 - t) * 3.5 + fx
-            pp = []
+        for (vert, lati, facce), ox, oy, r, verso, fy, fx in solidi if sa else []:
+            ay, ax = verso * (t * 2 * math.pi + giro * 0.9) + fy, (1 - t) * 3.5 + fx + 0.25 * math.sin(giro * 0.5)
+            v3, pp = [], []
             for x, y, z in vert:
                 x, z = x * math.cos(ay) + z * math.sin(ay), -x * math.sin(ay) + z * math.cos(ay)
                 y, z = y * math.cos(ax) - z * math.sin(ax), y * math.sin(ax) + z * math.cos(ax)
                 k = 3 / (3 + z)
-                pp.append((ox + x * r * k, oy + y * r * k, z))
-            for i, j in lati:
-                (x0, y0, z0), (x1, y1, z1) = pp[i], pp[j]
-                n = max(1, int(max(abs(x1 - x0), abs(y1 - y0)) * 1.5))
-                for q in range(n + 1):
-                    fr = q / n
-                    z = z0 + (z1 - z0) * fr
-                    disegna(buf, x0 + (x1 - x0) * fr, y0 + (y1 - y0) * fr, ROSA if z < 0 else ROSSO, sa * (0.62 - z * 0.25))
+                v3.append((x, y, z))
+                pp.append((ox + x * r * k, oy + y * r * k))
+            davanti = set()
+            for fc in sorted(facce, key=lambda fc: -sum(v3[i][2] for i in fc) / len(fc)):  # dalla più lontana
+                (ax_, ay_, az_), (bx, by, bz), (cx_, cy_, cz) = v3[fc[0]], v3[fc[1]], v3[fc[2]]
+                nx, ny, nz = ((by - ay_) * (cz - az_) - (bz - az_) * (cy_ - ay_), (bz - az_) * (cx_ - ax_) - (bx - ax_) * (cz - az_),
+                              (bx - ax_) * (cy_ - ay_) - (by - ay_) * (cx_ - ax_))
+                m = math.sqrt(nx * nx + ny * ny + nz * nz) or 1
+                cxf, cyf, czf = (sum(v3[i][q] for i in fc) / len(fc) for q in range(3))
+                if nx * cxf + ny * cyf + nz * czf < 0:  # la normale verso fuori
+                    nx, ny, nz = -nx, -ny, -nz
+                nx, ny, nz = nx / m, ny / m, nz / m
+                if nz < 0:
+                    davanti.add(tuple(fc))
+                luce = max(0.0, -0.45 * nx - 0.6 * ny - 0.66 * nz)  # luce da in alto a sinistra, davanti
+                c = tuple(ROSSO[q] * (0.1 + 0.8 * luce) + (ROSA[q] - ROSSO[q]) * 0.7 * luce ** 4 for q in range(3))
+                riempi(buf, [pp[i] for i in fc], c, sa)
+            for fc in davanti:  # i bordi chiari solo dove si vedono
+                for q in range(len(fc)):
+                    (x0, y0), (x1, y1) = pp[fc[q]], pp[fc[(q + 1) % len(fc)]]
+                    n = max(1, int(max(abs(x1 - x0), abs(y1 - y0)) * 1.5))
+                    for s_ in range(n + 1):
+                        disegna(buf, x0 + (x1 - x0) * s_ / n, y0 + (y1 - y0) * s_ / n, ROSA, sa * 0.14)
         for i, (x, y, m) in enumerate(sorted(stelle, key=lambda st: st[2])):  # le sette, dalla più luminosa
             a = max(0.0, min(1.0, (t - 0.42 - i * 0.045) / 0.12))
             if not a:
@@ -2525,8 +2628,9 @@ def intro(durata=3.2):
                 ultimo = cod[0]
             out.append("".join(s_))
         n = int(max(0.0, min(1.0, (t - 0.85) / 0.15)) * len(FRASE_INTRO) + 0.999) if t > 0.85 else 0
-        testi = [(FRASE_INTRO[:n], ROSA, "\033[3m"), (stato_in_parole() if t >= 1 else "", (150, 150, 160), ""),
-                 ("claude  parla con Claude  ·  pley  menu Pleyades" if t >= 1 else "", (110, 110, 120), "")]
+        sotto = "  ·  ".join(x for x in ((f"ciao, {asp['nome']}" if asp["nome"] else ""), stato_in_parole()) if x)
+        testi = [(FRASE_INTRO[:n], ROSA, "\033[3m"), (sotto if t >= 1 else "", (150, 150, 160), ""),
+                 ("claude  parla con Claude  ·  pley  menu Pleiadi Studio" if t >= 1 else "", (110, 110, 120), "")]
         for i, (testo, c, stile) in enumerate(testi):
             testo = testo[:W]
             pieno = len(FRASE_INTRO) if i == 0 else len(testo)
@@ -2559,6 +2663,11 @@ def intro(durata=3.2):
             if t >= 1.0:
                 break
             time.sleep(max(0.0, durata / passi - (time.time() - inizio)))
+        prima_t = time.time()
+        while resta and not tasto():  # le forme continuano a girare, piano
+            sys.stdout.write(schermo(fotogramma(1.0, time.time() - prima_t), 1.0))
+            sys.stdout.flush()
+            time.sleep(0.06)
     finally:
         sys.stdout.write(f"\033[0m\033[{A + 4};1H\033[?25h")
         sys.stdout.flush()
@@ -2566,9 +2675,11 @@ def intro(durata=3.2):
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, vecchio)
             while select.select([sys.stdin], [], [], 0)[0]:
                 os.read(sys.stdin.fileno(), 64)  # il tasto che ha saltato non finisce nel prompt
-    if not stato().get("intro_vista"):  # primo avvio: tre strade, poi mai più
+    if domanda and not stato().get("intro_vista"):  # primo avvio: l'aspetto, poi tre strade; poi mai più
         salva_stato(intro_vista=time.strftime("%Y-%m-%d"))
         ui = interfaccia()
+        if not stato().get("aspetto"):
+            voce_aspetto(ui, primo=True)
         i = ui.scegli("Da dove parti?", ["Parla con Claude", "Menu Pleyades: progetti, aggiornamenti, aiuto",
                                          "Niente, uso il terminale"])
         if i == 0 and shutil.which("claude"):
@@ -2576,6 +2687,54 @@ def intro(durata=3.2):
         if i == 1:
             return menu(ui)
     return 0
+
+
+def voce_aspetto(ui, primo=False):
+    """`pleyades-cli aspetto` (e la prima intro): nome, titolo, frase, colori e forme 3D, anteprima, poi lo stesso
+    aspetto ovunque: Claude, terminale, prompt. Invio su ogni domanda = la scelta dello studio."""
+    import getpass
+    prima = stato().get("aspetto")
+    a = {**ASPETTO_BASE, **(prima or {})}
+    ui.pulisci()
+    ui.titolo("Benvenuto: scegli il tuo aspetto" if primo else "Il tuo aspetto")
+    ui.info("Vale per l'intro, per Claude e per il terminale. Invio = la scelta dello studio; si cambia quando vuoi "
+            f"con `{NOME_CLI} aspetto`.")
+    a["nome"] = ui.chiedi("Come ti chiamo nell'intro? (spazio = niente)", a.get("nome") or getpass.getuser()).strip()
+    a["titolo"] = ui.chiedi("Titolo in pixel (lettere, numeri, - . ! &)", a.get("titolo") or ASPETTO_BASE["titolo"])
+    a["frase"] = ui.chiedi("Frase sotto il titolo", a.get("frase") or ASPETTO_BASE["frase"])
+    tinte = list(TINTE)
+    attuale = a.get("tinta") if a.get("tinta") in tinte else "rosso"
+    ordine = [attuale] + [x for x in tinte if x != attuale]  # la prima = la consigliata: quella che hai
+    i = ui.scegli("Colori", [x.capitalize() for x in ordine] + ["I miei: tre colori #rrggbb"])
+    if i < len(ordine):
+        a["tinta"], a["colori"] = ordine[i], None
+    else:
+        a["colori"] = [ui.chiedi(f"Colore {q} (#rrggbb)", c) for q, c in zip(("base", "chiaro", "luce"), TINTE[attuale])]
+    forme = list(FORME_3D)
+    a["forme"] = list(a.get("forme") or ASPETTO_BASE["forme"])[:2]
+    for k, q in enumerate(("a sinistra", "a destra")):
+        ora = a["forme"][k] if len(a["forme"]) > k and a["forme"][k] in forme else ASPETTO_BASE["forme"][k]
+        scelte = [ora] + [x for x in forme if x != ora]
+        a["forme"][k:k + 1] = [scelte[ui.scegli(f"Forma 3D {q}", [x.capitalize() for x in scelte])]]
+    salva_stato(aspetto=a)  # aspetto() legge da qui: l'anteprima è l'intro vera
+    while True:
+        intro(domanda=False)
+        i = ui.scegli("Ti piace?", ["Sì, mettilo ovunque (Claude, terminale, prompt)", "Rivedi l'anteprima",
+                                    "No, torna a prima"])
+        if i != 1:
+            break
+    if i == 2:
+        salva_stato(aspetto=prima)
+        ui.info("Rimesso com'era.")
+        return 0
+    ok, cosa = tema(forza=True, terminale_mac=primo)
+    if WIN and (stato().get("finestre_prima") or ui.scegli(
+            "Anche i colori di tutto Windows? (modo scuro, la tua tinta su barre del titolo e bordi)",
+            ["Sì", "No, solo il terminale"]) == 0):
+        ok2, cosa2 = tema_finestre()
+        ok, cosa = ok and ok2, f"{cosa}; {cosa2}"
+    ui.esito(Esito("aspetto messo ovunque", ok, cosa, nota="Claude: dalla prossima sessione (o /theme)"))
+    return 0 if ok else 1
 
 
 def stato_in_parole():
@@ -2602,37 +2761,144 @@ def colore_ns(esa):
 
 
 TEMA_CLAUDE = "custom:tema-studio:pleyades-studio-rosso"  # l'id viene dal nome del file: «Pleiad Fire Red»
+TEMI_CLAUDE = {"rosso": "pleyades-studio-rosso", "blu": "pleyades-studio", "viola": "pleiadi-viola",
+               "verde": "pleiadi-verde", "oro": "pleiadi-oro", "ciano": "pleiadi-ciano"}  # tinta → themes/ di tema-studio
 PAROLE_ROTELLA = ["Allineo le stelle", "Consulto le Pleiadi", "Accendo la nebulosa", "Traccio la rotta",
                   "Lucido le costellazioni"]
 COLORI_ANSI = ["#000000", "#e8253f", "#5fd4a0", "#f5c26b", "#6c8cff", "#ff6b7d", "#7fd6e0", "#d8d8d8",
                "#555555", "#ff4d5e", "#7fe8b8", "#ffd98a", "#93abff", "#ff9aa5", "#a6eef5", "#ffffff"]
 
 
-def tema():
-    """`pleyades-cli tema`: tema «Pleiad Fire Red» e parole della rotella in Claude Code + il terminale nero con
-    l'intro (Mac: profilo del Terminale; Windows: schema di Windows Terminal + intro nel profilo di PowerShell)."""
+def tinta_claude(asp):
+    """Il tema di Claude per l'aspetto: quello della tinta; con colori propri, la tinta di tonalità più vicina."""
+    import colorsys
+    if not (stato().get("aspetto") or {}).get("colori"):
+        return TEMI_CLAUDE.get(asp.get("tinta"), TEMI_CLAUDE["rosso"])
+    ton = lambda c: colorsys.rgb_to_hsv(*(v / 255 for v in c))[0]
+    h = ton(asp["colori"][0])
+    vicina = min(TINTE, key=lambda k: min(abs(h - ton(int(TINTE[k][0][i:i + 2], 16) for i in (1, 3, 5))) % 1,
+                                          1 - abs(h - ton(int(TINTE[k][0][i:i + 2], 16) for i in (1, 3, 5))) % 1))
+    return TEMI_CLAUDE[vicina]
+
+
+def colori_terminale(asp=None):
+    """Colori del terminale per l'aspetto: nero pieno, i rossi della tavolozza (ANSI 1, 5, 9, 13) con la tinta
+    scelta, cursore e selezione dello stesso colore; gli altri ANSI restano (verde, giallo, blu si devono distinguere)."""
+    asp = asp or aspetto()
+    base, chiaro, _ = asp["colori"]
+    esa = lambda c, k=1.0: "#%02x%02x%02x" % tuple(max(0, min(255, round(v * k))) for v in c)
+    mix = lambda a, b, k: tuple(a[i] + (b[i] - a[i]) * k for i in range(3))
+    ansi = list(COLORI_ANSI)
+    ansi[1], ansi[5], ansi[9], ansi[13] = esa(base), esa(mix(base, chiaro, 0.55)), esa(mix(base, chiaro, 0.25)), esa(chiaro)
+    return {"ansi": ansi, "cursore": esa(base), "selezione": esa(base, 0.39)}
+
+
+def tema_prompt(asp=None):
+    """Il prompt colorato (Starship, uguale su Mac e Windows) con i colori dell'aspetto. Scrive
+    ~/.config/starship.toml solo se non c'è o l'ha scritto pleyades-cli; senza Starship non fa niente."""
+    if not shutil.which("starship"):
+        return "prompt: Starship non installato (Mac: brew install starship; Windows: winget install Starship.Starship)"
+    asp = asp or aspetto()
+    f = os.path.join(CASA, ".config", "starship.toml")
+    segno = "# scritto da pleyades-cli aspetto"
+    if os.path.exists(f) and segno not in open(f, encoding="utf-8").read():
+        return "prompt: ~/.config/starship.toml è tuo, non lo tocco"
+    esa = lambda c, k=1.0: "#%02x%02x%02x" % tuple(max(0, min(255, round(v * k))) for v in c)
+    base, chiaro, _ = asp["colori"]
+    medio = tuple((base[i] + chiaro[i]) / 2 for i in range(3))
+    os.makedirs(os.path.dirname(f), exist_ok=True)
+    with open(f, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(f"""{segno} (si rifà a ogni cambio di aspetto: per tenerne uno tuo, togli questa riga)
+palette = "pleiadi"
+add_newline = true
+scan_timeout = 100
+format = \"\"\"
+[◆](base)[ $username](medio)$directory$git_branch$git_status$python$nodejs$cmd_duration
+$character\"\"\"
+
+[palettes.pleiadi]
+base = "{esa(base)}"
+medio = "{esa(medio)}"
+chiaro = "{esa(chiaro)}"
+scuro = "{esa(base, 0.52)}"
+cenere = "#8a8a8a"
+
+[username]
+show_always = true
+format = "[$user]($style) "
+style_user = "bold medio"
+style_root = "bold base"
+
+[directory]
+format = "[in ](cenere)[$path]($style)[$read_only]($read_only_style) "
+style = "bold chiaro"
+truncation_length = 3
+read_only = " ⊘"
+
+[git_branch]
+format = "[on ](cenere)[⎇ $branch]($style) "
+style = "bold base"
+
+[git_status]
+format = "([\\[$all_status$ahead_behind\\]]($style) )"
+style = "medio"
+
+[python]
+format = "[py $version]($style) "
+style = "scuro"
+
+[nodejs]
+format = "[node $version]($style) "
+style = "scuro"
+
+[cmd_duration]
+format = "[⧗ $duration]($style) "
+style = "cenere"
+
+[character]
+success_symbol = "[❯](bold base)"
+error_symbol = "[❯](bold #ff5f3a)"
+""")
+    if MAC or not WIN:
+        rc = os.path.join(CASA, ".zshrc" if "zsh" in os.environ.get("SHELL", "zsh") else ".bashrc")
+        riga = f'eval "$(starship init {"zsh" if rc.endswith("zshrc") else "bash"})"'
+        if riga not in (open(rc, encoding="utf-8").read() if os.path.exists(rc) else ""):
+            with open(rc, "a", encoding="utf-8") as fh:
+                fh.write(f"\n# prompt Pleiadi Studio (colori: {NOME_CLI} aspetto)\n{riga}\n")
+    return "prompt Starship con i tuoi colori"
+
+
+def tema(forza=False, terminale_mac=True):
+    """`pleyades-cli tema`: tema di Claude con la tinta dell'aspetto e parole della rotella in Claude Code + il
+    terminale nero con l'intro (Mac: profilo del Terminale e iTerm2; Windows: schema di Windows Terminal + intro) +
+    il prompt Starship. `forza`: il tema di Claude cambia anche se ne avevi già uno dello studio (scelta dell'aspetto).
+    `terminale_mac=False`: non reimporta il profilo del Terminale (aprirlo apre una finestra)."""
+    asp = aspetto()
     p = os.path.join(CASA, ".claude", "settings.json")
     s = leggi_json(p, {})
     prima = json.dumps(s, sort_keys=True)
     s.setdefault("spinnerVerbs", {"mode": "append", "verbs": PAROLE_ROTELLA})  # mai sopra a quelle della persona
-    if not str(s.get("theme", "")).startswith("custom:tema-studio:"):  # Claude uguale al terminale (chi ha il blu lo tiene)
+    if forza or not str(s.get("theme", "")).startswith("custom:tema-studio:"):  # Claude uguale al terminale
         if ha("claude") and "tema-studio@claude-crew" not in plugin_installati():
             run("claude", "plugin", "install", "tema-studio@claude-crew")
-        s["theme"] = TEMA_CLAUDE
+        s["theme"] = "custom:tema-studio:" + tinta_claude(asp)
     s.setdefault("enabledPlugins", {})["tema-studio@claude-crew"] = True  # installato ma spento = Claude arancione
     if json.dumps(s, sort_keys=True) != prima:
         if os.path.exists(p):
             shutil.copy(p, p + ".prima-di-crew")
         scrivi_json(p, s)
+    pr = tema_prompt(asp)
     if MAC:
-        ok, cosa = tema_terminale()
+        ok, cosa = (tema_terminale() if terminale_mac or os.environ.get("TERM_PROGRAM") == "Apple_Terminal"
+                    else (True, "Terminale: invariato"))
         if app_iterm():
             ok2, cosa2 = tema_iterm()
             ok, cosa = ok and ok2, f"{cosa}; {cosa2}"
-        return ok, cosa
+        return ok, f"{cosa}; {pr}"
     if WIN:
-        return tema_windows()
-    return True, "parole della rotella messe; nel tuo terminale scegli uno sfondo nero pieno"
+        ok, cosa = tema_windows()
+        return ok, f"{cosa}; {pr}"
+    return True, f"parole della rotella messe; {pr}; nel tuo terminale scegli uno sfondo nero pieno"
 
 
 ITERM_GUID = "pleyades-pleiad-fire-red"
@@ -2649,14 +2915,15 @@ def tema_iterm():
         r, g, b = (int(h[i:i + 2], 16) / 255 for i in (1, 3, 5))
         return {"Red Component": r, "Green Component": g, "Blue Component": b, "Alpha Component": 1, "Color Space": "sRGB"}
 
+    ct = colori_terminale()
     shell = os.environ.get("SHELL") or "/bin/zsh"
     cli = shutil.which(NOME_CLI) or os.path.join(CASA, ".local", "bin", NOME_CLI)  # ~/.local/bin non è nel PATH di -l -c
     p = {"Name": "Pleiad Fire Red", "Guid": ITERM_GUID, "Background Color": c("#000000"),
-         "Foreground Color": c("#f2f2f2"), "Bold Color": c("#ffffff"), "Cursor Color": c("#e8253f"),
-         "Cursor Text Color": c("#000000"), "Selection Color": c("#5a101b"), "Selected Text Color": c("#ffffff"),
+         "Foreground Color": c("#f2f2f2"), "Bold Color": c("#ffffff"), "Cursor Color": c(ct["cursore"]),
+         "Cursor Text Color": c("#000000"), "Selection Color": c(ct["selezione"]), "Selected Text Color": c("#ffffff"),
          "Transparency": 0, "Blur": False, "Use Separate Colors for Light and Dark Mode": False,
          "Custom Command": "Yes", "Command": f"{shell} -l -c '\"{cli}\" intro; exec {shell} -l'"}
-    for i, x in enumerate(COLORI_ANSI):
+    for i, x in enumerate(ct["ansi"]):
         p[f"Ansi {i} Color"] = c(x)
     d = os.path.join(CASA, "Library", "Application Support", "iTerm2", "DynamicProfiles")
     os.makedirs(d, exist_ok=True)
@@ -2703,6 +2970,73 @@ def jsonc(testo):
     return json.loads(re.sub(r",(\s*[}\]])", r"\1", "".join(out)))
 
 
+FINESTRE_CHIAVI = (r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", r"Software\Microsoft\Windows\DWM",
+                   r"Software\Microsoft\Windows\CurrentVersion\Explorer\Accent", r"Control Panel\Desktop")
+
+
+def valori_finestre(asp=None):
+    """I colori di Windows per l'aspetto (solo impostazioni di Windows, niente programmi): modo scuro, colore
+    principale = la tinta sulle barre del titolo e sui bordi; Start e barra delle applicazioni scure (rosse: owner no).
+    [(chiave sotto HKCU, nome, "dword"|"binary", valore)]"""
+    asp = asp or aspetto()
+    base, chiaro, _ = asp["colori"]
+    scala = [tuple(c[i] + (chiaro[i] - c[i]) * k for i in range(3)) for c, k in ((base, 0.8), (base, 0.55), (base, 0.28))]
+    scala += [base] + [tuple(v * k for v in base) for k in (0.78, 0.56, 0.36, 0.22)]  # chiari, la tinta, scuri
+    abgr = lambda c: (0xFF << 24) | (round(c[2]) << 16) | (round(c[1]) << 8) | round(c[0])
+    argb = lambda c, a=0xC4: (a << 24) | (round(c[0]) << 16) | (round(c[1]) << 8) | round(c[2])
+    pers, dwm, acc, desk = FINESTRE_CHIAVI
+    return [(pers, "AppsUseLightTheme", "dword", 0), (pers, "SystemUsesLightTheme", "dword", 0),
+            (pers, "ColorPrevalence", "dword", 0), (pers, "EnableTransparency", "dword", 0),
+            (dwm, "ColorPrevalence", "dword", 1), (dwm, "AccentColor", "dword", abgr(base)),
+            (dwm, "ColorizationColor", "dword", argb(base)), (dwm, "ColorizationAfterglow", "dword", argb(base)),
+            (dwm, "AccentColorInactive", "dword", abgr(scala[5])),
+            (acc, "AccentColorMenu", "dword", abgr(base)), (acc, "StartColorMenu", "dword", abgr(scala[5])),
+            (acc, "AccentPalette", "binary", b"".join(bytes([round(c[0]), round(c[1]), round(c[2]), 0]) for c in scala)),
+            (desk, "AutoColorization", "dword", 0)]
+
+
+def tema_finestre(togli=False):
+    """`pleyades-cli finestre [--togli]` (Windows): i colori dell'aspetto su tutto Windows. La prima volta salva i
+    valori di prima in stato.json; --togli li rimette. Avvisa le app subito (niente riavvio)."""
+    if not WIN:
+        return False, "solo su Windows"
+    import ctypes, winreg
+    prima = stato().get("finestre_prima")
+    if togli:
+        if not prima:
+            return False, "niente da rimettere: i colori di Windows non li ha cambiati pleyades-cli"
+        for chiave, nome, tipo, val in prima:
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, chiave) as k:
+                if val is None:
+                    try:
+                        winreg.DeleteValue(k, nome)
+                    except OSError:
+                        pass
+                else:
+                    winreg.SetValueEx(k, nome, 0, winreg.REG_BINARY if tipo == "binary" else winreg.REG_DWORD,
+                                      bytes.fromhex(val) if tipo == "binary" else val)
+        salva_stato(finestre_prima=None)
+    else:
+        nuovi = valori_finestre()
+        if not prima:  # i valori di prima, una volta sola: --togli torna lì anche dopo più cambi di tinta
+            vecchi = []
+            for chiave, nome, tipo, _ in nuovi:
+                try:
+                    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, chiave) as k:
+                        v = winreg.QueryValueEx(k, nome)[0]
+                    vecchi.append([chiave, nome, tipo, v.hex() if isinstance(v, bytes) else v])
+                except OSError:
+                    vecchi.append([chiave, nome, tipo, None])
+            salva_stato(finestre_prima=vecchi)
+        for chiave, nome, tipo, val in nuovi:
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, chiave) as k:
+                winreg.SetValueEx(k, nome, 0, winreg.REG_BINARY if tipo == "binary" else winreg.REG_DWORD, val)
+    for parola in ("ImmersiveColorSet", "WindowsThemeElement"):  # WM_SETTINGCHANGE a tutte le finestre
+        ctypes.windll.user32.SendMessageTimeoutW(0xFFFF, 0x1A, 0, parola, 2, 3000, None)
+    return True, ("colori di Windows rimessi come prima" if togli else
+                  f"Windows scuro con la tua tinta su barre del titolo e bordi (`{NOME_CLI} finestre --togli` per tornare indietro)")
+
+
 def tema_windows():
     nome = "Pleiad Fire Red"
     loc = os.environ.get("LOCALAPPDATA", "")
@@ -2717,9 +3051,10 @@ def tema_windows():
     except (OSError, ValueError) as e:
         return False, f"impostazioni di Windows Terminal illeggibili ({e}): non le tocco"
     nomi = ["black", "red", "green", "yellow", "blue", "purple", "cyan", "white"]
-    schema = {"name": nome, "background": "#000000", "foreground": "#F2F2F2", "cursorColor": "#E8253F",
-              "selectionBackground": "#5A101B"}
-    for i, c in enumerate(COLORI_ANSI):
+    ct = colori_terminale()
+    schema = {"name": nome, "background": "#000000", "foreground": "#F2F2F2", "cursorColor": ct["cursore"].upper(),
+              "selectionBackground": ct["selezione"].upper()}
+    for i, c in enumerate(ct["ansi"]):
         k = nomi[i % 8]
         schema[("bright" + k.capitalize()) if i > 7 else k] = c.upper()
     w["schemes"] = [x for x in w.get("schemes", []) if x.get("name") != nome] + [schema]
@@ -2727,6 +3062,12 @@ def tema_windows():
     if isinstance(prof, list):
         prof = w["profiles"] = {"list": prof}
     prof.setdefault("defaults", {}).update(colorScheme=nome, opacity=100, useAcrylic=False)
+    # la barra in alto (schede e titolo) nera come lo sfondo, non il grigio del tema di Windows
+    w["themes"] = [x for x in w.get("themes", []) if x.get("name") != nome] + [{
+        "name": nome, "window": {"applicationTheme": "dark", "useMica": False},
+        "tabRow": {"background": "#000000FF", "unfocusedBackground": "#000000FF"},
+        "tab": {"background": "terminalBackground", "unfocusedBackground": "#000000FF", "showCloseButton": "hover"}}]
+    w["theme"] = nome
     if not os.path.exists(f + ".prima-di-crew"):  # la copia resta quella di prima del primo giro
         shutil.copy(f, f + ".prima-di-crew")
     # l'intro a ogni scheda nuova di PowerShell: dalla riga di comando del profilo di Windows Terminal ($PROFILE
@@ -2734,7 +3075,7 @@ def tema_windows():
     cli = os.path.join(BIN, f"{NOME_CLI}.cmd")
     for x in prof.get("list", []):
         c, sorg = str(x.get("commandline", "")).lower(), str(x.get("source", ""))
-        if "intro" in c:
+        if "intro" in c and "starship" in c:
             continue
         if sorg == "Windows.Terminal.PowershellCore" or "pwsh" in c:
             exe = "pwsh.exe"
@@ -2742,7 +3083,9 @@ def tema_windows():
             exe = "powershell.exe"
         else:
             continue
-        x["commandline"] = f"{exe} -NoLogo -NoExit -Command \"& '{cli}' intro\""
+        # Starship dalla riga di comando, non da $PROFILE (Restricted, vedi sopra)
+        x["commandline"] = (f"{exe} -NoLogo -NoExit -Command \"& '{cli}' intro; if (Get-Command starship -EA 0) "
+                            "{ Invoke-Expression (&starship init powershell) }\"")
     scrivi_json(f, w)
     ps = shutil.which("powershell") and subprocess.run(["powershell", "-NoProfile", "-Command", "$PROFILE"],
                                                        capture_output=True, text=True).stdout.strip()
@@ -2758,11 +3101,12 @@ def tema_terminale():
     """Mac: il profilo «Pleiad Fire Red» del Terminale (nero pieno, colori del tema, intro all'apertura),
     predefinito per le finestre nuove. Solo Mac: altrove lo sfondo nero si sceglie nelle impostazioni del terminale."""
     nome = "Pleiad Fire Red"
-    ansi = COLORI_ANSI
+    ct = colori_terminale()
+    ansi = ct["ansi"]
     nomi = ["Black", "Red", "Green", "Yellow", "Blue", "Magenta", "Cyan", "White"]
     p = {"name": nome, "type": "Window Settings", "ProfileCurrentVersion": 2.07, "columnCount": 110, "rowCount": 32,
          "BackgroundColor": colore_ns("#000000"), "TextColor": colore_ns("#f2f2f2"), "TextBoldColor": colore_ns("#ffffff"),
-         "CursorColor": colore_ns("#e8253f"), "SelectionColor": colore_ns("#5a101b"), "BackgroundBlur": 0.0,
+         "CursorColor": colore_ns(ct["cursore"]), "SelectionColor": colore_ns(ct["selezione"]), "BackgroundBlur": 0.0,
          "CommandString": "pleyades-cli intro", "RunCommandAsShell": False, "shellExitAction": 1}
     for i, c in enumerate(ansi):
         p[f"ANSI{'Bright' if i > 7 else ''}{nomi[i % 8]}Color"] = colore_ns(c)
@@ -2792,7 +3136,7 @@ def main():
     if a[:1] == ["intro"]:
         if "--256" in a:
             os.environ["PLEYADES_COLORI"] = "256"
-        return intro()
+        return intro(resta="--resta" in a)
     if a[:1] in (["-h"], ["--help"], ["aiuto"]):
         print(__doc__)
         return 0
@@ -2828,6 +3172,12 @@ def main():
             return 0 if ok else 1
         if cmd == "tema":
             return voce_tema(ui)
+        if cmd == "aspetto":
+            return voce_aspetto(ui)
+        if cmd == "finestre":
+            ok, cosa = tema_finestre(togli="--togli" in a)
+            ui.esito(Esito("colori di Windows", ok, cosa, nota="se una barra resta com'era: esci e rientra da Windows"))
+            return 0 if ok else 1
         if cmd == "pianifica":
             ok, cosa = pianifica(togli="--togli" in a)
             ui.esito(Esito("aggiornamento automatico pianificato", ok, cosa, nota=cosa))

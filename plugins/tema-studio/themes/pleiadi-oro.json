@@ -1,0 +1,27 @@
+{
+  "name": "Pleiadi Oro",
+  "base": "dark",
+  "overrides": {
+    "claude": "#e09a1a",
+    "claudeShimmer": "#ffd98a",
+    "clawd_body": "#e09a1a",
+    "clawd_background": "#000000",
+    "promptBorder": "#74500e",
+    "promptBorderShimmer": "#e09a1a",
+    "permission": "#e9ad3c",
+    "permissionShimmer": "#ffd98a",
+    "suggestion": "#ffd98a",
+    "planMode": "#bc8116",
+    "bashBorder": "#e09a1a",
+    "text": "#f2f2f2",
+    "subtle": "#8a8a8a",
+    "inactive": "#6b6b6b",
+    "inactiveShimmer": "#ffd98a",
+    "userMessageBackground": "#160f03",
+    "userMessageBackgroundHover": "#231804",
+    "selectionBg": "#573c0a",
+    "success": "#5fd4a0",
+    "warning": "#f5c26b",
+    "error": "#ff5f3a"
+  }
+}

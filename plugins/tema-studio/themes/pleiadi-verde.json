@@ -1,0 +1,27 @@
+{
+  "name": "Pleiadi Verde",
+  "base": "dark",
+  "overrides": {
+    "claude": "#1fae6a",
+    "claudeShimmer": "#8af0bf",
+    "clawd_body": "#1fae6a",
+    "clawd_background": "#000000",
+    "promptBorder": "#105a37",
+    "promptBorderShimmer": "#1fae6a",
+    "permission": "#3fc284",
+    "permissionShimmer": "#8af0bf",
+    "suggestion": "#8af0bf",
+    "planMode": "#1a9259",
+    "bashBorder": "#1fae6a",
+    "text": "#f2f2f2",
+    "subtle": "#8a8a8a",
+    "inactive": "#6b6b6b",
+    "inactiveShimmer": "#8af0bf",
+    "userMessageBackground": "#03110b",
+    "userMessageBackgroundHover": "#051b10",
+    "selectionBg": "#0c4429",
+    "success": "#5fd4a0",
+    "warning": "#f5c26b",
+    "error": "#ff5f3a"
+  }
+}

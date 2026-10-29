@@ -6,8 +6,17 @@ description: I temi di Claude Code con i colori dello studio (blu notte o rosso 
 # Tema dello studio
 
 ## Scegliere il tema
-1. In Claude Code (terminale): scrivi `/theme` e scegli «Pleyades Studio» o «Pleiad Fire Red».
+1. In Claude Code (terminale): scrivi `/theme` e scegli «Pleyades Studio» o «Pleiad Fire Red», oppure una tinta
+   «Pleiadi Viola / Verde / Oro / Ciano».
 2. Vale per quel computer; per tornare indietro, `/theme` e un tema di base.
+
+## Il tuo aspetto (`pleyades-cli aspetto`)
+La prima intro lo chiede da sola, poi si cambia con `pleyades-cli aspetto` (anche nel menu `pley`): nome
+(«ciao, …»), titolo in pixel, frase, tinta (o tre colori #rrggbb), due forme 3D piene (stella, merkaba, cubo,
+ottaedro, icosaedro). Anteprima, poi la stessa tinta ovunque: Claude, Terminale/iTerm2, Windows Terminal (barra
+delle schede nera compresa), prompt Starship (se installato). Su Windows chiede anche i colori di tutto Windows
+(`pleyades-cli finestre`: modo scuro, tinta su barre del titolo e bordi; `--togli` rimette quelli di prima).
+`pleyades-cli intro --resta`: le forme girano finché premi un tasto.
 Il rosso vuole uno sfondo nero pieno: lo decide il programma del terminale, non Claude.
 `pleyades-cli tema` (anche nel menu `pley` e proposto dalla guida) fa tutto: Claude in «Pleiad Fire Red» (chi ha
 scelto il blu lo tiene), parole Pleyades nella rotella (solo se non ne hai di tue), terminale nero con l'intro (stato

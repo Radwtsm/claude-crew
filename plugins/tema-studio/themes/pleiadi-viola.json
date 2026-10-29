@@ -1,0 +1,27 @@
+{
+  "name": "Pleiadi Viola",
+  "base": "dark",
+  "overrides": {
+    "claude": "#8a5cf0",
+    "claudeShimmer": "#c9b8ff",
+    "clawd_body": "#8a5cf0",
+    "clawd_background": "#000000",
+    "promptBorder": "#48307d",
+    "promptBorderShimmer": "#8a5cf0",
+    "permission": "#9d78f4",
+    "permissionShimmer": "#c9b8ff",
+    "suggestion": "#c9b8ff",
+    "planMode": "#744dca",
+    "bashBorder": "#8a5cf0",
+    "text": "#f2f2f2",
+    "subtle": "#8a8a8a",
+    "inactive": "#6b6b6b",
+    "inactiveShimmer": "#c9b8ff",
+    "userMessageBackground": "#0e0918",
+    "userMessageBackgroundHover": "#150e25",
+    "selectionBg": "#36245e",
+    "success": "#5fd4a0",
+    "warning": "#f5c26b",
+    "error": "#ff5f3a"
+  }
+}

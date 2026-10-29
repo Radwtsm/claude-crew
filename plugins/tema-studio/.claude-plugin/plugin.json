@@ -1,6 +1,6 @@
 {
   "name": "tema-studio",
-  "description": "Temi di Claude Code con i colori dello studio: «Pleyades Studio» (notte blu e stelle) e «Pleiad Fire Red» (accento rosso su nero); si scelgono con /theme",
+  "description": "Temi di Claude Code con i colori dello studio: «Pleyades Studio» (notte blu), «Pleiad Fire Red» (rosso su nero) e le tinte Pleiadi viola, verde, oro, ciano; l'aspetto di ognuno (intro, terminale, Windows) con pleyades-cli aspetto",
   "author": {
     "name": "crew"
   },

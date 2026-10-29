@@ -1,0 +1,27 @@
+{
+  "name": "Pleiadi Ciano",
+  "base": "dark",
+  "overrides": {
+    "claude": "#16a9c2",
+    "claudeShimmer": "#94eef8",
+    "clawd_body": "#16a9c2",
+    "clawd_background": "#000000",
+    "promptBorder": "#0b5865",
+    "promptBorderShimmer": "#16a9c2",
+    "permission": "#3cbed2",
+    "permissionShimmer": "#94eef8",
+    "suggestion": "#94eef8",
+    "planMode": "#128ea3",
+    "bashBorder": "#16a9c2",
+    "text": "#f2f2f2",
+    "subtle": "#8a8a8a",
+    "inactive": "#6b6b6b",
+    "inactiveShimmer": "#94eef8",
+    "userMessageBackground": "#021113",
+    "userMessageBackgroundHover": "#031a1e",
+    "selectionBg": "#09424c",
+    "success": "#5fd4a0",
+    "warning": "#f5c26b",
+    "error": "#ff5f3a"
+  }
+}
