@@ -612,11 +612,14 @@ def link_progetto(t, conf, c, d):
     return out
 
 
-def scrivi_in_stanza(d, c, testo):
-    args = [sys.executable, os.path.join(d, c["talk"]), "scrivi", testo]
-    if c.get("stanza"):
-        args.append(f"--stanza={c['stanza']}")
-    return run(*args, cwd=d)[0] == 0
+def scrivi_in_stanza(d, c, testo, stato=None):
+    """stato=False/True: il messaggio di stato del computer (`talk.py stato`), modificato sul posto senza notifiche;
+    True = è cambiato l'esito, se ne scrive uno nuovo. Un talk.py vecchio senza `stato` → messaggio normale."""
+    dove = [f"--stanza={c['stanza']}"] if c.get("stanza") else []
+    talk = os.path.join(d, c["talk"])
+    if stato is not None and run(sys.executable, talk, "stato", testo, *dove, *(["--nuovo"] if stato else []), cwd=d)[0] == 0:
+        return True
+    return run(sys.executable, talk, "scrivi", testo, *dove, cwd=d)[0] == 0
 
 
 # Versioni: `controlla --talk` le scrive in ogni stanza, `squadra` le confronta con l'ultima pubblicata
@@ -1992,9 +1995,11 @@ def controlla(ui):
                 if "--se-cambiato" in sys.argv and prima.get("msg") == msg and time.time() - prima.get("t", 0) < 3 * 86400:
                     uguali += 1  # già nella stanza e recente: squadra lo vede ancora
                     continue
-                if scrivi_in_stanza(d, c, msg):
+                # cambiano solo le versioni (un push qualunque) → si modifica il messaggio di prima, senza notifiche
+                esito = msg.split(" · versioni:")[0] + (" · manca: " + ", ".join(manca) if manca else "")
+                if scrivi_in_stanza(d, c, msg, stato=prima.get("esito") != esito):
                     scritti += 1
-                    inviati[d] = {"msg": msg, "t": time.time()}
+                    inviati[d] = {"msg": msg, "esito": esito, "t": time.time()}
         salva_stato(talk_inviati=inviati)
         nota = (f"riassunto in {scritti} stanze" if scritti else "riassunto invariato, già nella stanza" if uguali else
                 "nessuna stanza: `pleyades-cli entra PROPRIETARIO/REPO` o lancialo dalla cartella del progetto")
@@ -2040,12 +2045,13 @@ def squadra(ui):
         for (nome, sis), (m, r) in sorted(ultimi.items()):
             v = dict(x.split("=", 1) for x in (r.group("ver") or "").split() if "=" in x)
             diverso = [f"{k}={v.get(k, '?')}" for k, x in rif.items() if v.get(k) != x]
-            giorni = (time.time() - m["timestamp"]) / 86400
+            ora = m.get("lastEditTimestamp") or m["timestamp"]  # lo stato si aggiorna modificando il messaggio
+            giorni = (time.time() - ora) / 86400
             ui.esito(Esito(f"{nome} ({sis})", not diverso and r.group("ok") == r.group("tot") and giorni < 7,
                            f"lì: pleyades-cli aggiorna, poi pleyades-cli controlla --talk · "
                            + (f"diverso: {' '.join(diverso)}" if diverso else f"{r.group('ok')}/{r.group('tot')}")
                            + (f" · controllo di {giorni:.0f} giorni fa" if giorni >= 7 else ""),
-                           nota=f"{r.group('ok')}/{r.group('tot')} · {time.strftime('%d/%m %H:%M', time.localtime(m['timestamp']))}"))
+                           nota=f"{r.group('ok')}/{r.group('tot')} · {time.strftime('%d/%m %H:%M', time.localtime(ora))}"))
         fatti = {n for n, _ in ultimi}
         mai = sorted(persone - fatti - {n[len("claude-"):] for n in fatti if n.startswith("claude-")})  # il suo Claude
         indietro += [e.nome for e in ui.esiti if not e.ok and e.nome != "stanza Talk"]
