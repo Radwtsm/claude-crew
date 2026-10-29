@@ -32,3 +32,5 @@ Letto da `SKILL.md` prima di: script bash/zsh/Git Bash, comandi ssh, hook, hered
 - Wrapper (script che lancia un altro programma) provato in un modo solo → chiamato da file, da sessione
   interattiva o da un altro programma gli argomenti passano diversi e un nome perso non dà errore → provalo in
   ogni modo in cui verrà chiamato, con un argomento che contiene spazi.
+- Pre-commit con `gitleaks git --staged` e `git commit -a` (o `-am`) → «fatal: unable to read <hash>», commit
+  bloccato: `-a` usa un indice temporaneo che gitleaks non vede → `git add` dei file, poi `git commit` senza `-a`.
