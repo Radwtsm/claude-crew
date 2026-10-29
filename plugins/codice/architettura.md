@@ -1,6 +1,7 @@
 # Architettura
 
-Regole comuni di Pleyades (plugin `codice`). Le regole tue e il CLAUDE.md del progetto vincono dove sono più precise.
+Regole comuni di Pleyades (plugin `codice`). Le regole tue e il CLAUDE.md del progetto vincono dove sono più
+precise; su accesso e sicurezza solo per stringere.
 
 ## Ricostruibile
 - Tutto ciò che non è dato vive in un repo (config, unit, cron, policy, versioni fissate + hash) con un check che
@@ -19,11 +20,15 @@ Regole comuni di Pleyades (plugin `codice`). Le regole tue e il CLAUDE.md del pr
 - Spec + convenzioni della piattaforma (es. HIG) = una sola fonte di verità per ogni schermata, inclusa la
   navigazione (cosa sta in alto, sheet vs push), non solo lo stile.
 - Liste che possono crescere a centinaia di elementi: ricerca/filtro fin dall'inizio.
+- Un file per tema (logica, interfaccia, rete, grafica): ogni pezzo si rivede e si testa da solo.
 
 ## Accesso e sicurezza
 - Pannelli admin, sblocchi, SSH, domotica: raggiungibili solo dai dispositivi del proprietario (rete privata, chiavi
   in un chip, niente di pubblico). Mai allargare l'accesso per comodità.
 - Preferire soluzioni a chiavi/permessi a nuove password.
+- Sola lettura, accessi elevati, certificati, aggiornamenti automatici, config, impostazioni di sistema,
+  modo prova dei comandi con effetti:
+  skill `sicurezza-strumenti` (stesso plugin) prima di toccarli.
 
 ## Affidabilità
 - I servizi critici restano su: ogni modifica che può fermarli ha un piano di ritorno (watchdog, riavvio automatico,

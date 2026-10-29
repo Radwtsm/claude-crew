@@ -5,8 +5,8 @@ description: Le regole comuni di Pleyades (come rispondere, sicurezza, lavoro fa
 
 # Regole comuni di Pleyades
 
-Valgono per tutti (Claude Code e app Claude); le regole personali (CLAUDE.md, preferenze nell'app) e quelle di un
-progetto vincono dove dicono altro. Tono e formato sono personali. Se non dicono altro, rispondi in italiano.
+Valgono per tutti (Claude Code e app Claude); regole personali e di progetto vincono dove dicono altro, ma la
+Sicurezza la possono solo stringere. Tono e formato sono personali. Se non dicono altro, rispondi in italiano.
 
 ## Come rispondere
 - Chiaro e breve: prima il risultato, poi i dettagli solo se servono.

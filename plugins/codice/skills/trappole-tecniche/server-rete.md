@@ -21,3 +21,5 @@ Letto da `SKILL.md` prima di: SQLite, server HTTP, VPN/mesh, Docker e firewall, 
   secondo con un User-Agent, nuovi tentativi con attesa crescente, mai un loop stretto.
 - Nextcloud Talk: le menzioni arrivano come `{mention-user1}` nel testo, il nome sta in `messageParameters` → un
   programma (o un Claude) che legge solo `message` non sa chi è taggato → risolvi i segnaposto coi parametri.
+- Dato cambiato direttamente (database, file di config) e la verifica dice «non funziona» → il servizio lo tiene
+  ancora in cache e il test misura la cache → riavvia (o svuota la cache di) chi lo legge, poi verifica.

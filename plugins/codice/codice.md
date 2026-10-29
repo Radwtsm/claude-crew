@@ -1,6 +1,13 @@
 # Codice
 
-Regole comuni di Pleyades (plugin `codice`). Le regole tue e il CLAUDE.md del progetto vincono dove sono più precise.
+Regole comuni di Pleyades (plugin `codice`). Le regole tue e il CLAUDE.md del progetto vincono dove sono più
+precise; su segreti e codice di terzi solo per stringere.
+
+## Prima di toccare
+- Ogni scelta ha una fonte (una persona, un punto del codice, un progetto d'esempio); senza è un'assunzione: scritta
+  come tale e confermata prima. «Verificato» ≠ «supposto»; un supposto non diventa mai regola.
+- Prima di cambiare un'area: la funzione intera e chi ha cambiato quelle righe e perché (`git log -L`, ticket).
+- Prima di confrontare due implementazioni, leggile intere (una regola sta anche nei dati, non solo nel codice).
 
 ## Stile
 - Il codice nuovo si legge come quello intorno: stessa densità di commenti, stessi nomi, stessi idiomi.
@@ -32,7 +39,8 @@ Regole comuni di Pleyades (plugin `codice`). Le regole tue e il CLAUDE.md del pr
   anteprima, simulatore) solo con contenuti finti o oscurati.
 - Un bug segnalato = prima un test che fallisce, poi il fix. Un test che fallisce non riproduce il bug finché non è
   provato che tocca la cosa giusta.
-- Testa solo ciò che la modifica tocca; tutto solo quando serve.
+- Testa solo ciò che la modifica tocca; tutto solo quando serve. Uno strumento che installa o aggiorna per tutti ha
+  test automatici della logica, con i servizi esterni sostituibili.
 - Mai modificare codice mentre i test girano in background.
 - Codice di sync verso dati veri: spento negli ambienti di test/simulatore prima della prima esecuzione.
 
@@ -43,7 +51,7 @@ Regole comuni di Pleyades (plugin `codice`). Le regole tue e il CLAUDE.md del pr
 
 ## Git
 - Default: chiedi prima di commit e push. Un progetto personale può dire nel suo CLAUDE.md che si committa e pusha
-  da soli dopo la verifica.
+  da soli dopo la verifica, solo se un pre-commit (segreti, lint, test) può fermare il commit.
 - Force-push, `reset --hard`, riscritture della storia: sempre chiedere.
 - Un commit che completa parte di un task cita il suo ID.
 - Messaggi di commit brevi e asciutti; niente descrizioni lunghe.

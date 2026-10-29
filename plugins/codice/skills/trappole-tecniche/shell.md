@@ -29,3 +29,6 @@ Letto da `SKILL.md` prima di: script bash/zsh/Git Bash, comandi ssh, hook, hered
   sparisce e il comando sembra muto → provala anche in un terminale finto: `script -q /dev/null comando`.
 - Limite in byte (`wc -c`) su un file del repo: su Windows (Git, CRLF) pesa un byte in più per riga e il controllo
   fallisce solo lì → conta senza CR: `tr -d '\r' < f | wc -c` (in Python: `.replace(b"\r", b"")`).
+- Wrapper (script che lancia un altro programma) provato in un modo solo → chiamato da file, da sessione
+  interattiva o da un altro programma gli argomenti passano diversi e un nome perso non dà errore → provalo in
+  ogni modo in cui verrà chiamato, con un argomento che contiene spazi.

@@ -8,14 +8,15 @@ description: Struttura comune per organizzare il proprio Claude (regole personal
 Tutti in Pleyades usano la stessa struttura: così condividere una skill è solo spostarla, e ogni Claude sa dove
 cercare e dove scrivere.
 
-## I tre strati (vince il più preciso)
+## I tre strati
 | Strato | Cosa contiene | Chi lo cambia |
 |---|---|---|
 | **Pleyades** | regole comuni e skill di tutti (plugin di Pleyades) | i manutentori, tramite la libreria |
 | **Personale** | come Claude lavora con te: lingua, tono, formato, cautele, i tuoi strumenti | solo tu |
 | **Progetto** | regole di un repo o di un lavoro: comandi, struttura, cosa non toccare | chi ci lavora |
 
-Il personale vince su Pleyades, il progetto vince sul personale dove è più preciso. Mai mischiarli: una preferenza
+Il personale vince su Pleyades, il progetto sul personale dove è più preciso; su sicurezza e azioni irreversibili
+solo per stringere (allentare = proposta allo strato sopra). Mai mischiarli: una preferenza
 tua non va in Pleyades, una regola di progetto non va nel personale.
 
 ## Claude Code
@@ -32,7 +33,7 @@ tua non va in Pleyades, una regola di progetto non va nel personale.
 plugin di Pleyades                 installati con /plugin, aggiornati da soli: mai copiati a mano
 ```
 Cose della singola macchina (percorsi, nomi dei PC): in un file `~/claude-personale/macchina-<nome>.md` importato
-solo su quella macchina, oppure direttamente in `~/.claude/CLAUDE.md` sotto gli import.
+solo su quella macchina, o direttamente in `~/.claude/CLAUDE.md` sotto gli import.
 
 ## App Claude (desktop, web, telefono)
 | Strato | Dove |
@@ -62,7 +63,7 @@ Ogni risposta di Claude rilegge tutto ciò che è sempre caricato; in una sessio
 - **Un controllo, non solo una regola**: un file `limiti-contesto.txt` (byte massimi per file, glob ammessi) letto
   dal check del pre-commit blocca chi fa ricrescere CLAUDE.md, regole e lezioni; alzare un limite = scelta nel commit.
 - **Una sessione per argomento**, `/clear` dopo il commit: lo stato sta nel backlog e nella memoria, non nella chat.
-- Ogni tanto misura (skill di uso dei token, se c'è): se le istruzioni fisse sono più di metà, sono da sfoltire.
+- Misura token ed errori ripetuti: se non calano, cambia la struttura.
 
 ## Dove va una cosa nuova
 - Vale per chiunque in Pleyades? → Pleyades (`condividi-skill`).
@@ -70,6 +71,7 @@ Ogni risposta di Claude rilegge tutto ciò che è sempre caricato; in una sessio
 - Vale solo in un progetto? → progetto.
 - Una procedura con passi ripetibili → skill (nello strato giusto); un comportamento sempre valido → regola.
 - Contiene nomi, account, macchine o percorsi tuoi → mai in Pleyades.
+- Regola nuova: livello, chi la tiene, perché, come si impone (`regole-che-funzionano.md`).
 
 ## Modello di `regole.md` personale
 ```
@@ -82,5 +84,5 @@ Ogni risposta di Claude rilegge tutto ciò che è sempre caricato; in una sessio
 ```
 
 ## Riorganizzare un setup esistente
-Procedura in sei passi (inventario, proposta, ok, copia di sicurezza, sposta, verifica): leggi
-[`riorganizza.md`](riorganizza.md) quando l'utente chiede di riorganizzare.
+Sei passi (inventario, proposta, ok, copia di sicurezza, sposta, verifica): [`riorganizza.md`](riorganizza.md),
+quando l'utente chiede di riorganizzare.
