@@ -2431,11 +2431,14 @@ def intro(durata=3.2, resta=False, domanda=True):
     if not sys.stdout.isatty():
         return 0
     cols, righe_t = shutil.get_terminal_size((80, 24))
-    W, A = cols, righe_t - 4  # sotto: frase, stato, comandi, poi il prompt
-    if W < 40 or A < 10:
+    C, A = cols, righe_t - 4  # celle; sotto: frase, stato, comandi, poi il prompt
+    if C < 40 or A < 10:
         print(FRASE_INTRO)
         return 0
-    PH = A * 2
+    # la scena si disegna in pixel quadrati: Q=2 → 2×4 per cella, poi 2×2 per cella (blocchi a quadranti, ▘▝▖▗);
+    # PLEYADES_PIXEL=2 → 1×2 per cella (▀/▄), più leggero per i computer lenti
+    Q = 1 if os.environ.get("PLEYADES_PIXEL") == "2" else 2
+    W, PH = C * Q, A * 2 * Q
     if WIN:
         os.system("")  # sequenze ANSI nella console di Windows
     tp = os.environ.get("TERM_PROGRAM", "")
@@ -2490,11 +2493,13 @@ def intro(durata=3.2, resta=False, domanda=True):
     lato = 0.5 * s + 2.2 * r3
     posa = lambda f, k: (0.0, 0.0) if f == "stella" else (0.6 * k, 0.45)  # la stella finisce di fronte, il resto di sbieco
     solidi = [(solido(asp["forme"][0]), max(r3 + 1, cx - lato), cy - 0.12 * s, r3, 1, *posa(asp["forme"][0], -1)),
-              (solido(asp["forme"][1]), min(W - r3 - 2, cx + lato), cy + 0.18 * s, r3, -1, *posa(asp["forme"][1], 1))]
+              (solido(asp["forme"][1]), min(W - r3 * 1.15 - 2, cx + lato), cy + 0.18 * s, r3, -1, *posa(asp["forme"][1], 1))]
     nome = asp["titolo"]
     if len(nome) * 4 - 1 > W * 0.9:  # non ci sta neanche a pixel di una cella: la prima parola
         nome = nome.split()[0][:max(1, int(W * 0.9 + 1) // 4)]
     f = max(1, min(int(W * 0.8 / (len(nome) * 4 - 1)), int(PH * 0.16 / 5)))  # grandezza del pixel del nome
+    if Q == 2:
+        f = max(2, f - f % 2)  # pari: ogni pixel del nome copre righe intere di quadranti (niente righe a metà)
     tx0 = int(cx - (len(nome) * 4 - 1) * f / 2)
     ty0 = int(PH * 0.8) - 5 * f // 2
     ty0 += (ty0 % 2 == 0) if f == 1 else (ty0 % 2)  # f=1: riga dispari (▀/▄ del Mac); f pari: celle intere
@@ -2519,10 +2524,14 @@ def intro(durata=3.2, resta=False, domanda=True):
                     p = buf[y][x]
                     p[0] += (c[0] - p[0]) * a; p[1] += (c[1] - p[1]) * a; p[2] += (c[2] - p[2]) * a
 
+    volo_t = [0.0]
+
     def fotogramma(t, giro=0.0):
         neb = max(0.0, min(1.0, (t - 0.35) / 0.4)) if vero else 0.0  # a 256 colori il rosso scuro più tenue è già acceso
         buf = [[[p[0] * neb, p[1] * neb, p[2] * neb] for p in riga] for riga in nebbia]
-        v = max(0.0, 1 - t / 0.5) ** 2  # volo fra le stelle: veloce all'inizio, si ferma a metà
+        passo = max(0.0, t - volo_t[0]) * passi  # quanti fotogrammi «giusti» da quello prima (computer lenti: più di 1)
+        volo_t[0] = t
+        v = max(0.0, 1 - t / 0.5) ** 2 * passo  # volo fra le stelle: veloce all'inizio, si ferma a metà
         for st in volo:
             z0 = st[2]
             st[2] -= v * 0.13
@@ -2538,7 +2547,8 @@ def intro(durata=3.2, resta=False, domanda=True):
                 disegna(buf, x0 + (x1 - x0) * fr, y0 + (y1 - y0) * fr, BIANCO if fr > 0.8 else ROSA, a * (0.25 + 0.75 * fr))
         fa = max(0.0, min(1.0, (t - 0.3) / 0.3))
         for x, y, b, ph in fondo:
-            disegna(buf, x, y, BIANCO, fa * b * (0.6 + 0.4 * math.sin((t + giro / 3) * 9 + ph)))
+            for dx in range(Q):  # a quadranti un pixel solo è alto il doppio che largo: il punto è largo 2
+                disegna(buf, x + dx, y, BIANCO, fa * b * (0.6 + 0.4 * math.sin((t + giro / 3) * 9 + ph)))
         sa = max(0.0, min(1.0, (t - 0.25) / 0.25))
         for (vert, lati, facce), ox, oy, r, verso, fy, fx in solidi if sa else []:
             ay, ax = verso * (t * 2 * math.pi + giro * 0.9) + fy, (1 - t) * 3.5 + fx + 0.25 * math.sin(giro * 0.5)
@@ -2600,23 +2610,65 @@ def intro(durata=3.2, resta=False, domanda=True):
 
     prima = {}  # cella → cosa c'era: si riscrivono solo le celle cambiate (meno byte, meglio sui computer lenti)
 
+    QUADRANTI = " ▘▝▀▖▌▞▛▗▚▐▜▄▙▟█"  # indice = pixel accesi: 1 alto-sx, 2 alto-dx, 4 basso-sx, 8 basso-dx
+
+    memo = {}
+
+    def cella_quadranti(px):
+        """4 pixel (alto-sx, alto-dx, basso-sx, basso-dx) → (colore davanti, colore dietro, carattere): i due gruppi
+        di pixel che sbagliano meno; un carattere ha solo due colori. Le celle già viste (la nebulosa ferma, il
+        nero) vengono dalla memoria: è il calcolo più caro di ogni fotogramma."""
+        chiave = tuple(int(v) >> 2 for p in px for v in p)
+        if chiave in memo:
+            return memo[chiave]
+        if max(sum(p) for p in px) <= 9:
+            memo[chiave] = None, None, " "
+            return memo[chiave]
+        if max(px[i][q] for i in range(4) for q in range(3)) - min(px[i][q] for i in range(4) for q in range(3)) < 6:
+            memo[chiave] = None, px[0], " "
+            return memo[chiave]
+        meglio = None
+        for m in range(1, 8):  # il pixel basso-dx sempre nel gruppo «dietro»: ogni divisione una volta sola
+            a = [px[i] for i in range(4) if m >> i & 1]
+            b = [px[i] for i in range(4) if not m >> i & 1]
+            ma = [sum(p[q] for p in a) / len(a) for q in range(3)]
+            mb = [sum(p[q] for p in b) / len(b) for q in range(3)]
+            err = sum((p[q] - ma[q]) ** 2 for p in a for q in range(3)) + sum((p[q] - mb[q]) ** 2 for p in b for q in range(3))
+            if meglio is None or err < meglio[0]:
+                meglio = (err, m, ma, mb)
+        _, m, ma, mb = meglio
+        memo[chiave] = (None, ma, " ") if max(abs(ma[q] - mb[q]) for q in range(3)) < 6 else (ma, mb, QUADRANTI[m])
+        if len(memo) > 200000:
+            memo.clear()
+        return memo[chiave]
+
     def schermo(buf, t):
         out = []
         for r in range(A):
             s_, ultimo, salto = [], None, True
-            for x in range(W):
-                a, b = buf[2 * r][x], buf[2 * r + 1][x]
-                sa, sb = sum(a) > 9, sum(b) > 9
-                if sa and sb and max(abs(a[q] - b[q]) for q in range(3)) < 6:
-                    cod = (col(a, True, x, 2 * r), " ")  # cella intera dallo sfondo: nessun bordo del glifo
-                elif sa and sb:
-                    cod = (col(a, False, x, 2 * r) + col(b, True, x, 2 * r + 1), "▀")
-                elif sa:
-                    cod = (col(a, False, x, 2 * r) + nero, "▀")
-                elif sb:
-                    cod = (col(b, False, x, 2 * r + 1) + nero, "▄")
+            for x in range(C):
+                if Q == 2:  # 2×4 pixel quadrati → 2×2 (le coppie di righe in media)
+                    y = 4 * r
+                    px = [[(buf[y + dy][2 * x + dx][q] + buf[y + dy + 1][2 * x + dx][q]) / 2 for q in range(3)]
+                          for dy, dx in ((0, 0), (0, 1), (2, 0), (2, 1))]
+                    dav, die, ch = cella_quadranti(px)
+                    if ch == " ":
+                        cod = (col(die, True) if die and sum(die) > 9 else nero, " ")
+                    else:
+                        cod = (col(dav, False) + (col(die, True) if sum(die) > 9 else nero), ch)
                 else:
-                    cod = (nero, " ")
+                    a, b = buf[2 * r][x], buf[2 * r + 1][x]
+                    sa, sb = sum(a) > 9, sum(b) > 9
+                    if sa and sb and max(abs(a[q] - b[q]) for q in range(3)) < 6:
+                        cod = (col(a, True, x, 2 * r), " ")  # cella intera dallo sfondo: nessun bordo del glifo
+                    elif sa and sb:
+                        cod = (col(a, False, x, 2 * r) + col(b, True, x, 2 * r + 1), "▀")
+                    elif sa:
+                        cod = (col(a, False, x, 2 * r) + nero, "▀")
+                    elif sb:
+                        cod = (col(b, False, x, 2 * r + 1) + nero, "▄")
+                    else:
+                        cod = (nero, " ")
                 if prima.get((r, x)) == cod:
                     salto = True
                     continue
@@ -2632,9 +2684,9 @@ def intro(durata=3.2, resta=False, domanda=True):
         testi = [(FRASE_INTRO[:n], ROSA, "\033[3m"), (sotto if t >= 1 else "", (150, 150, 160), ""),
                  ("claude  parla con Claude  ·  pley  menu Pleiadi Studio" if t >= 1 else "", (110, 110, 120), "")]
         for i, (testo, c, stile) in enumerate(testi):
-            testo = testo[:W]
+            testo = testo[:C]
             pieno = len(FRASE_INTRO) if i == 0 else len(testo)
-            out.append(f"\033[{A + 1 + i};1H" + nero + " " * W + f"\033[{A + 1 + i};{max(1, (W - pieno) // 2 + 1)}H"
+            out.append(f"\033[{A + 1 + i};1H" + nero + " " * C + f"\033[{A + 1 + i};{max(1, (C - pieno) // 2 + 1)}H"
                        + nero + col(c, False) + stile + testo + "\033[0m")
         return "".join(out)
 
@@ -2653,9 +2705,10 @@ def intro(durata=3.2, resta=False, domanda=True):
             vecchio = None
     sys.stdout.write("\033[?25l\033[2J")
     try:
-        for i in range(passi + 1):
+        t0 = time.time()
+        while True:  # t dal tempo vero: su un computer lento meno fotogrammi, stessa durata
             inizio = time.time()
-            t = i / passi
+            t = min(1.0, (inizio - t0) / durata)
             if tasto():
                 t = 1.0
             sys.stdout.write(schermo(fotogramma(t), t))
@@ -2879,14 +2932,16 @@ def tema(forza=False, terminale_mac=True):
     prima = json.dumps(s, sort_keys=True)
     s.setdefault("spinnerVerbs", {"mode": "append", "verbs": PAROLE_ROTELLA})  # mai sopra a quelle della persona
     if forza or not str(s.get("theme", "")).startswith("custom:tema-studio:"):  # Claude uguale al terminale
-        if ha("claude") and "tema-studio@claude-crew" not in plugin_installati():
-            run("claude", "plugin", "install", "tema-studio@claude-crew")
         s["theme"] = "custom:tema-studio:" + tinta_claude(asp)
     s.setdefault("enabledPlugins", {})["tema-studio@claude-crew"] = True  # installato ma spento = Claude arancione
     if json.dumps(s, sort_keys=True) != prima:
         if os.path.exists(p):
             shutil.copy(p, p + ".prima-di-crew")
         scrivi_json(p, s)
+    if ha("claude"):  # il tema sta nel plugin tema-studio: senza il marketplace Claude torna al tema di base, zitto
+        mancanti, _ = assicura_plugin({"claude-crew": CREW}, ["tema-studio@claude-crew"])
+        if mancanti:
+            return False, "plugin tema-studio non installato: `claude plugin marketplace add Radwtsm/claude-crew`, poi rilancia"
     pr = tema_prompt(asp)
     if MAC:
         ok, cosa = (tema_terminale() if terminale_mac or os.environ.get("TERM_PROGRAM") == "Apple_Terminal"
