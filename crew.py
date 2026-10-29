@@ -2364,9 +2364,9 @@ ACCENTI = str.maketrans("ÀÁÈÉÌÍÒÓÙÚ", "AAEEIIOOUU")
 TINTE = {"rosso": ("#e8253f", "#ff8a96", "#fff4f0"), "blu": ("#4a6cf7", "#a9c4ff", "#f0f4ff"),
          "viola": ("#8a5cf0", "#c9b8ff", "#f6f0ff"), "verde": ("#1fae6a", "#8af0bf", "#effff6"),
          "oro": ("#e09a1a", "#ffd98a", "#fffaf0"), "ciano": ("#16a9c2", "#94eef8", "#f0feff")}
-FORME_3D = ("stella", "merkaba", "cubo", "ottaedro", "icosaedro")
+FORME_3D = ("stella", "sfera", "ciambella", "cubo", "cono", "ottaedro", "cuore", "cilindro", "merkaba")
 ASPETTO_BASE = {"titolo": "PLEIADI STUDIO", "frase": "Sette stelle, una rotta", "nome": "", "tinta": "rosso",
-                "colori": None, "forme": ["stella", "merkaba"], "salvaschermo": 5}
+                "colori": None, "forme": ["stella", "sfera"], "salvaschermo": 5}
 
 
 def aspetto():
@@ -2387,38 +2387,95 @@ def aspetto():
     return a
 
 
-def solido(nome):
-    """(vertici, lati, facce) di una forma 3D piena, grande circa 1. Facce = indici dei vertici in giro."""
+def distanza_forma(nome, x, y, z):
+    """Distanza (con segno) dalla superficie di una forma grande circa 1, y in alto: negativa dentro."""
     import math
-    if nome == "stella":
-        punte = [(math.cos(k * math.pi / 5 - math.pi / 2) * (1 if k % 2 == 0 else 0.42),
-                  math.sin(k * math.pi / 5 - math.pi / 2) * (1 if k % 2 == 0 else 0.42)) for k in range(10)]
-        return ([(x, y, z) for z in (-0.28, 0.28) for x, y in punte],
-                [(i + o, (i + 1) % 10 + o) for o in (0, 10) for i in range(10)] + [(i, i + 10) for i in range(0, 10, 2)],
-                [list(range(10)), list(range(10, 20))] + [[i, (i + 1) % 10, (i + 1) % 10 + 10, i + 10] for i in range(10)])
-    if nome == "merkaba":
-        tetra = [(1, 1, 1), (1, -1, -1), (-1, 1, -1), (-1, -1, 1)]
-        tri = [[a, b, c] for a in range(4) for b in range(a + 1, 4) for c in range(b + 1, 4)]
-        return ([(x * .62, y * .62, z * .62) for x, y, z in tetra] + [(-x * .62, -y * .62, -z * .62) for x, y, z in tetra],
-                [(a + o, b + o) for o in (0, 4) for a in range(4) for b in range(a + 1, 4)],
-                [[i + o for i in f] for o in (0, 4) for f in tri])
+    if nome == "sfera":
+        return math.sqrt(x * x + y * y + z * z) - 0.8
+    if nome == "ciambella":
+        return math.hypot(math.hypot(x, z) - 0.56, y) - 0.26
     if nome == "cubo":
-        v = [(x * .58, y * .58, z * .58) for x in (-1, 1) for y in (-1, 1) for z in (-1, 1)]
-    elif nome == "ottaedro":
-        v = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]
-    else:  # icosaedro
-        p = (1 + 5 ** 0.5) / 2
-        v = [(x * .53, y * .53, z * .53) for s in (-1, 1) for q in (-1, 1)
-             for x, y, z in ((0, s, q * p), (s, q * p, 0), (q * p, 0, s))]
-    corto = min(math.dist(v[i], v[j]) for i in range(len(v)) for j in range(i + 1, len(v)))
-    # i lati sono le coppie di vertici alla distanza minima; le facce i triangoli di lati (il cubo: i 6 quadrati)
-    lati = [(i, j) for i in range(len(v)) for j in range(i + 1, len(v)) if math.dist(v[i], v[j]) < corto * 1.01]
-    if nome == "cubo":
-        facce = [[0, 1, 3, 2], [4, 5, 7, 6], [0, 1, 5, 4], [2, 3, 7, 6], [0, 2, 6, 4], [1, 3, 7, 5]]
-    else:
-        vicini = set(lati)
-        facce = [[a, b, c] for a, b in lati for c in range(b + 1, len(v)) if (a, c) in vicini and (b, c) in vicini]
-    return v, lati, facce
+        dx, dy, dz = abs(x) - 0.5, abs(y) - 0.5, abs(z) - 0.5
+        return math.sqrt(max(dx, 0) ** 2 + max(dy, 0) ** 2 + max(dz, 0) ** 2) + min(max(dx, dy, dz), 0) - 0.08
+    if nome == "ottaedro":
+        return (abs(x) + abs(y) + abs(z) - 0.95) * 0.577
+    if nome == "cilindro":
+        dx, dy = math.hypot(x, z) - 0.55, abs(y) - 0.5
+        return min(max(dx, dy), 0) + math.hypot(max(dx, 0), max(dy, 0)) - 0.04
+    if nome == "cono":  # punta in alto
+        y -= 0.55
+        qx, qy = 1.15 * 0.62, -1.15
+        wx, wy = math.hypot(x, z), y
+        k = max(0.0, min(1.0, (wx * qx + wy * qy) / (qx * qx + qy * qy)))
+        ax, ay = wx - qx * k, wy - qy * k
+        k2 = max(0.0, min(1.0, wx / qx))
+        bx, by = wx - qx * k2, wy - qy
+        s = max(-(wx * qy - wy * qx), -(wy - qy))
+        return math.sqrt(min(ax * ax + ay * ay, bx * bx + by * by)) * (1 if s > 0 else -1)
+    if nome == "merkaba":  # due tetraedri incrociati
+        t1 = (max(abs(x + y) - z, abs(x - y) + z) - 0.62) / 3 ** 0.5
+        t2 = (max(abs(x + y) + z, abs(x - y) - z) - 0.62) / 3 ** 0.5
+        return min(t1, t2)
+    def estrudi(d, h):
+        wx, wy = d, abs(z) - h
+        return min(max(wx, wy), 0) + math.hypot(max(wx, 0), max(wy, 0))
+    if nome == "cuore":
+        px, py = abs(x) * 1.05, (y + 0.55) * 1.05
+        if px + py > 1:
+            d = math.hypot(px - 0.25, py - 0.75) - 2 ** 0.5 / 4
+        else:
+            m = 0.5 * max(px + py, 0)
+            d = math.sqrt(min(px * px + (py - 1) ** 2, (px - m) ** 2 + (py - m) ** 2)) * (1 if px > py else -1)
+        return estrudi(d, 0.1) - 0.2
+    # stella a cinque punte, spessa (stella di iq: le punte per riflessione)
+    k1x, k1y, k2x = 0.809016994375, -0.587785252292, -0.809016994375
+    px, py, rr, rf = abs(x), y, 0.95, 0.45
+    d = max(k1x * px + k1y * py, 0); px, py = px - 2 * d * k1x, py - 2 * d * k1y
+    d = max(k2x * px + k1y * py, 0); px, py = px - 2 * d * k2x, py - 2 * d * k1y
+    px, py = abs(px), py - rr
+    bax, bay = rf * -k1y, rf * k1x - 1
+    h = max(0.0, min(rr, (px * bax + py * bay) / (bax * bax + bay * bay)))
+    d = math.hypot(px - bax * h, py - bay * h) * (1 if py * bax - px * bay > 0 else -1)
+    return estrudi(d, 0.16) - 0.06
+
+
+NUVOLE = {}
+
+
+def nuvola(nome, n):
+    """La superficie di una forma come n punti con la normale: lo stesso punto i, in ogni forma, sta nella stessa
+    direzione dal centro (spirale di Fibonacci), così una forma si deforma nell'altra spostando ogni punto."""
+    import math
+    if (nome, n) in NUVOLE:
+        return NUVOLE[(nome, n)]
+    f = lambda x, y, z: distanza_forma(nome, x, y, z)
+    pts, oro = [], math.pi * (3 - 5 ** 0.5)
+    for i in range(n):
+        uy = 1 - 2 * (i + 0.5) / n
+        ur = math.sqrt(max(0.0, 1 - uy * uy))
+        ux, uz = math.cos(i * oro) * ur, math.sin(i * oro) * ur
+        if nome == "ciambella":  # ha il buco: la direzione dà i due angoli dell'anello
+            th, ph = math.atan2(uz, ux), math.asin(max(-1.0, min(1.0, uy))) * 2
+            rr = 0.56 + 0.26 * math.cos(ph)
+            pts.append((rr * math.cos(th), 0.26 * math.sin(ph), rr * math.sin(th),
+                        math.cos(ph) * math.cos(th), math.sin(ph), math.cos(ph) * math.sin(th)))
+            continue
+        lo, hi = 0.0, 1.8  # dal centro (dentro) verso fuori: dove la distanza cambia segno
+        for _ in range(22):
+            mid = (lo + hi) / 2
+            if f(ux * mid, uy * mid, uz * mid) < 0:
+                lo = mid
+            else:
+                hi = mid
+        x, y, z = ux * lo, uy * lo, uz * lo
+        e = 0.003
+        gx = f(x + e, y, z) - f(x - e, y, z)
+        gy = f(x, y + e, z) - f(x, y - e, z)
+        gz = f(x, y, z + e) - f(x, y, z - e)
+        m = math.sqrt(gx * gx + gy * gy + gz * gz) or 1
+        pts.append((x, y, z, gx / m, gy / m, gz / m))
+    NUVOLE[(nome, n)] = pts
+    return pts
 
 
 def intro(durata=3.2, resta=False, domanda=True, sfuma=False, salvaschermo=False):
@@ -2500,9 +2557,51 @@ def intro(durata=3.2, resta=False, domanda=True, sfuma=False, salvaschermo=False
                     p[0] += c[0] * a; p[1] += c[1] * a; p[2] += c[2] * a
     r3 = 7 * g
     lato = 0.5 * s + 2.2 * r3
-    posa = lambda f, k: (0.0, 0.0) if f == "stella" else (0.6 * k, 0.45)  # la stella finisce di fronte, il resto di sbieco
-    solidi = [(solido(asp["forme"][0]), max(r3 + 1, cx - lato), cy - 0.12 * s, r3, 1, *posa(asp["forme"][0], -1)),
-              (solido(asp["forme"][1]), min(W - r3 * 1.15 - 2, cx + lato), cy + 0.18 * s, r3, -1, *posa(asp["forme"][1], 1))]
+    posa = lambda f, k: (0.0, 0.0) if f in ("stella", "cuore") else (0.6 * k, 0.45)  # stella e cuore finiscono di fronte
+    npunti = int(max(1500, min(9000, 4 * math.pi * r3 * r3 / 1.4)))  # abbastanza punti da coprire la superficie
+    solidi = [(asp["forme"][0], asp["forme"][1], max(r3 + 1, cx - lato), cy - 0.12 * s, r3, 1, *posa(asp["forme"][0], -1)),
+              (asp["forme"][1], asp["forme"][0], min(W - r3 * 1.15 - 2, cx + lato), cy + 0.18 * s, r3, -1, *posa(asp["forme"][1], 1))]
+    for f_ in asp["forme"]:
+        nuvola(f_, npunti)
+    # il retino: 5 toni della tinta (nero, scuro, base, chiaro, luce), scelti per luminosità con la matrice di Bayer
+    TONI = [(0, 0, 0), tuple(v * 0.42 for v in ROSSO), ROSSO, ROSA, BIANCO]
+    YT = [0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2] for c in TONI]
+    BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5]
+
+    def retino(c, bx, by):
+        y_ = 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2]
+        if y_ <= 1:
+            return TONI[0]
+        for i in range(4):
+            if y_ < YT[i + 1] or i == 3:
+                fr = min(1.0, (y_ - YT[i]) / ((YT[i + 1] - YT[i]) or 1))
+                # i toni più scuri (la nebulosa) a punti sparsi: il retino regolare lì fa righe
+                soglia = ((bx * 92837111) ^ (by * 689287499)) % 16 if i == 0 else BAYER4[(by & 3) * 4 + (bx & 3)]
+                return TONI[i + 1] if fr * 16 > soglia + 0.5 else TONI[i]
+
+    def tono_luce(l):
+        """Una luminosità 0..1 come colore della tavolozza (poi il retino la rende a punti)."""
+        y_ = max(0.0, min(1.0, l)) * YT[4]
+        for i in range(4):
+            if y_ <= YT[i + 1]:
+                fr = (y_ - YT[i]) / ((YT[i + 1] - YT[i]) or 1)
+                return tuple(TONI[i][q] + (TONI[i + 1][q] - TONI[i][q]) * fr for q in range(3))
+        return BIANCO
+    LX, LY, LZ = -0.5 / 0.987, 0.62 / 0.987, -0.6 / 0.987  # luce in alto a sinistra, davanti
+    HX, HY, HZ = LX, LY, LZ - 1
+    hm = math.sqrt(HX * HX + HY * HY + HZ * HZ)
+    HX, HY, HZ = HX / hm, HY / hm, HZ / hm
+
+    def deforma(giro):
+        """0 → 1 → 0: ogni ~12 s le due forme si scambiano, deformandosi (solo quando la scena resta)."""
+        k = giro % 12.4
+        if k < 5:
+            return 0.0
+        if k < 6.4:
+            return 0.5 - 0.5 * math.cos(math.pi * (k - 5) / 1.4)
+        if k < 11:
+            return 1.0
+        return 0.5 + 0.5 * math.cos(math.pi * (k - 11) / 1.4)
     nome = asp["titolo"]
     if len(nome) * 4 - 1 > W * 0.9:  # non ci sta neanche a pixel di una cella: la prima parola
         nome = nome.split()[0][:max(1, int(W * 0.9 + 1) // 4)]
@@ -2518,20 +2617,6 @@ def intro(durata=3.2, resta=False, domanda=True, sfuma=False, salvaschermo=False
         if 0 <= x < W and 0 <= y < PH and a > 0:
             p = buf[y][x]
             p[0] += c[0] * a; p[1] += c[1] * a; p[2] += c[2] * a
-
-    def riempi(buf, poli, c, a):
-        """Poligono pieno (anche non convesso: pari e dispari) che copre quello che c'è sotto."""
-        ys = [y for _, y in poli]
-        for y in range(max(0, int(math.ceil(min(ys) - 0.5))), min(PH, int(max(ys) + 0.5) + 1)):
-            yc, xs = y + 0.5, []
-            for (x0, y0), (x1, y1) in zip(poli, poli[1:] + poli[:1]):
-                if (y0 <= yc) != (y1 <= yc):
-                    xs.append(x0 + (yc - y0) * (x1 - x0) / (y1 - y0))
-            xs.sort()
-            for x_a, x_b in zip(xs[::2], xs[1::2]):
-                for x in range(max(0, int(math.ceil(x_a - 0.5))), min(W, int(x_b - 0.5) + 1)):
-                    p = buf[y][x]
-                    p[0] += (c[0] - p[0]) * a; p[1] += (c[1] - p[1]) * a; p[2] += (c[2] - p[2]) * a
 
     volo_t = [0.0]
 
@@ -2559,36 +2644,42 @@ def intro(durata=3.2, resta=False, domanda=True, sfuma=False, salvaschermo=False
             for dx in range(Q):  # a quadranti un pixel solo è alto il doppio che largo: il punto è largo 2
                 disegna(buf, x + dx, y, BIANCO, fa * b * (0.6 + 0.4 * math.sin((t + giro / 3) * 9 + ph)))
         sa = max(0.0, min(1.0, (t - 0.25) / 0.25))
-        for (vert, lati, facce), ox, oy, r, verso, fy, fx in solidi if sa else []:
+        mf = deforma(giro) if giro else 0.0
+        mf = mf * mf * (3 - 2 * mf)
+        for nome_a, nome_b, ox, oy, r, verso, fy, fx in solidi if sa else []:
             ay, ax = verso * (t * 2 * math.pi + giro * 0.9) + fy, (1 - t) * 3.5 + fx + 0.25 * math.sin(giro * 0.5)
-            v3, pp = [], []
-            for x, y, z in vert:
-                x, z = x * math.cos(ay) + z * math.sin(ay), -x * math.sin(ay) + z * math.cos(ay)
-                y, z = y * math.cos(ax) - z * math.sin(ax), y * math.sin(ax) + z * math.cos(ax)
-                k = 3 / (3 + z)
-                v3.append((x, y, z))
-                pp.append((ox + x * r * k, oy + y * r * k + math.sin(giro * 0.7 + ox) * r * 0.08))  # fluttua piano
-            davanti = set()
-            for fc in sorted(facce, key=lambda fc: -sum(v3[i][2] for i in fc) / len(fc)):  # dalla più lontana
-                (ax_, ay_, az_), (bx, by, bz), (cx_, cy_, cz) = v3[fc[0]], v3[fc[1]], v3[fc[2]]
-                nx, ny, nz = ((by - ay_) * (cz - az_) - (bz - az_) * (cy_ - ay_), (bz - az_) * (cx_ - ax_) - (bx - ax_) * (cz - az_),
-                              (bx - ax_) * (cy_ - ay_) - (by - ay_) * (cx_ - ax_))
-                m = math.sqrt(nx * nx + ny * ny + nz * nz) or 1
-                cxf, cyf, czf = (sum(v3[i][q] for i in fc) / len(fc) for q in range(3))
-                if nx * cxf + ny * cyf + nz * czf < 0:  # la normale verso fuori
-                    nx, ny, nz = -nx, -ny, -nz
-                nx, ny, nz = nx / m, ny / m, nz / m
-                if nz < 0:
-                    davanti.add(tuple(fc))
-                luce = max(0.0, -0.45 * nx - 0.6 * ny - 0.66 * nz)  # luce da in alto a sinistra, davanti
-                c = tuple(ROSSO[q] * (0.1 + 0.8 * luce) + (ROSA[q] - ROSSO[q]) * 0.7 * luce ** 4 for q in range(3))
-                riempi(buf, [pp[i] for i in fc], c, sa)
-            for fc in davanti:  # i bordi chiari solo dove si vedono
-                for q in range(len(fc)):
-                    (x0, y0), (x1, y1) = pp[fc[q]], pp[fc[(q + 1) % len(fc)]]
-                    n = max(1, int(max(abs(x1 - x0), abs(y1 - y0)) * 1.5))
-                    for s_ in range(n + 1):
-                        disegna(buf, x0 + (x1 - x0) * s_ / n, y0 + (y1 - y0) * s_ / n, ROSA, sa * 0.14)
+            cy_, sy_, cx_, sx_ = math.cos(ay), math.sin(ay), math.cos(ax), math.sin(ax)
+            oy2 = oy + math.sin(giro * 0.7 + ox) * r * 0.08  # fluttua piano
+            ra = r * (1 - 0.2 * math.sin(math.pi * mf))  # respira mentre cambia forma
+            pa, pb = NUVOLE[(nome_a, npunti)], NUVOLE[(nome_b, npunti)]
+            zb = {}
+            for i in range(npunti):
+                x, y, z, nx, ny, nz = pa[i]
+                if mf:
+                    b_ = pb[i]
+                    x, y, z = x + (b_[0] - x) * mf, y + (b_[1] - y) * mf, z + (b_[2] - z) * mf
+                    nx, ny, nz = nx + (b_[3] - nx) * mf, ny + (b_[4] - ny) * mf, nz + (b_[5] - nz) * mf
+                    m_ = math.sqrt(nx * nx + ny * ny + nz * nz) or 1
+                    nx, ny, nz = nx / m_, ny / m_, nz / m_
+                x, z = x * cy_ + z * sy_, -x * sy_ + z * cy_
+                y, z = y * cx_ - z * sx_, y * sx_ + z * cx_
+                nx, nz = nx * cy_ + nz * sy_, -nx * sy_ + nz * cy_
+                ny, nz = ny * cx_ - nz * sx_, ny * sx_ + nz * cx_
+                if nz > 0.2:  # guarda indietro: non si vede
+                    continue
+                ix, iy = int(ox + x * ra), int(oy2 - y * ra)
+                dif = max(0.0, nx * LX + ny * LY + nz * LZ)
+                spe = max(0.0, nx * HX + ny * HY + nz * HZ) ** 26
+                lum = 0.07 + 0.58 * dif + 0.62 * spe + 0.1 * (1 - abs(nz)) ** 3
+                for px_, py_ in ((ix, iy), (ix + 1, iy), (ix, iy + 1), (ix + 1, iy + 1)):
+                    v = zb.get((px_, py_))
+                    if v is None or z < v[0]:
+                        zb[(px_, py_)] = (z, lum)
+            for (px_, py_), (_, lum) in zb.items():
+                if 0 <= px_ < W and 0 <= py_ < PH:
+                    c = tono_luce(lum)
+                    q = buf[py_][px_]
+                    q[0] += (c[0] - q[0]) * sa; q[1] += (c[1] - q[1]) * sa; q[2] += (c[2] - q[2]) * sa
         for i, (x, y, m) in enumerate(sorted(stelle, key=lambda st: st[2])):  # le sette, dalla più luminosa
             a = max(0.0, min(1.0, (t - 0.42 - i * 0.045) / 0.12))
             if not a:
@@ -2610,7 +2701,7 @@ def intro(durata=3.2, resta=False, domanda=True, sfuma=False, salvaschermo=False
                     for qy in range(f):
                         for qx in range(f):
                             x, y = tx0 + (j * 4 + k % 3) * f + qx, ty0 + (k // 3) * f + qy
-                            c = tuple(ROSSO[q] + (ROSA[q] - ROSSO[q]) * x / W for q in range(3))
+                            c = ROSSO  # tinta piena: a retino le lettere verrebbero rigate
                             luce = max(0.0, 1 - abs(x - lampo) / (4 * f))
                             disegna(buf, x, y, tuple(c[q] + (BIANCO[q] - c[q]) * luce for q in range(3)), na)
         return buf
@@ -2658,7 +2749,8 @@ def intro(durata=3.2, resta=False, domanda=True, sfuma=False, salvaschermo=False
             for x in range(C):
                 if Q == 2:  # 2×4 pixel quadrati → 2×2 (le coppie di righe in media)
                     y = 4 * r
-                    px = [[(buf[y + dy][2 * x + dx][q] + buf[y + dy + 1][2 * x + dx][q]) / 2 for q in range(3)]
+                    px = [retino([(buf[y + dy][2 * x + dx][q] + buf[y + dy + 1][2 * x + dx][q]) / 2 for q in range(3)],
+                                 2 * x + dx, 2 * r + dy // 2)
                           for dy, dx in ((0, 0), (0, 1), (2, 0), (2, 1))]
                     dav, die, ch = cella_quadranti(px)
                     if ch == " ":
@@ -2666,7 +2758,7 @@ def intro(durata=3.2, resta=False, domanda=True, sfuma=False, salvaschermo=False
                     else:
                         cod = (col(dav, False) + (col(die, True) if sum(die) > 9 else nero), ch)
                 else:
-                    a, b = buf[2 * r][x], buf[2 * r + 1][x]
+                    a, b = retino(buf[2 * r][x], x, 2 * r), retino(buf[2 * r + 1][x], x, 2 * r + 1)
                     sa, sb = sum(a) > 9, sum(b) > 9
                     if sa and sb and max(abs(a[q] - b[q]) for q in range(3)) < 6:
                         cod = (col(a, True, x, 2 * r), " ")  # cella intera dallo sfondo: nessun bordo del glifo
