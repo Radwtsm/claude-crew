@@ -34,3 +34,6 @@ Letto da `SKILL.md` prima di: script bash/zsh/Git Bash, comandi ssh, hook, hered
   ogni modo in cui verrà chiamato, con un argomento che contiene spazi.
 - Pre-commit con `gitleaks git --staged` e `git commit -a` (o `-am`) → «fatal: unable to read <hash>», commit
   bloccato: `-a` usa un indice temporaneo che gitleaks non vede → `git add` dei file, poi `git commit` senza `-a`.
+- Grafica a quadranti (▘▝▖▗▚…) nel terminale: in molti font mancano o le righe hanno spazi in mezzo → l'immagine
+  esce rotta, «pixelata», mentre il calcolo è giusto (provalo disegnando il fotogramma in un'immagine) → di base
+  mezzi blocchi ▀▄ (in ogni font, pixel quadrati), quadranti solo su richiesta; fotogrammi con `\e[?2026h`…`l`.
