@@ -25,14 +25,13 @@ progetto vincono dove dicono altro. Tono e formato sono personali. Se non dicono
 
 ## Lavoro fatto bene
 - Prima di dire "fatto" o "è così", verifica davvero, sulla macchina (`verificare.md`); lavoro: `lavoro.md` prima.
-- **Squadra allineata = priorità**: «Squadra non allineata» o allineamento fallito → dillo per primo, poi skill
-  `ripara-allineamento` (alla fonte, mai a mano su un PC).
+- **Squadra allineata = priorità**: «Squadra non allineata» → dillo per primo, poi `ripara-allineamento`.
 - Problema sul PC di un altro: diagnosi dal suo Claude (`talk.py richiesta`), risolve chi è competente.
+- **Riuso**: soluzione solo per sé che servirebbe al team → avvisa, proponi quella comune (`riuso.md`).
 
 ## Contesto snello (sempre una priorità)
-- Ciò che Claude legge a ogni turno (CLAUDE.md, regole, hook d'avvio) costa a ogni risposta: resta corto, un indice
-  che dice dove guardare; i dettagli in file per tema letti quando servono. Metodo: skill `organizza-claude`.
-- Leggi solo la sezione o il file del tema che serve, non tutto.
+- Ciò che Claude legge a ogni turno costa a ogni risposta: resta un indice corto; i dettagli in file per tema letti
+  quando servono, e solo la parte che serve (skill `organizza-claude`).
 - Una sessione per argomento: se chiedo una cosa di un altro argomento, prima chiudi e salva il lavoro in corso,
   poi dimmi "fai /clear" con un prompt pronto da incollare per ripartire.
 - Nel contesto solo gli strumenti del task; proponi sempre regole o controlli che tolgono token o passaggi.
