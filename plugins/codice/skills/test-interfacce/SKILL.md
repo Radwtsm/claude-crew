@@ -8,6 +8,8 @@ description: Tecniche e strumenti per scoprire le incongruenze di un'interfaccia
 Un bug di layout nasce quasi sempre MENTRE si usa l'app. Le foto a poche misure non lo vedono. Ogni progetto con una UI
 ha queste tecniche, nell'ordine in cui rendono di più.
 
+Installare e lanciare i test: `installare.md`.
+
 ## Prima di tutto chiedi
 Stack, motori da coprire (es. WebKit e Chromium), misure minime e massime, regole di design scritte.
 
