@@ -36,7 +36,9 @@ Niente senza il suo sì.
 
 ## 5. Scrivi
 Per ogni scelta: pulisci (vedi `CLAUDE.md`), unisci i doppioni in una skill sola, scrivi seguendo la struttura del
-`CLAUDE.md` (sezioni "Strumenti: tutti qui" per plugin, MCP e hook; "Lezioni" per i problemi risolti). Senza accesso alla libreria: usa `condividi-skill` (zip). La skill privata originale non la cancelli:
+`CLAUDE.md` (sezioni "Strumenti: tutti qui" per plugin, MCP e hook; "Lezioni" per i problemi risolti).
+Senza accesso alla libreria: usa `condividi-skill` (fork e pull request, o zip).
+La skill privata originale non la cancelli:
 se l'utente vuole, dopo la pubblicazione la sostituisce col plugin di Pleyades.
 
 ## 6. Riepilogo

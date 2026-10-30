@@ -64,10 +64,12 @@ I problemi già presenti stanno in `lint-regole-baseline.txt`: bloccano solo que
 Ognuno lo chiede al proprio Claude: **"aggiungi questo a Pleyades"** (una skill) o **"raccogli le mie skill in Pleyades"**
 (inventario completo). Le regole che le istanze seguono sono in [`CLAUDE.md`](CLAUDE.md), la sola fonte.
 
-- **Collaboratori** (invitati al repo su GitHub: Settings → Collaborators): il loro Claude li guida a clonare il
-  repo e pubblica con git dopo `check.sh`. Skill e testi vanno diretti; script e hook in una pull request.
-- **Gli altri**: `condividi-skill` prepara uno zip da mandare a un collaboratore, che lo importa con
+- **Con un account GitHub, senza alcun accesso al repo**: `condividi-skill` fa fork e pull request; un filtro la
+  etichetta (`solo-skill` o `da-rileggere`) e il manutentore decide. È il modo normale per scambiare skill.
+- **Senza GitHub**: `condividi-skill` prepara uno zip da mandare a un collaboratore, che lo importa con
   `python3 tools/aggiungi.py <skill.zip> <categoria>`. Oppure un modulo in Issues.
+- **Collaboratori** (invitati al repo su GitHub: Settings → Collaborators): scrivono su tutto il repo. Skill e testi
+  vanno diretti, script e hook in una pull request.
 
 Regole per ciò che entra:
 - Repo **pubblico**: niente segreti, IP, nomi di PC, percorsi, email, dati di persone (`check.sh` + CI li bloccano;

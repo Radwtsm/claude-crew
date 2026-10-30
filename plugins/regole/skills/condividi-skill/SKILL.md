@@ -18,9 +18,25 @@ URL privati; nomi, email, account, dati di persone; preferenze solo sue (tono, c
 restano nelle sue regole personali.
 
 ## 3. Invia
-- **Hai un clone del repo di Pleyades** (sei collaboratore): `git pull --ff-only`, leggi il suo `CLAUDE.md`, scrivi
-  la skill seguendolo, `sh check.sh`, commit e push.
-- **Altrimenti**: crea `<nome>.zip` con dentro la cartella della skill (`<nome>/SKILL.md`), salvalo sul Desktop
+- **Sei collaboratore** (`gh api repos/Radwtsm/claude-crew -q .permissions.push` → `true`): nel clone
+  `git pull --ff-only`, leggi il suo `CLAUDE.md`, scrivi la skill seguendolo, `sh check.sh`, commit e push.
+- **Hai GitHub ma non sei collaboratore** (`gh auth status` ok): proposta con fork, nessun accesso al repo. Prima
+  mostra all'utente il testo finale: fork e pull request sono pubblici. In una cartella tua:
+  ```
+  gh repo fork Radwtsm/claude-crew --clone --default-branch-only
+  gh repo sync <tuo-utente>/claude-crew
+  cd claude-crew && git pull --ff-only
+  git switch -c skill/<nome>
+  ```
+  Skill nuova: `python3 tools/aggiungi.py <cartella-skill> <categoria>`. Skill che esiste già: cambia il suo `SKILL.md`.
+  Poi `sh check.sh`, commit e:
+  ```
+  git push -u origin skill/<nome>
+  gh pr create --repo Radwtsm/claude-crew --head <tuo-utente>:skill/<nome> --fill
+  ```
+  Solo `.md` e `plugin.json`: script, hook o altri file richiedono una lettura più attenta. Di' all'utente il link
+  della PR: un filtro la etichetta e la lascia al manutentore, che la legge e decide.
+- **Niente GitHub**: crea `<nome>.zip` con dentro la cartella della skill (`<nome>/SKILL.md`), salvalo sul Desktop
   (nell'app: come file da scaricare) e di' all'utente di mandarlo in chat a un manutentore di Pleyades.
 
-Dopo la pubblicazione arriva a tutti con la sincronizzazione dei plugin.
+Dopo il merge arriva a tutti con la sincronizzazione dei plugin.
