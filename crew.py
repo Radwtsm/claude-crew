@@ -18,6 +18,8 @@
     pleyades-cli app                l'app dei tuoi progetti (per ora Windows): la installa o la aggiorna dallo studio,
                                     solo se l'impronta corrisponde; `auto` la tiene aggiornata da sola
     pleyades-cli kit                il tuo kit in base al ruolo: skill, cosa leggere, a chi chiedere
+    pleyades-cli passi [--json]     i passi del setup: obbligatori (contano per «allineato»), facoltativi (proposti,
+                                    mai rossi), sistemi e chi li fa; l'app e le skill leggono questo elenco
     pleyades-cli auto [--subito]    (hook d'avvio di regole e «📦 Push» nella stanza, in background) aggiorna tutto, poi
                                     `controlla --talk` solo se il riassunto è cambiato o ha più di 3 giorni
     pleyades-cli pianifica [--togli]   l'attività del sistema che lancia `auto` all'accesso e ogni 5 minuti, anche a
@@ -91,12 +93,96 @@ REGOLE_USO = """Regole d'uso (1 minuto):
   6. Quando Claude chiede prima di cancellare o inviare, rispondi pensandoci."""
 
 
+# Il registro dei passi (owner 30/10: «onboarding sempre allineato»): ogni Esito di questo file appartiene a un passo,
+# col nome scritto come nel codice ({} = parte variabile). `livello`: obbligatorio = conta per «allineato»;
+# facoltativo = proposto, mai rosso; stato = come sta il lavoro (non è setup); azione = esito di un comando chiesto.
+# `fa` = chi lo esegue (cli, skill:<nome>, app). tools/lint_passi.py (check.sh) fallisce se un Esito non è qui o un
+# passo non ha più Esiti: una funzione nuova arriva con il suo passo. App e skill lo leggono con `pleyades-cli passi --json`.
+PASSI = [
+    {"id": "computer", "nome": "Questo computer (casa o lavoro)", "livello": "obbligatorio", "sistemi": "mac windows linux",
+     "fa": "cli", "esiti": ["profilo: casa", "profilo: lavoro", "profilo lavoro"]},
+    {"id": "sistema", "nome": "Python e git", "livello": "obbligatorio", "sistemi": "mac windows linux", "fa": "cli",
+     "esiti": ["git", "Python {} e git", "strumenti di Apple (git)", "GitHub raggiungibile"]},
+    {"id": "claude", "nome": "Claude Code e accesso", "livello": "obbligatorio", "sistemi": "mac windows linux",
+     "fa": "cli", "esiti": ["Claude Code", "accesso a Claude"]},
+    {"id": "github", "nome": "GitHub (solo chi scrive codice)", "livello": "facoltativo", "sistemi": "mac windows linux",
+     "fa": "cli", "esiti": ["GitHub", "GitHub come {}", "GitHub CLI"]},
+    {"id": "crew", "nome": "Pleyades tools: regole comuni, plugin, comando", "livello": "obbligatorio",
+     "sistemi": "mac windows linux", "fa": "cli",
+     "esiti": ["regole comuni", "plugin (marketplace)", "plugin installati ({})", "plugin {}", "comando pleyades-cli",
+               "comando `pleyades-cli` (per la prossima volta)", "pleyades-cli", "pleyades-cli aggiornato",
+               "aggiornamento automatico delle regole comuni"]},
+    {"id": "auto", "nome": "Aggiornamento automatico", "livello": "obbligatorio", "sistemi": "mac windows linux",
+     "fa": "cli", "esiti": ["aggiornamento automatico pianificato", "aggiornamento automatico (auto)"]},
+    {"id": "progetti", "nome": "Progetti (repo, plugin, passi, hook)", "livello": "obbligatorio",
+     "sistemi": "mac windows linux", "fa": "cli",
+     "esiti": ["progetti", "{}", "repo in {}", "{}: plugin", "plugin del progetto ({})", "passi del progetto",
+               "progetto", "progetto: dietro", "controlli prima del commit (hook git)"]},
+    {"id": "studio", "nome": "Studio Nextcloud e cartelle", "livello": "obbligatorio", "sistemi": "mac windows linux",
+     "fa": "cli", "esiti": ["accesso allo studio", "progetti dello studio", "copia di «{}»", "copia di «{}» in {}",
+                             "cartelle condivise del progetto", "app Nextcloud", "app Nextcloud sul computer"]},
+    {"id": "talk", "nome": "Stanza Talk", "livello": "obbligatorio", "sistemi": "mac windows linux", "fa": "cli",
+     "esiti": ["stanza Talk", "{}: stanza Talk", "stanza Talk «{}»"]},
+    {"id": "ruolo", "nome": "Skill del ruolo", "livello": "obbligatorio", "sistemi": "mac windows linux", "fa": "cli",
+     "esiti": ["skill del tuo ruolo ({})", "{}: skill del ruolo"]},
+    {"id": "scheda", "nome": "Scheda con gli Ambiti", "livello": "facoltativo", "sistemi": "mac windows linux",
+     "fa": "skill:compila-servizi", "esiti": ["{}: scheda con Ambiti"]},
+    {"id": "regole-personali", "nome": "Regole personali", "livello": "facoltativo", "sistemi": "mac windows linux",
+     "fa": "skill:configura-claude", "esiti": ["regole personali (claude-personale)"]},
+    {"id": "app-talk", "nome": "App Nextcloud Talk", "livello": "facoltativo", "sistemi": "mac windows",
+     "fa": "cli", "esiti": ["app Nextcloud Talk"]},
+    {"id": "calendario", "nome": "Calendario e Contatti", "livello": "facoltativo", "sistemi": "mac",
+     "fa": "cli", "esiti": ["Calendario e Contatti del Mac"]},
+    {"id": "aspetto", "nome": "Aspetto (terminale, Claude, Windows, icona)", "livello": "facoltativo",
+     "sistemi": "mac windows linux", "fa": "cli",
+     "esiti": ["look Pleyades (terminale + Claude)", "aspetto messo ovunque", "colori di Windows",
+               "icona «Pleyades tools» sul desktop"]},
+    {"id": "app", "nome": "App del progetto (Pleiadi)", "livello": "obbligatorio", "sistemi": "windows",
+     "fa": "cli", "esiti": ["app {}"]},
+    {"id": "lavoro-in-corso", "nome": "Lavoro non ancora pubblicato", "livello": "stato",
+     "sistemi": "mac windows linux", "fa": "cli", "esiti": ["progetto: modifiche non pubblicate"]},
+    {"id": "azioni", "nome": "Esiti di comandi chiesti (prendi, togli, squadra)", "livello": "azione",
+     "sistemi": "mac windows linux", "fa": "cli", "esiti": ["{}: {}", "preso: {}", "{} ({})"]},
+]
+
+
+def _passo_re(t):
+    return re.compile("^" + ".+".join(re.escape(x) for x in t.split("{}")) + "$", re.S)
+
+
+# il più preciso prima: «plugin installati (3)» è di crew, non di «{} ({})»
+_PASSI_RE = sorted(((_passo_re(t), p) for p in PASSI for t in p["esiti"]),
+                   key=lambda x: -len(x[0].pattern.replace(".+", "")))
+
+
+def passo_di(nome):
+    return next((p for r, p in _PASSI_RE if r.match(nome)), {"id": "?", "livello": "obbligatorio"})
+
+
 class Esito:
     """cosa = cosa fare se non va (mostrato solo con ❌); nota = dettaglio mostrato con ✅ o ⏭."""
     def __init__(self, nome, ok, cosa="", saltato=False, nota="", riprova=None):
         """riprova = funzione che rifà il passo e torna True se ora va: la guida la offre sul posto (owner 28/10:
         tutto in una volta, non rilanciare il comando)."""
         self.nome, self.ok, self.cosa, self.saltato, self.nota, self.riprova = nome, ok, cosa, saltato, nota, riprova
+        self.livello = passo_di(nome)["livello"]
+
+    @property
+    def manca(self):
+        """Conta per «allineato»: solo i passi obbligatori (owner 30/10: un facoltativo saltato non è indietro)."""
+        return not (self.ok or self.saltato) and self.livello == "obbligatorio"
+
+    @property
+    def proposto(self):
+        return not (self.ok or self.saltato) and self.livello == "facoltativo"
+
+
+def conta_esiti(esiti):
+    """(a posto, totale, nomi che mancano, nomi facoltativi da proporre): totale = solo i passi obbligatori."""
+    obbl = [e for e in esiti if e.livello == "obbligatorio"]
+    manca = list(dict.fromkeys(e.nome for e in obbl if e.manca))
+    return len(obbl) - sum(e.manca for e in obbl), len(obbl), manca, \
+        list(dict.fromkeys(e.nome for e in esiti if e.proposto))
 
 
 # ───────────────────────────── logica (niente stampa) ─────────────────────────────
@@ -636,11 +722,13 @@ def sha7(dati):
 
 def versioni(d, c):
     """Questo computer per il progetto: comando (hash di crew.py), progetto (commit; * = modifiche o commit non
-    pushati, «studio» = copia dallo studio), marketplace (commit dei plugin installati del progetto)."""
+    pushati in più, sopra l'ultimo commit pubblicato che contiene; «studio» = copia dallo studio), marketplace (commit dei plugin installati del progetto)."""
     f = os.path.join(CARTELLA, "crew.py")
     v = {"cli": sha7(open(f if os.path.isfile(f) else __file__, "rb").read())}
     if os.path.isdir(os.path.join(d, ".git")):
-        testa = run("git", "-C", d, "rev-parse", "--short=7", "HEAD")[1].strip()
+        # il commit pubblicato contenuto qui (owner 30/10: chi ha commit non pushati è avanti, non indietro)
+        testa = run("git", "-C", d, "merge-base", "HEAD", "@{u}")[1].strip()[:7] or \
+            run("git", "-C", d, "rev-parse", "--short=7", "HEAD")[1].strip()
         sporco = run("git", "-C", d, "status", "--porcelain", "-uno")[1].strip() or \
             run("git", "-C", d, "rev-list", "@{u}..HEAD")[1].strip()
         v["progetto"] = testa + ("*" if sporco else "")
@@ -824,37 +912,37 @@ def installa_app(d, c, app, scarica=None):
     di Talk del progetto; i test ne passano uno finto)."""
     nome = app["nome"]
     if not WIN:
-        return Esito(nome, True, saltato=True, nota="per ora solo su Windows")
+        return Esito(f"app {nome}", True, saltato=True, nota="per ora solo su Windows")
     if not app.get("windows"):
-        return Esito(nome, True, saltato=True, nota="nessuna versione per Windows")
+        return Esito(f"app {nome}", True, saltato=True, nota="nessuna versione per Windows")
     if scarica is None:
         t = modulo_talk(d, c)
         cred = t.credenziali() if t else None
         if not cred:
-            return Esito(nome, False, "collega prima lo studio: `pleyades-cli guida`")
+            return Esito(f"app {nome}", False, "collega prima lo studio: `pleyades-cli guida`")
         scarica = lambda percorso: dav_leggi(t.SERVER, cred, percorso)
     dest = cartella_app(app)
     try:
         meta = json.loads(scarica(app["windows"][:-4] + ".json"))
         gia = leggi_json(os.path.join(dest, "versione.json"), {}) or {}
         if gia.get("sha256") == meta.get("sha256") and os.path.isdir(dest):
-            return Esito(nome, True, saltato=True, nota=f"già all'ultima ({meta.get('versione', '?')})")
+            return Esito(f"app {nome}", True, saltato=True, nota=f"già all'ultima ({meta.get('versione', '?')})")
         dati = scarica(app["windows"])
     except (OSError, ValueError, KeyError) as e:
-        return Esito(nome, False, f"lo studio non risponde o manca la build ({e})")
+        return Esito(f"app {nome}", False, f"lo studio non risponde o manca la build ({e})")
     if hashlib.sha256(dati).hexdigest() != meta.get("sha256"):
-        return Esito(nome, False, "l'impronta non corrisponde: non installo (riprova; se resta, avvisa chi la pubblica)")
+        return Esito(f"app {nome}", False, "l'impronta non corrisponde: non installo (riprova; se resta, avvisa chi la pubblica)")
     nuovo, vecchio = dest + ".nuovo", dest + ".vecchio"
     shutil.rmtree(nuovo, ignore_errors=True)
     with zipfile.ZipFile(io.BytesIO(dati)) as z:
         for f in z.namelist():  # mai fuori dalla cartella dell'app
             if f.startswith(("/", "\\")) or ".." in f.replace("\\", "/").split("/"):
-                return Esito(nome, False, f"zip con un percorso non valido ({f}): non installo")
+                return Esito(f"app {nome}", False, f"zip con un percorso non valido ({f}): non installo")
         z.extractall(nuovo)
     exe = next((f for f in os.listdir(nuovo) if f.lower().endswith(".exe")), None)
     if not exe:
         shutil.rmtree(nuovo, ignore_errors=True)
-        return Esito(nome, False, "nella zip non c'è un .exe")
+        return Esito(f"app {nome}", False, "nella zip non c'è un .exe")
     with open(os.path.join(nuovo, "versione.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f)
     shutil.rmtree(vecchio, ignore_errors=True)
@@ -864,11 +952,11 @@ def installa_app(d, c, app, scarica=None):
         os.replace(nuovo, dest)
     except OSError:
         shutil.rmtree(nuovo, ignore_errors=True)
-        return Esito(nome, False, f"chiudi {nome} e rilancia `pleyades-cli app`")
+        return Esito(f"app {nome}", False, f"chiudi {nome} e rilancia `pleyades-cli app`")
     shutil.rmtree(vecchio, ignore_errors=True)
     exe = os.path.join(dest, exe)
     ok = collegamenti_app(app, exe)
-    return Esito(nome, True, nota=f"{meta.get('versione', '?')} installata" + ("" if ok else " (collegamenti non creati)"))
+    return Esito(f"app {nome}", True, nota=f"{meta.get('versione', '?')} installata" + ("" if ok else " (collegamenti non creati)"))
 
 
 def app(ui):
@@ -1424,11 +1512,13 @@ class Terminale:
         return _Attesa(self, testo)
 
     def riepilogo(self, minuti):
-        fatti = [e for e in self.esiti if e.ok or e.saltato]
-        tutto = len(fatti) == len(self.esiti)
-        righe = [(self.c("32", "✓ ") if tutto else self.acc("✦ ")) + self.c("1", f"{len(fatti)}/{len(self.esiti)} a posto")
+        ok, tot, manca, proposti = conta_esiti(self.esiti)
+        tutto = not manca
+        righe = [(self.c("32", "✓ ") if tutto else self.acc("✦ ")) + self.c("1", f"{ok}/{tot} a posto")
                  + self.c("2", f" · {minuti} min")]
-        righe += ["  " + self.c("31", "✗") + f" {e.nome}" for e in self.esiti if not (e.ok or e.saltato)]
+        righe += ["  " + self.c("31", "✗") + f" {x}" for x in manca]
+        if proposti:  # facoltativi: proposti, mai rossi
+            righe.append(self.c("2", "  ○ puoi aggiungere: " + ", ".join(proposti)))
         if not tutto:
             righe.append(self.c("2", f"  rilancia `{self.nome}`: salta ciò che è già fatto"))
         self.riquadro(righe)
@@ -1979,11 +2069,10 @@ def guida(ui, richiesti, solo_progetti=False):
     ui.titolo("Regole d'uso")
     for r in REGOLE_USO.split("\n")[1:]:
         ui.info(r.strip())
-    verdi = sum(e.ok or e.saltato for e in ui.esiti)
-    manca = [e.nome for e in ui.esiti if not (e.ok or e.saltato)]  # chi aiuta vede subito cosa, senza chiederlo
+    verdi, tot, manca, _ = conta_esiti(ui.esiti)  # chi aiuta vede subito cosa manca, senza chiederlo
     for etichetta, (d, c, t, conf) in pronti:
         if t and stanza_collegata(t, c.get("stanza")):
-            scrivi_in_stanza(d, c, (f"🆕 pleyades-cli guida su {platform.system()}: {verdi}/{len(ui.esiti)} a posto in "
+            scrivi_in_stanza(d, c, (f"🆕 pleyades-cli guida su {platform.system()}: {verdi}/{tot} a posto in "
                                     f"{minuti} min ({etichetta.split('/')[-1]})"
                                     + (" · manca: " + ", ".join(manca) if manca else ""))[:390])
     if pronti and not lavoro():  # il primo 🔎 con le versioni: `squadra` lo vede subito (28/10: luco «senza controllo»)
@@ -2075,8 +2164,8 @@ def controlla(ui):
     ui.esito(Esito("pleyades-cli aggiornato", eta < 2, "pleyades-cli aggiorna", nota=f"{eta:.0f} giorni fa"))
     ui.riepilogo(0)
     if "--talk" in sys.argv:  # il riassunto in ogni stanza; `pleyades-cli squadra` confronta le versioni di tutti
-        manca = [e.nome for e in ui.esiti if not (e.ok or e.saltato)]
-        testo = f"🔎 pleyades-cli controlla ({platform.system()}): {len(ui.esiti) - len(manca)}/{len(ui.esiti)} a posto"
+        verdi, tot, manca, _ = conta_esiti(ui.esiti)  # i facoltativi non contano: chi li salta non è indietro
+        testo = f"🔎 pleyades-cli controlla ({platform.system()}): {verdi}/{tot} a posto"
         dove = [d for _, d in cartelle_progetti()]
         qui = run("git", "rev-parse", "--show-toplevel")[1].strip()  # un progetto non ancora «entra»: quello aperto
         if not dove and qui and os.path.isfile(os.path.join(qui, ".claude", "progetto.json")):
@@ -2140,14 +2229,15 @@ def squadra(ui):
         ui.info("ultima versione: " + " ".join(f"{k}={x}" for k, x in rif.items()))
         for (nome, sis), (m, r) in sorted(ultimi.items()):
             v = dict(x.split("=", 1) for x in (r.group("ver") or "").split() if "=" in x)
-            diverso = [f"{k}={v.get(k, '?')}" for k, x in rif.items() if v.get(k) != x]
+            diverso = [f"{k}={v.get(k, '?')}" for k, x in rif.items() if v.get(k, "").rstrip("*") != x]
             ora = m.get("lastEditTimestamp") or m["timestamp"]  # lo stato si aggiorna modificando il messaggio
             giorni = (time.time() - ora) / 86400
             ui.esito(Esito(f"{nome} ({sis})", not diverso and r.group("ok") == r.group("tot") and giorni < 7,
                            f"lì: pleyades-cli aggiorna, poi pleyades-cli controlla --talk · "
                            + (f"diverso: {' '.join(diverso)}" if diverso else f"{r.group('ok')}/{r.group('tot')}")
                            + (f" · controllo di {giorni:.0f} giorni fa" if giorni >= 7 else ""),
-                           nota=f"{r.group('ok')}/{r.group('tot')} · {time.strftime('%d/%m %H:%M', time.localtime(ora))}"))
+                           nota=f"{r.group('ok')}/{r.group('tot')} · {time.strftime('%d/%m %H:%M', time.localtime(ora))}"
+                           + (" · lavoro non pubblicato" if v.get("progetto", "").endswith("*") else "")))
         fatti = {n for n, _ in ultimi}
         mai = sorted(persone - fatti - {n[len("claude-"):] for n in fatti if n.startswith("claude-")})  # il suo Claude
         indietro += [e.nome for e in ui.esiti if not e.ok and e.nome != "stanza Talk"]
@@ -2280,11 +2370,11 @@ def giro_auto(ui):
     teste = teste_remote()  # prima del giro: un push arrivato durante il giro lo rifà quello dopo
     salva_stato(auto={"t": time.time(), "esito": "in corso"})
     aggiorna(ui)
-    ko = [e.nome for e in ui.esiti if not (e.ok or e.saltato)]
+    ko = conta_esiti(ui.esiti)[2]
     ui.esiti = []
     sys.argv += ["--talk", "--se-cambiato"]
     controlla(ui)
-    ko += [e.nome for e in ui.esiti if not (e.ok or e.saltato)]
+    ko += conta_esiti(ui.esiti)[2]
     ok, cosa = pianifica()
     if not ok:
         ko.append(f"attività pianificata ({cosa})")
@@ -2367,13 +2457,17 @@ def diagnosi(ui):
     esito, quando = a.get("esito", "mai partito"), a.get("t", 0)
     if esito == "in corso" and time.time() - quando > 900:
         esito = "interrotto (in corso da più di 15 minuti)"
-    ui.esito(Esito("aggiornamento automatico (auto)", esito == "ok",
+    ui.esito(Esito("aggiornamento automatico (auto)", esito in ("ok", "in corso"),  # in corso da < 15 min: aspetta
                    f"{esito} → righe di auto.log sotto; si rifà a mano con `{NOME_CLI} auto --subito`; «mai partito» = "
                    "manca il plugin regole o il suo hook (Windows: serve python o python3 nel PATH)",
                    nota=time.strftime("%d/%m %H:%M", time.localtime(quando)) if quando else ""))
-    if esito != "ok" and os.path.isfile(LOG_AUTO):
-        for r in open(LOG_AUTO, encoding="utf-8", errors="replace").read().strip().splitlines()[-8:]:
+    if esito != "ok":
+        righe = open(LOG_AUTO, encoding="utf-8", errors="replace").read().strip().splitlines() \
+            if os.path.isfile(LOG_AUTO) else []
+        for r in righe[-8:]:
             ui.info("auto.log │ " + r[:150])
+        if not righe:  # 30/10: diagnosi rimandava a righe che non c'erano
+            ui.info(f"auto.log vuoto: il giro non ha scritto errori; il perché è «{esito}» qui sopra")
     noti = leggi_json(os.path.join(CASA, ".claude", "plugins", "known_marketplaces.json"), {})
     for repo, d in cartelle_progetti():
         c = config_progetto(d)
@@ -2386,10 +2480,10 @@ def diagnosi(ui):
             ui.esito(Esito("progetto: modifiche non pubblicate", False,
                            f"{n} file modificati, {avanti or '?'} commit non pushati: commit + push (prima "
                            "`git pull --rebase`); push rifiutato da check.sh → leggi il suo messaggio, non saltarlo"))
-        elif p not in ("studio", r) and r != "?":
+        if p.rstrip("*") not in ("studio", r) and r != "?":
             ui.esito(Esito("progetto: dietro", False, f"`git -C {d} pull --ff-only` (o `{NOME_CLI} aggiorna`)",
                            nota=f"{p} → {r}"))
-        else:
+        elif not p.endswith("*"):
             ui.esito(Esito("progetto", True, nota=p))
         for mk in marketplace_del_progetto(c):
             loc = noti.get(mk, {}).get("installLocation", "")
@@ -3447,6 +3541,13 @@ def main():
         return intro(resta="--resta" in a)
     if a[:1] in (["-h"], ["--help"], ["aiuto"]):
         print(__doc__)
+        return 0
+    if a[:1] == ["passi"]:  # il registro per l'app e le skill: niente schermo, niente rete
+        if "--json" in a:
+            print(json.dumps(PASSI, ensure_ascii=False, indent=1))
+        else:
+            for p in PASSI:
+                print(f"{p['livello']:<12} {p['nome']} · {p['sistemi']} · {p['fa']}")
         return 0
     path_aggiornato()
     for x in a:

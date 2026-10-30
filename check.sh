@@ -22,6 +22,9 @@ fi
 # Formato comune di regole e skill (README → Formato): solo i problemi nuovi bloccano, quelli noti in
 # lint-regole-baseline.txt possono solo calare; in più i limiti in byte di limiti-contesto.txt (contesto snello)
 python3 plugins/regole/scripts/lint_regole.py . || exit 1
+# Ogni Esito di crew.py ha il suo passo di onboarding in PASSI (obbligatorio/facoltativo, sistemi): `pleyades-cli passi`
+python3 tools/lint_passi.py || exit 1
+python3 crew.py passi --json | python3 -c "import json,sys; json.load(sys.stdin)" || exit 1
 # Ogni plugin ha le sue `keywords` nel catalogo: da lì l'hook dei messaggi suggerisce un plugin mancante (personale.py)
 senza=$(python3 -c "import json;print(' '.join(p['name'] for p in json.load(open('.claude-plugin/marketplace.json'))['plugins'] if not p.get('keywords')))")
 if [ -n "$senza" ]; then
