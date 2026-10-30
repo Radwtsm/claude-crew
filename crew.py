@@ -14,6 +14,8 @@
     pleyades-cli diagnosi           perché questo computer non è allineato: versioni contro le ultime, ultimo `auto` e il
                                     suo log, modifiche non pubblicate; ogni ✗ con il comando che lo sistema (non cambia niente)
     pleyades-cli progetti           i tuoi progetti e a che punto sono
+    pleyades-cli token [--giorni=N] quanto costa ogni risposta di Claude qui (dai transcript, ultimi 7 giorni): avvio,
+                                    contesto medio, compattazione; exit 1 oltre il budget (anche in `controlla` e `diagnosi`)
     pleyades-cli link               i link giusti (studio, Talk, Dashboard, cartelle)
     pleyades-cli app                l'app dei tuoi progetti (per ora Windows): la installa o la aggiorna dallo studio,
                                     solo se l'impronta corrisponde; `auto` la tiene aggiornata da sola
@@ -71,6 +73,10 @@ LOG_PIANO = os.path.join(CARTELLA, "pianificato.log")  # l'output dell'ultimo `a
 PIANO = "studio.pleyades.auto"  # nome dell'attività pianificata (launchd; su Windows «Pleyades tools»)
 STATO = os.path.join(CASA, ".config", "crew", "stato.json")  # scelte della persona, mai segreti
 BIN = os.path.join(CASA, ".local", "bin")
+# Budget di token per risposta (`pleyades-cli token`): Claude rilegge tutto il contesto a ogni risposta
+TETTO_CONTESTO = 200_000  # autoCompactWindow messo a tutti: oltre, Claude compatta
+MAX_FREDDO = 95_000  # avvio: regole, CLAUDE.md, skill, strumenti (30/10 Mac app desktop: mediana 82k)
+MAX_MEDIO = 150_000  # contesto medio per risposta (30/10 con la finestra da 1M: 296k)
 CODICE = os.path.join(CASA, "code")
 WIN, MAC = os.name == "nt", sys.platform == "darwin"
 # Windows: da `auto` in background (hook staccato, attività pianificata con pythonw) ogni git/claude aprirebbe una
@@ -140,6 +146,9 @@ PASSI = [
                "icona «Pleyades tools» sul desktop"]},
     {"id": "app", "nome": "App del progetto (Pleiadi)", "livello": "obbligatorio", "sistemi": "windows",
      "fa": "cli", "esiti": ["app {}"]},
+    {"id": "token", "nome": "Consumo di token (budget per risposta)", "livello": "facoltativo",
+     "sistemi": "mac windows linux", "fa": "cli",
+     "esiti": ["compattazione a {}", "token all'avvio", "token per risposta"]},
     {"id": "lavoro-in-corso", "nome": "Lavoro non ancora pubblicato", "livello": "stato",
      "sistemi": "mac windows linux", "fa": "cli", "esiti": ["progetto: modifiche non pubblicate"]},
     {"id": "azioni", "nome": "Esiti di comandi chiesti (prendi, togli, squadra)", "livello": "azione",
@@ -383,11 +392,14 @@ def progetti_github():
 # Plugin di Claude Code
 
 def impostazioni_utente(marketplace=()):
-    """HTTPS per i plugin (niente chiave SSH di GitHub) e aggiornamento automatico dei marketplace dati."""
+    """HTTPS per i plugin (niente chiave SSH di GitHub), aggiornamento automatico dei marketplace dati e compattazione
+    a 200k token se nessuno ha scelto altro."""
     p = os.path.join(CASA, ".claude", "settings.json")
     s = leggi_json(p, {})
     prima = json.dumps(s, sort_keys=True)
     s.setdefault("env", {})["CLAUDE_CODE_PLUGIN_PREFER_HTTPS"] = "1"
+    # 30/10: con la finestra da 1M il contesto medio era 296k e ogni risposta lo rilegge tutto (74% dei token letti)
+    s.setdefault("autoCompactWindow", TETTO_CONTESTO)
     for nome in marketplace:
         m = s.get("extraKnownMarketplaces", {}).get(nome)
         if isinstance(m, dict):
@@ -1031,6 +1043,85 @@ def credenziali_note():
         if t and t.credenziali():
             return t.credenziali()
     return None
+
+
+# Token (owner 30/10: il costo non deve crescere con membri, plugin e regole): misurato dai transcript di Claude Code
+# di questo computer, mai stimato. Legge solo i numeri `usage`, mai il testo delle conversazioni.
+
+def misura_token(giorni=7):
+    """{sessioni, risposte, freddo, medio, oltre, lunghe} degli ultimi `giorni`, o None senza transcript.
+    freddo = mediana del contesto alla prima risposta (avvio); medio = contesto medio per risposta; oltre = quota dei
+    token letti da risposte oltre TETTO_CONTESTO; lunghe = sessioni che lo superano."""
+    radice = os.path.join(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(CASA, ".claude"), "projects")
+    da = time.time() - giorni * 86400
+    dal = datetime.datetime.fromtimestamp(da, datetime.timezone.utc).isoformat()[:19]
+    viste, freddi, tutti, lunghe = set(), [], [], 0
+    for cartella in (os.listdir(radice) if os.path.isdir(radice) else []):
+        d = os.path.join(radice, cartella)
+        if os.path.islink(d) or not os.path.isdir(d):  # un link a un altro progetto = le stesse sessioni due volte
+            continue
+        for f in os.listdir(d):
+            p = os.path.join(d, f)
+            if not f.endswith(".jsonl") or f in viste or os.path.getmtime(p) < da:
+                continue
+            viste.add(f)
+            ctx = []
+            with open(p, encoding="utf-8", errors="replace") as righe:
+                for r in righe:
+                    if '"usage"' not in r or '"assistant"' not in r:
+                        continue
+                    try:
+                        x = json.loads(r)
+                    except ValueError:
+                        continue
+                    if x.get("type") != "assistant" or x.get("isSidechain") or x.get("timestamp", "")[:19] < dal:
+                        continue
+                    u = (x.get("message") or {}).get("usage") or {}
+                    n = sum(u.get(k) or 0 for k in ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"))
+                    if n:
+                        ctx.append(n)
+            if ctx:
+                freddi.append(ctx[0])
+                tutti += ctx
+                lunghe += max(ctx) > TETTO_CONTESTO
+    if not tutti:
+        return None
+    return {"sessioni": len(freddi), "risposte": len(tutti), "freddo": sorted(freddi)[len(freddi) // 2],
+            "medio": sum(tutti) // len(tutti), "oltre": round(sum(n for n in tutti if n > TETTO_CONTESTO) / sum(tutti), 2),
+            "lunghe": lunghe, "giorni": giorni}
+
+
+def token_del_giorno():
+    """misura_token() tenuta un giorno in stato.json: `controlla` gira ogni 5 minuti, la misura legge MB di transcript."""
+    t = stato().get("token", {})
+    if time.time() - t.get("t", 0) > 86400:
+        t = {"t": time.time(), "m": misura_token()}
+        salva_stato(token=t)
+    return t.get("m")
+
+
+def compattazione():
+    """Il tetto di compattazione scelto in ~/.claude/settings.json (None = quello del modello, fino a 1M)."""
+    v = leggi_json(os.path.join(CASA, ".claude", "settings.json"), {}).get("autoCompactWindow")
+    return v if isinstance(v, int) else None
+
+
+def esiti_token(m):
+    """Gli Esiti del budget per risposta (passo facoltativo «token»: mai rosso per la squadra, ma scritto nello studio)."""
+    k = lambda n: f"{n // 1000}k"
+    tetto = compattazione()
+    out = [Esito(f"compattazione a {k(tetto or 1_000_000)}", bool(tetto) and tetto <= TETTO_CONTESTO,
+                 f"`{NOME_CLI} aggiorna` la mette a {k(TETTO_CONTESTO)} (in ~/.claude/settings.json: autoCompactWindow)")]
+    if m:
+        dove = f"ultimi {m['giorni']} giorni, {m['sessioni']} sessioni"
+        out.append(Esito("token all'avvio", m["freddo"] <= MAX_FREDDO,
+                         f"{k(m['freddo'])} > {k(MAX_FREDDO)}: meno skill, plugin, connettori e CLAUDE.md caricati "
+                         "(skill `organizza-claude`)", nota=f"{k(m['freddo'])} ({dove})"))
+        out.append(Esito("token per risposta", m["medio"] <= MAX_MEDIO,
+                         f"contesto medio {k(m['medio'])} > {k(MAX_MEDIO)}, {m['lunghe']} sessioni oltre "
+                         f"{k(TETTO_CONTESTO)}: un argomento per sessione, poi /clear",
+                         nota=f"{k(m['medio'])} di media ({dove})"))
+    return out
 
 
 # Il comando pleyades-cli stesso
@@ -2218,6 +2309,9 @@ def controlla(ui):
         ok, cosa = pianifica()
         ui.esito(Esito("aggiornamento automatico pianificato", ok, f"{cosa} → `{NOME_CLI} pianifica`", nota=cosa))
     ui.esito(Esito("pleyades-cli aggiornato", eta < 2, "pleyades-cli aggiorna", nota=f"{eta:.0f} giorni fa"))
+    if ha("claude") and not lavoro():
+        for e in esiti_token(token_del_giorno()):
+            ui.esito(e)
     ui.riepilogo(0)
     if "--talk" in sys.argv:  # il riassunto in ogni stanza; `pleyades-cli squadra` confronta le versioni di tutti
         verdi, tot, manca, _ = conta_esiti(ui.esiti)  # i facoltativi non contano: chi li salta non è indietro
@@ -3660,6 +3754,19 @@ def main():
             ok, cosa = pianifica(togli="--togli" in a)
             ui.esito(Esito("aggiornamento automatico pianificato", ok, cosa, nota=cosa))
             return 0 if ok else 1
+        if cmd == "token":
+            g = next((int(x.split("=")[1]) for x in a if x.startswith("--giorni=") and x.split("=")[1].isdigit()), 7)
+            ui.titolo(f"{ui.nome} · token per risposta (ultimi {g} giorni, dai transcript di questo computer)")
+            m = misura_token(g)
+            if m:
+                ui.info(f"{m['risposte']} risposte · {m['oltre']:.0%} dei token letti da risposte oltre "
+                        f"{TETTO_CONTESTO // 1000}k")
+            else:
+                ui.info("nessun transcript in questi giorni")
+            es = esiti_token(m)
+            for e in es:
+                ui.esito(e)
+            return 0 if all(e.ok for e in es) else 1
         f = {"controlla": controlla, "squadra": squadra, "aggiorna": aggiorna, "auto": auto, "diagnosi": diagnosi, "progetti": progetti, "link": link, "kit": mio_kit, "app": app}.get(cmd)
         if f:
             return f(ui)

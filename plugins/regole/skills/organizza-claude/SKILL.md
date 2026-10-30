@@ -61,9 +61,9 @@ Ogni risposta di Claude rilegge tutto ciò che è sempre caricato; in una sessio
 - **Testi all'avvio solo se servono sempre**: il resto entra al primo uso (es. le regole del codice al primo file
   di codice modificato, plugin `codice`) o con una skill.
 - **Un controllo, non solo una regola**: un file `limiti-contesto.txt` (byte massimi per file, glob ammessi) letto
-  dal check del pre-commit blocca chi fa ricrescere CLAUDE.md, regole e lezioni; alzare un limite = scelta nel commit.
-- **Una sessione per argomento**, `/clear` dopo il commit: lo stato sta nel backlog e nella memoria, non nella chat.
-- Misura token ed errori ripetuti: se non calano, cambia la struttura.
+  dal check del pre-commit blocca chi fa ricrescere CLAUDE.md, regole e lezioni (anche `somma`, `descrizioni`).
+- **Una sessione per argomento**, `/clear` dopo il commit; compattazione a 200k (`autoCompactWindow`).
+  Misura: `pleyades-cli token` (exit 1 oltre budget).
 
 ## Dove va una cosa nuova
 - Vale per chiunque in Pleyades? → Pleyades (`condividi-skill`).

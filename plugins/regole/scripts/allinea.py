@@ -6,7 +6,9 @@
                       troppo vecchia per `auto` prima si aggiorna da sola; dice a Claude in una riga se l'ultimo
                       allineamento ha trovato qualcosa da sistemare o se qualcuno della squadra è indietro
   allinea.py --turno  (UserPromptSubmit) a sessione aperta: se intanto `auto` (anche dall'attività pianificata) ha
-                      installato plugin nuovi, lo dice a Claude una volta: questa sessione usa ancora i vecchi
+                      installato plugin nuovi, lo dice a Claude una volta: questa sessione usa ancora i vecchi;
+                      e quando il contesto della sessione passa i 150k token (poi ogni 100k in più), perché Claude lo
+                      rilegge tutto a ogni risposta
 
 Senza pleyades-cli non fa niente. Mac, Linux e Windows (python o python3); solo libreria standard.
 """
@@ -18,6 +20,8 @@ LOG = os.path.join(CASA, ".crew", "auto.log")
 CREW = os.path.join(CASA, ".crew", "crew.py")
 INSTALLATI = os.path.join(CASA, ".claude", "plugins", "installed_plugins.json")
 SESSIONI = os.path.join(CASA, ".crew", "sessioni.json")  # i plugin con cui è partita ogni sessione aperta
+CONTESTO = os.path.join(CASA, ".crew", "contesto.json")  # l'ultima soglia di contesto già detta, per sessione
+SOGLIA, PASSO = 150_000, 100_000  # come MAX_MEDIO di crew.py; poi un avviso ogni 100k in più
 
 
 def leggi(p, base):
@@ -33,16 +37,60 @@ def versioni_plugin():
             for p, i in leggi(INSTALLATI, {}).get("plugins", {}).items() if i}
 
 
-def sessione():
-    """L'id della sessione dall'input dell'hook (JSON su stdin)."""
+def ingresso():
+    """L'input dell'hook (JSON su stdin), {} se non c'è."""
     try:
-        return "" if sys.stdin is None or sys.stdin.isatty() else json.load(sys.stdin).get("session_id", "")
+        return {} if sys.stdin is None or sys.stdin.isatty() else json.load(sys.stdin)
     except (OSError, ValueError, AttributeError):
-        return ""
+        return {}
+
+
+def sessione():
+    """L'id della sessione dall'input dell'hook."""
+    return ingresso().get("session_id", "")
+
+
+def contesto(transcript):
+    """I token dell'ultima risposta principale (non dei subagent) dalla coda del transcript; 0 se non si sa."""
+    try:
+        with open(transcript, "rb") as f:
+            f.seek(max(0, os.path.getsize(transcript) - 2_000_000))
+            righe = f.read().decode("utf-8", "replace").splitlines()
+    except (OSError, TypeError):
+        return 0
+    for r in reversed(righe):
+        if '"usage"' not in r or '"assistant"' not in r:
+            continue
+        try:
+            x = json.loads(r)
+        except ValueError:
+            continue
+        if x.get("type") == "assistant" and not x.get("isSidechain"):
+            u = (x.get("message") or {}).get("usage") or {}
+            return sum(u.get(k) or 0 for k in ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"))
+    return 0
+
+
+def avviso_contesto(sid, transcript):
+    n = contesto(transcript)
+    if not sid or n < SOGLIA:
+        return
+    livello = SOGLIA + (n - SOGLIA) // PASSO * PASSO
+    detti = leggi(CONTESTO, {})
+    if detti.get(sid, 0) >= livello:
+        return
+    print(f"Pleyades: questa sessione ha {n // 1000}k token di contesto e Claude li rilegge tutti a ogni risposta. "
+          "Dillo all'utente in una riga: finito il passo in corso, salva lo stato e fai /clear con un prompt pronto "
+          "per ripartire (un argomento per sessione).")
+    detti = dict(list({k: v for k, v in detti.items() if k != sid}.items())[-19:])
+    detti[sid] = livello
+    scrivi(CONTESTO, detti)
 
 
 def turno():
-    sid = sessione()
+    dati = ingresso()
+    sid = dati.get("session_id", "")
+    avviso_contesto(sid, dati.get("transcript_path"))
     sess = leggi(SESSIONI, {})
     prima = sess.get(sid)
     if not sid or not prima or prima.get("detto"):
