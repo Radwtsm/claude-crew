@@ -10,10 +10,7 @@ import http.server, os, re, shutil, stat, subprocess, sys, tempfile, threading, 
 QUI = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CREW = os.path.join(QUI, "crew.py")
 # Problemi noti, ancora da sistemare: segnalati ma non bloccano; la lista può solo calare (togli la riga quando passa)
-NOTI = {
-    # credenziali dello studio tenute solo da talk.py del progetto: un progetto senza stanza le perde (A67)
-    "guida (studio, rilancio): chiede di nuovo l'accesso allo studio (non l'ha tenuto)",
-}
+NOTI = set()
 LOCALE = "localhost"  # lo studio finto: solo su questo computer
 LARGO = 80  # il Terminale del Mac apre a 80 colonne
 
@@ -43,6 +40,25 @@ os.makedirs(p, exist_ok=True)
 json.dump({"plugins": {x: [{"gitCommitSha": "0000000"}] for x in s["plugin"]}}, open(os.path.join(p, "installed_plugins.json"), "w"))
 json.dump({m: {"installLocation": "", "autoUpdate": True} for m in s["mk"]}, open(os.path.join(p, "known_marketplaces.json"), "w"))
 '''
+# portachiavi finto (security del Mac, secret-tool di Linux): in un file della casa finta, mai quello vero
+PORTACHIAVI = r'''#!/usr/bin/env python3
+import json, os, re, sys
+f = os.path.join(os.environ["HOME"], ".portachiavi-finto.json")
+k = json.load(open(f)) if os.path.exists(f) else {}
+a = sys.argv[1:]
+def arg(n): return a[a.index(n) + 1]
+if a[:1] == ["find-generic-password"]:
+    v = k.get(arg("-s") + "|" + arg("-a"))
+    print(v or "", end="\n" if v else ""); sys.exit(0 if v else 44)
+if a[:1] == ["-i"]:
+    m = re.search(r'-s "([^"]*)" -a "([^"]*)" -w "([^"]*)"', sys.stdin.read())
+    k[m.group(1) + "|" + m.group(2)] = m.group(3)
+elif a[:1] == ["lookup"]:
+    v = k.get(a[2] + "|" + a[4]); print(v or "", end=""); sys.exit(0 if v else 1)
+elif a[:1] == ["store"]:
+    k[a[3] + "|" + a[5]] = sys.stdin.read()
+json.dump(k, open(f, "w"))
+'''
 # ogni altro programma con effetti: scrive cosa gli è stato chiesto e risponde «non c'è / non fatto»
 FINTO = '''#!/bin/sh
 echo "$(basename "$0") $*" >> "$HOME/.chiamate.log"
@@ -50,7 +66,7 @@ case "$(basename "$0") $1" in "xcode-select -p") echo /Library/Developer/Command
 [ "$(basename "$0")" = open ] && exit 0  # «aperto»: webbrowser non ripiega sul browser vero
 exit 1
 '''
-FINTI = ["gh", "launchctl", "open", "osascript", "defaults", "profiles", "security", "codesign", "spctl", "hdiutil",
+FINTI = ["gh", "launchctl", "open", "osascript", "defaults", "profiles", "codesign", "spctl", "hdiutil",
          "ditto", "pkgutil", "crontab", "schtasks", "powershell", "winget", "brew", "xcode-select", "curl", "sudo"]
 
 
@@ -82,7 +98,17 @@ class Studio(http.server.BaseHTTPRequestHandler):
             return self.manda(200, f'{{"server": "{base}", "loginName": "nuovo", "appPassword": "finta"}}'.encode())
         self.manda(404, b"")
 
+    def entrato(self):
+        """Solo con la password per app data dal Login Flow: una password letta male dal portachiavi = 401."""
+        import base64
+        if self.headers.get("Authorization") == "Basic " + base64.b64encode(b"nuovo:finta").decode():
+            return True
+        self.manda(401, b"")
+        return False
+
     def do_PROPFIND(self):
+        if not self.entrato():
+            return
         base = "/remote.php/dav/files/nuovo/"
         rel = urllib.parse.unquote(self.path)[len(base):].strip("/")
         figli = sorted({k[len(rel) + 1 if rel else 0:].split("/")[0] for k in FILE_STUDIO if k.startswith(rel)})
@@ -93,6 +119,8 @@ class Studio(http.server.BaseHTTPRequestHandler):
         self.manda(207, f'<?xml version="1.0"?><d:multistatus xmlns:d="DAV:">{xml}</d:multistatus>'.encode(), "application/xml")
 
     def do_GET(self):
+        if not self.entrato():
+            return
         rel = urllib.parse.unquote(self.path)[len("/remote.php/dav/files/nuovo/"):]
         self.manda(200, FILE_STUDIO[rel], "application/octet-stream") if rel in FILE_STUDIO else self.manda(404, b"")
 
@@ -100,7 +128,8 @@ class Studio(http.server.BaseHTTPRequestHandler):
 def prepara(casa):
     finti = os.path.join(casa, ".finti")
     os.makedirs(finti)
-    for nome, testo in [("claude", CLAUDE)] + [(n, FINTO) for n in FINTI]:
+    for nome, testo in [("claude", CLAUDE), ("security", PORTACHIAVI), ("secret-tool", PORTACHIAVI)] + \
+            [(n, FINTO) for n in FINTI]:
         p = os.path.join(finti, nome)
         with open(p, "w") as f:
             f.write(testo.replace("#!/usr/bin/env python3", "#!" + sys.executable))

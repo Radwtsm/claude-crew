@@ -1042,7 +1042,77 @@ def credenziali_note():
         t = modulo_talk(d, config_progetto(d))
         if t and t.credenziali():
             return t.credenziali()
-    return None
+    return accesso_studio()  # un progetto senza stanza: l'accesso dello studio sta nel portachiavi (A67)
+
+
+# Portachiavi del sistema, gli stessi comandi di comune.py e pleiadi-cli-builder (qui copiati: crew.py è un file solo)
+PORTACHIAVI_STUDIO = "Pleyades tools: studio"
+
+
+def segreto(utente, valore=None):
+    """La password per app dello studio di `utente` (utente@host): letta, o salvata se c'è `valore`. None/False se
+    questo computer non ha un portachiavi usabile: allora l'accesso si rifà, mai in un file."""
+    try:
+        if MAC:
+            if valore is None:
+                r = subprocess.run(["security", "find-generic-password", "-s", PORTACHIAVI_STUDIO, "-a", utente, "-w"],
+                                   capture_output=True, text=True)
+                return r.stdout.rstrip("\n") if r.returncode == 0 else None
+            if any(x in valore + utente for x in '"\\\n'):
+                return False
+            cmd = f'add-generic-password -U -s "{PORTACHIAVI_STUDIO}" -a "{utente}" -w "{valore}"\n'
+            r = subprocess.run(["security", "-i"], input=cmd, capture_output=True, text=True)  # mai negli argomenti
+            return r.returncode == 0 and "error" not in (r.stdout + r.stderr).lower()
+        if WIN:
+            import ctypes
+            from ctypes import wintypes
+
+            class CRED(ctypes.Structure):
+                _fields_ = [("Flags", wintypes.DWORD), ("Type", wintypes.DWORD), ("TargetName", wintypes.LPWSTR),
+                            ("Comment", wintypes.LPWSTR), ("LastWritten", wintypes.FILETIME),
+                            ("CredentialBlobSize", wintypes.DWORD), ("CredentialBlob", ctypes.POINTER(ctypes.c_char)),
+                            ("Persist", wintypes.DWORD), ("AttributeCount", wintypes.DWORD),
+                            ("Attributes", ctypes.c_void_p), ("TargetAlias", wintypes.LPWSTR),
+                            ("UserName", wintypes.LPWSTR)]
+            api, nome = ctypes.windll.advapi32, f"{PORTACHIAVI_STUDIO}:{utente}"
+            if valore is None:
+                pc = ctypes.POINTER(CRED)()
+                if not api.CredReadW(nome, 1, 0, ctypes.byref(pc)):
+                    return None
+                try:
+                    return ctypes.string_at(pc.contents.CredentialBlob, pc.contents.CredentialBlobSize).decode("utf-16-le")
+                finally:
+                    api.CredFree(pc)
+            blob = valore.encode("utf-16-le")
+            cr = CRED(Type=1, TargetName=nome, UserName=utente, Persist=2, CredentialBlobSize=len(blob),
+                      CredentialBlob=ctypes.cast(ctypes.create_string_buffer(blob, len(blob)), ctypes.POINTER(ctypes.c_char)))
+            return bool(api.CredWriteW(ctypes.byref(cr), 0))
+        if not ha("secret-tool"):
+            return None if valore is None else False
+        if valore is None:
+            r = subprocess.run(["secret-tool", "lookup", "service", PORTACHIAVI_STUDIO, "account", utente],
+                               capture_output=True, text=True)
+            return r.stdout.rstrip("\n") if r.returncode == 0 and r.stdout else None
+        return subprocess.run(["secret-tool", "store", f"--label={PORTACHIAVI_STUDIO} ({utente})", "service",
+                               PORTACHIAVI_STUDIO, "account", utente], input=valore, text=True,
+                              capture_output=True).returncode == 0
+    except (OSError, AttributeError, ValueError):
+        return None if valore is None else False
+
+
+def accesso_studio():
+    """L'accesso salvato allo studio scelto (stato: indirizzo e utente; portachiavi: la password per app)."""
+    s = stato()
+    server, utente = s.get("studio"), s.get("studio_utente")
+    if not (server and utente):
+        return None
+    pw = segreto(f"{utente}@{server.split('//')[-1]}")
+    return {"utente": utente, "password": pw} if pw else None
+
+
+def salva_accesso_studio(server, cred):
+    if accesso_studio() != cred and segreto(f"{cred['utente']}@{server.split('//')[-1]}", cred["password"]):
+        salva_stato(studio_utente=cred["utente"])
 
 
 # Token (owner 30/10: il costo non deve crescere con membri, plugin e regole): misurato dai transcript di Claude Code
@@ -2038,6 +2108,7 @@ def passo_studio(ui):
                           "chiedilo a chi ti ha invitato", riprova=di_nuovo)):
         return []
     cred = tieni[0]
+    salva_accesso_studio(server, cred)  # al prossimo giro (e ad `auto`) senza rifare «Concedi accesso»
     try:
         with ui.attesa("cerco i progetti condivisi con te"):
             trovati = progetti_studio(server, cred)
