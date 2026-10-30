@@ -149,6 +149,15 @@
       ]
     },
     {
+      "name": "prova-filtro",
+      "source": "./plugins/prova-filtro",
+      "description": "Prova",
+      "category": "prova",
+      "keywords": [
+        "prova"
+      ]
+    },
+    {
       "name": "after-effects-pannelli",
       "source": "./plugins/after-effects-pannelli",
       "description": "Creare pannelli/plugin CEP per After Effects (HTML/JS + ExtendScript): setup e modalità debug, architettura con anteprima, trappole dell'API (forme, keyframe, testo, effetti, maschere, 3D), test e checklist",

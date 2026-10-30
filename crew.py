@@ -2269,7 +2269,8 @@ def auto(ui):
     try:
         return giro_auto(ui)
     finally:
-        os.remove(blocco)
+        if os.path.exists(blocco):  # un giro ripreso dopo 15 minuti può averlo già tolto
+            os.remove(blocco)
 
 
 def giro_auto(ui):

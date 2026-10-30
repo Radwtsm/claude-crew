@@ -1,0 +1,21 @@
+name: filtro-contributi
+# pull_request_target: gira il codice di main con permessi di scrittura sulla PR. Mai fare checkout del codice della
+# PR qui: tools/filtro_contributi.py legge i suoi file via API, come dati.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  filtro:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: python3 tools/filtro_contributi.py
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
