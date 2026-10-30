@@ -5,7 +5,7 @@ effetti (claude, gh, launchctl, open, osascript, defaults, profiles, …) sostit
 chiesto, rete solo verso GitHub pubblico. Controlla il percorso (ogni passo obbligatorio c'è, rilanciare salta il
 fatto) e la forma (nessun errore Python, ogni ✗ dice cosa fare, nessuna riga oltre lo schermo).
 Uso: python3 tools/test_guida.py [--tieni]   (--tieni: lascia la casa finta per guardarla)"""
-import http.server, os, re, shutil, stat, subprocess, sys, tempfile, threading, time, urllib.parse
+import http.server, json, os, re, shutil, stat, subprocess, sys, tempfile, threading, time, urllib.parse
 
 QUI = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CREW = os.path.join(QUI, "crew.py")
@@ -223,6 +223,9 @@ def main():
             for atteso in ("accesso allo studio", "copia di «Progetto Prova»"):
                 if atteso not in out5:
                     err.append(f"guida (studio): manca «{atteso}»")
+            voci = list(json.load(open(os.path.join(studio, ".portachiavi-finto.json"))))
+            if voci != ["pleyades-studio|nuovo"]:  # la stessa voce di talk.py: un secondo nome = due password da tenere
+                err.append(f"guida (studio): voci del portachiavi {voci}, attesa solo «pleyades-studio|nuovo»")
             accessi = Studio.accessi
             c6, out6, _ = guida(env5, "\n\n\n\n\n\n", "guida")
             err += forma(out6, "guida (studio, rilancio)")

@@ -1046,21 +1046,22 @@ def credenziali_note():
 
 
 # Portachiavi del sistema, gli stessi comandi di comune.py e pleiadi-cli-builder (qui copiati: crew.py è un file solo)
-PORTACHIAVI_STUDIO = "Pleyades tools: studio"
+PORTACHIAVI_STUDIO = "pleyades-studio"  # la stessa voce di talk.py (PORTACHIAVI, account = utente): mai un secondo nome
+VECCHIO_STUDIO = "Pleyades tools: studio"  # 998a321, 30/10: spostata sotto PORTACHIAVI_STUDIO alla prima lettura
 
 
-def segreto(utente, valore=None):
+def segreto(utente, valore=None, servizio=PORTACHIAVI_STUDIO):
     """La password per app dello studio di `utente` (utente@host): letta, o salvata se c'è `valore`. None/False se
     questo computer non ha un portachiavi usabile: allora l'accesso si rifà, mai in un file."""
     try:
         if MAC:
             if valore is None:
-                r = subprocess.run(["security", "find-generic-password", "-s", PORTACHIAVI_STUDIO, "-a", utente, "-w"],
+                r = subprocess.run(["security", "find-generic-password", "-s", servizio, "-a", utente, "-w"],
                                    capture_output=True, text=True)
                 return r.stdout.rstrip("\n") if r.returncode == 0 else None
             if any(x in valore + utente for x in '"\\\n'):
                 return False
-            cmd = f'add-generic-password -U -s "{PORTACHIAVI_STUDIO}" -a "{utente}" -w "{valore}"\n'
+            cmd = f'add-generic-password -U -s "{servizio}" -a "{utente}" -w "{valore}"\n'
             r = subprocess.run(["security", "-i"], input=cmd, capture_output=True, text=True)  # mai negli argomenti
             return r.returncode == 0 and "error" not in (r.stdout + r.stderr).lower()
         if WIN:
@@ -1074,7 +1075,7 @@ def segreto(utente, valore=None):
                             ("Persist", wintypes.DWORD), ("AttributeCount", wintypes.DWORD),
                             ("Attributes", ctypes.c_void_p), ("TargetAlias", wintypes.LPWSTR),
                             ("UserName", wintypes.LPWSTR)]
-            api, nome = ctypes.windll.advapi32, f"{PORTACHIAVI_STUDIO}:{utente}"
+            api, nome = ctypes.windll.advapi32, f"{servizio}:{utente}"
             if valore is None:
                 pc = ctypes.POINTER(CRED)()
                 if not api.CredReadW(nome, 1, 0, ctypes.byref(pc)):
@@ -1090,11 +1091,11 @@ def segreto(utente, valore=None):
         if not ha("secret-tool"):
             return None if valore is None else False
         if valore is None:
-            r = subprocess.run(["secret-tool", "lookup", "service", PORTACHIAVI_STUDIO, "account", utente],
+            r = subprocess.run(["secret-tool", "lookup", "service", servizio, "account", utente],
                                capture_output=True, text=True)
             return r.stdout.rstrip("\n") if r.returncode == 0 and r.stdout else None
-        return subprocess.run(["secret-tool", "store", f"--label={PORTACHIAVI_STUDIO} ({utente})", "service",
-                               PORTACHIAVI_STUDIO, "account", utente], input=valore, text=True,
+        return subprocess.run(["secret-tool", "store", f"--label={servizio} ({utente})", "service",
+                               servizio, "account", utente], input=valore, text=True,
                               capture_output=True).returncode == 0
     except (OSError, AttributeError, ValueError):
         return None if valore is None else False
@@ -1106,12 +1107,16 @@ def accesso_studio():
     server, utente = s.get("studio"), s.get("studio_utente")
     if not (server and utente):
         return None
-    pw = segreto(f"{utente}@{server.split('//')[-1]}")
+    pw = segreto(utente)
+    if not pw:  # la voce col nome vecchio: copiata sotto quello giusto (la vecchia resta, innocua; si toglie a mano)
+        pw = segreto(f"{utente}@{server.split('//')[-1]}", servizio=VECCHIO_STUDIO)
+        if pw:
+            segreto(utente, pw)
     return {"utente": utente, "password": pw} if pw else None
 
 
 def salva_accesso_studio(server, cred):
-    if accesso_studio() != cred and segreto(f"{cred['utente']}@{server.split('//')[-1]}", cred["password"]):
+    if accesso_studio() != cred and segreto(cred["utente"], cred["password"]):
         salva_stato(studio_utente=cred["utente"])
 
 
