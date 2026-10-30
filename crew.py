@@ -775,9 +775,12 @@ def scarica_cartella(server, cred, cartella, dest):
 
 
 def salva_credenziali(t, cred):
-    """Dove le salva `talk.py collega` (con il suo codice: file solo tuo, permessi 600)."""
+    """Dove le salva `talk.py collega` (con il suo codice: portachiavi del sistema; prima un file solo tuo)."""
     if t.credenziali() != {"utente": cred["utente"], "password": cred["password"]}:  # anche una scaduta va sostituita
-        t.scrivi_json(t.CONF, {**(t.leggi_json(t.CONF) or {}), "utente": cred["utente"], "password": cred["password"]})
+        if hasattr(t, "salva_credenziali"):
+            t.salva_credenziali(cred["utente"], cred["password"])
+        else:  # talk.py di prima del portachiavi
+            t.scrivi_json(t.CONF, {**(t.leggi_json(t.CONF) or {}), "utente": cred["utente"], "password": cred["password"]})
 
 
 def cartelle_progetti():

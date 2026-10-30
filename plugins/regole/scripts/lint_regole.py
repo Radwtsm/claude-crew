@@ -3,6 +3,7 @@
 
   python3 lint_regole.py [cartella]           controlla e fallisce solo sui problemi NUOVI (exit 1)
   python3 lint_regole.py [cartella] --baseline  riscrive lint-regole-baseline.txt con i problemi di oggi
+  python3 lint_regole.py [cartella] --limiti=FILE  limiti di byte da FILE (di base limiti-contesto.txt, se c'è)
   python3 lint_regole.py --hook                 hook PostToolUse: controlla il file appena scritto (JSON su stdin);
                                                 un .md fuori da ogni casa (repo, cloud, ~/.claude) → avviso a Claude
 
@@ -12,10 +13,12 @@ Cosa controlla (README di Pleyades tools → Formato):
 - Righe sotto un titolo "Insidie"/"Trappole": `sintomo → causa → cosa fare` (almeno una freccia).
 - Ogni .md di regole o skill: righe ≤ 120 caratteri (fuori dai blocchi di codice e dalle tabelle), niente spazi in
   fondo, a capo finale.
+- Contesto snello: i file elencati nei limiti (`byte glob…` per riga, `#` commento) non superano i loro byte,
+  contati senza CR (un checkout Windows pesa come su Mac). Questi non vanno in baseline: si sistemano subito.
 I problemi già presenti stanno in `lint-regole-baseline.txt` nella cartella controllata: possono solo calare.
 Solo libreria standard.
 """
-import fnmatch, json, os, re, subprocess, sys
+import fnmatch, glob, json, os, re, subprocess, sys
 
 MAX_RIGA = 120
 FILE = ("SKILL.md", "CLAUDE.md", "AGENTS.md")
@@ -181,6 +184,21 @@ def hook():
     return 2
 
 
+def troppo_lunghi(root, limiti):
+    """Le righe `file: N byte > MAX` dei file oltre il loro limite."""
+    fuori = []
+    for riga in open(limiti, encoding="utf-8"):
+        parti = riga.split()
+        if not parti or parti[0].startswith("#"):
+            continue
+        for modello in parti[1:]:
+            for f in sorted(glob.glob(os.path.join(root, modello))):
+                n = len(open(f, "rb").read().replace(b"\r", b""))
+                if n > int(parti[0]):
+                    fuori.append(f"{os.path.relpath(f, root)}: {n} byte > {parti[0]}")
+    return fuori
+
+
 def main():
     if "--hook" in sys.argv:
         return hook()
@@ -196,10 +214,17 @@ def main():
     da_sistemare = nuovi(root, trovati)
     for p in da_sistemare:
         print(p)
+    limiti = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--limiti=")), "limiti-contesto.txt")
+    limiti = os.path.join(root, limiti)
+    lunghi = troppo_lunghi(root, limiti) if os.path.isfile(limiti) else []
+    for p in lunghi:
+        print(p)
     if da_sistemare:
         print(f"lint_regole: {len(da_sistemare)} problemi nuovi (formato: README di Pleyades tools → Formato)", file=sys.stderr)
-        return 1
-    return 0
+    if lunghi:
+        print("lint_regole: file letti a ogni sessione troppo lunghi; i dettagli in un file per tema letto quando serve "
+              "(organizza-claude)", file=sys.stderr)
+    return 1 if da_sistemare or lunghi else 0
 
 
 if __name__ == "__main__":

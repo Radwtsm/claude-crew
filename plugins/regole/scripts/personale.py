@@ -6,7 +6,8 @@ privato, una sola memoria per tutti i progetti, sincronizzazione automatica, bar
                             barra di stato e aggiornamento automatico dei marketplace
   personale.py controlla    stampa cosa manca (exit 1 se qualcosa non è a posto), con i byte fissi
   personale.py misura       byte che Claude carica a ogni sessione (regole, memoria, descrizioni delle skill)
-  personale.py inizio       hook SessionStart: pull, memoria collegata anche per il progetto aperto, limiti
+  personale.py inizio       hook SessionStart: pull, memoria collegata anche per il progetto aperto, limiti, skill e
+                            impostazioni personali dal repo (sotto)
   personale.py fine         hook Stop: commit + push di regole e memoria cambiate
   personale.py mappa        la mappa di questo computer in ~/claude-personale/mappa-<computer>.md (md che Claude
                             legge, skill, plugin, progetti, cartelle condivise, scarti dalla struttura comune);
@@ -16,6 +17,9 @@ privato, una sola memoria per tutti i progetti, sincronizzazione automatica, bar
                             corte) o SOGLIA (chiudi e salva); solo al cambio di livello. Suggerisce anche un plugin
                             non installato quando le parole della richiesta corrispondono ai suoi `keywords`
 
+Dal repo a ogni computer, se ci sono: `skills/<nome>/` → ~/.claude/skills (le tue skill su tutti i tuoi computer) e
+`settings.json` = {"tutti": {chiavi}, "<computer della mappa>": {chiavi}} → quelle chiavi di ~/.claude/settings.json
+(il resto non si tocca). Il file sostituito resta come *.prima-di-sync; `controlla` dice cosa è diverso.
 Senza ~/claude-personale gli hook non fanno niente. Mac, Linux e Windows (python o python3); solo libreria standard.
 """
 import glob, hashlib, json, os, platform, re, shutil, socket, subprocess, sys, time
@@ -161,6 +165,53 @@ def collega_tutte(cwd=None):
     if cwd:
         dirs.add(os.path.join(cartella_progetto(cwd), "memory"))
     return [m for m in (collega(d) for d in sorted(dirs)) if m]
+
+
+# ---- skill e impostazioni dal repo a ogni computer
+
+def scrivi_se_diverso(dst, dati, prova):
+    """True se dst era diverso; senza prova lo sostituisce (copia del vecchio in *.prima-di-sync)."""
+    try:
+        with open(dst, "rb") as f:
+            if f.read() == dati:
+                return False
+    except OSError:
+        pass
+    if not prova:
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        if os.path.exists(dst):
+            shutil.copy2(dst, dst + ".prima-di-sync")
+        with open(dst + ".tmp", "wb") as f:
+            f.write(dati)
+        os.replace(dst + ".tmp", dst)
+    return True
+
+
+def allinea_config(prova=False):
+    """Le skill e le chiavi di settings.json del repo personale su questo computer; le righe di ciò che è (o era)
+    diverso."""
+    out = []
+    radice = os.path.join(REPO, "skills")
+    for d, _, files in os.walk(radice):
+        for nome in files:
+            if nome.startswith(".") or nome.endswith(".tmp"):
+                continue
+            rel = os.path.relpath(os.path.join(d, nome), radice)
+            if scrivi_se_diverso(os.path.join(CONFIG, "skills", rel), open(os.path.join(d, nome), "rb").read(), prova):
+                out.append(f"skill {rel}")
+    voluto = leggi_json(os.path.join(REPO, "settings.json"))
+    chiavi = {**(voluto.get("tutti") or {}), **(voluto.get(computer()) or {})}
+    if chiavi:
+        sp = os.path.join(CONFIG, "settings.json")
+        s = leggi_json(sp)
+        if os.path.exists(sp) and not s:
+            return out + [f"{sp} illeggibile: impostazioni personali non applicate"]  # mai sovrascritto alla cieca
+        diverse = sorted(k for k, v in chiavi.items() if s.get(k) != v)
+        if diverse:
+            out.append("settings.json: " + ", ".join(diverse))
+            if not prova:
+                scrivi_se_diverso(sp, (json.dumps({**s, **chiavi}, indent=2, ensure_ascii=False) + "\n").encode("utf-8"), False)
+    return out
 
 
 # ---- limiti e formato
@@ -310,6 +361,7 @@ def controlla():
         if "personale.py" not in json.dumps(linea):
             manca.append("barra di stato della crew")
         manca += [f"memoria non unita: {p}" for p in memorie if not collegata(p)]
+    manca += [f"diverso dal repo personale: {x}" for x in allinea_config(prova=True)]
     manca += fuori_limite()
     manca += misura(stampa=False)
     print("\n".join("- " + m for m in manca) or "tutto a posto")
@@ -332,6 +384,9 @@ def inizio():
     if r.returncode and "Could not resolve" not in r.stderr and "unable to access" not in r.stderr:
         righe.append("claude-personale: pull non riuscito (modifiche da unire a mano): sistemalo prima di altro.")
     righe += collega_tutte(dati.get("cwd"))
+    cambiate = allinea_config()
+    if cambiate:
+        righe.append("claude-personale: aggiornati dal repo " + "; ".join(cambiate)[:200])
     try:
         mappa(stampa=False)  # la commit la fa `fine`, col resto
     except OSError:

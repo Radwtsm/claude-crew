@@ -16,6 +16,7 @@ chiedi solo le scelte. Struttura e strati: skill `organizza-claude`.
 | Mappa di ogni PC | `~/claude-personale/mappa-<computer>.md`: md che Claude legge, skill, plugin, progetti, scarti dalla struttura comune | rifatta all'avvio, va nel repo col sync |
 | Barra di stato | `settings.json` → `statusLine`: modello · contesto % · 5h/7g con reset · durata | arriva con il plugin `regole` |
 | Avviso di uso alto | una riga a Claude quando 5h o 7g supera l'85%: chiude il passo e salva lo stato | idem |
+| Skill e impostazioni | `~/claude-personale/skills/` e `settings.json` (`tutti` + nome del computer) | copiate all'avvio |
 | Plugin | `extraKnownMarketplaces` con `autoUpdate` per ogni marketplace GitHub installato | da soli all'avvio |
 | Controllo | all'avvio: regole e `MEMORY.md` sotto i byte di `limiti-contesto.txt`; lint di Pleyades su skill e CLAUDE.md | hook |
 
