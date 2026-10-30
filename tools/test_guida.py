@@ -47,6 +47,7 @@ json.dump({m: {"installLocation": "", "autoUpdate": True} for m in s["mk"]}, ope
 FINTO = '''#!/bin/sh
 echo "$(basename "$0") $*" >> "$HOME/.chiamate.log"
 case "$(basename "$0") $1" in "xcode-select -p") echo /Library/Developer/CommandLineTools; exit 0;; esac
+[ "$(basename "$0")" = open ] && exit 0  # «aperto»: webbrowser non ripiega sul browser vero
 exit 1
 '''
 FINTI = ["gh", "launchctl", "open", "osascript", "defaults", "profiles", "security", "codesign", "spctl", "hdiutil",

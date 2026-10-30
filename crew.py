@@ -1998,7 +1998,8 @@ def accedi_studio(ui, server):
     except (OSError, ValueError, KeyError) as e:
         ui.esito(Esito("accesso allo studio", False, f"lo studio non risponde ({e}): controlla internet e rilancia"))
         return None
-    webbrowser.open(pagina)
+    if not casa_di_prova():  # una prova non apre il browser vero (test_guida, 30/10: pagine aperte all'owner)
+        webbrowser.open(pagina)
     ui.info("Se il browser non si è aperto, apri tu questo link:")
     ui.link("Accesso allo studio", pagina)
     with ui.attesa("aspetto che premi «Concedi accesso» nel browser (fino a 15 min)"):
