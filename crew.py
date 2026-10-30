@@ -15,6 +15,8 @@
                                     suo log, modifiche non pubblicate; ogni ✗ con il comando che lo sistema (non cambia niente)
     pleyades-cli progetti           i tuoi progetti e a che punto sono
     pleyades-cli link               i link giusti (studio, Talk, Dashboard, cartelle)
+    pleyades-cli app                l'app dei tuoi progetti (per ora Windows): la installa o la aggiorna dallo studio,
+                                    solo se l'impronta corrisponde; `auto` la tiene aggiornata da sola
     pleyades-cli kit                il tuo kit in base al ruolo: skill, cosa leggere, a chi chiedere
     pleyades-cli auto [--subito]    (hook d'avvio di regole e «📦 Push» nella stanza, in background) aggiorna tutto, poi
                                     `controlla --talk` solo se il riassunto è cambiato o ha più di 3 giorni
@@ -783,6 +785,97 @@ def cartelle_progetti():
     out = [(r, cartella_progetto(r)) for r in stato().get("progetti", [])]
     out += [(c, dir_studio(c)) for c in stato().get("studio_progetti", [])]
     return [(e, d) for e, d in out if os.path.isdir(d)]
+
+
+# L'app di un progetto: `"app": {"nome": "…", "windows": "<cartella dello studio>/<file>.zip"}` in progetto.json;
+# accanto alla zip `<file>.json` = {"versione", "commit", "sha256"}, scritto da chi pubblica. Si installa per
+# l'utente (niente amministratore), solo se l'impronta corrisponde, sostituendo la vecchia solo a copia completa.
+
+def app_progetti():
+    """[(cartella, config, app)] dei progetti su questo computer che dichiarano un'app."""
+    out = []
+    for _, d in cartelle_progetti():
+        c = config_progetto(d)
+        if isinstance(c.get("app"), dict) and c["app"].get("nome"):
+            out.append((d, c, c["app"]))
+    return out
+
+
+def cartella_app(app):
+    nome = re.sub(r'[<>:"/\\|?*]', "", app["nome"]).strip() or "app"
+    return os.path.join(os.environ.get("LOCALAPPDATA", os.path.join(CASA, "AppData", "Local")), "Programs", nome)
+
+
+def collegamenti_app(app, exe):
+    """Menu Start e Desktop, con l'icona dell'.exe."""
+    start = os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "Start Menu", "Programs")
+    ps = "; ".join(
+        f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{os.path.join(dove, app['nome'] + '.lnk')}'); "
+        f"$s.TargetPath='{exe}'; $s.WorkingDirectory='{os.path.dirname(exe)}'; $s.IconLocation='{exe},0'; $s.Save()"
+        for dove in (start, "$([Environment]::GetFolderPath('Desktop'))"))
+    return run("powershell", "-NoProfile", "-Command", ps)[0] == 0
+
+
+def installa_app(d, c, app, scarica=None):
+    """Esito dell'installazione/aggiornamento. scarica(percorso) → bytes (default: lo studio con le credenziali
+    di Talk del progetto; i test ne passano uno finto)."""
+    nome = app["nome"]
+    if not WIN:
+        return Esito(nome, True, saltato=True, nota="per ora solo su Windows")
+    if not app.get("windows"):
+        return Esito(nome, True, saltato=True, nota="nessuna versione per Windows")
+    if scarica is None:
+        t = modulo_talk(d, c)
+        cred = t.credenziali() if t else None
+        if not cred:
+            return Esito(nome, False, "collega prima lo studio: `pleyades-cli guida`")
+        scarica = lambda percorso: dav_leggi(t.SERVER, cred, percorso)
+    dest = cartella_app(app)
+    try:
+        meta = json.loads(scarica(app["windows"][:-4] + ".json"))
+        gia = leggi_json(os.path.join(dest, "versione.json"), {}) or {}
+        if gia.get("sha256") == meta.get("sha256") and os.path.isdir(dest):
+            return Esito(nome, True, saltato=True, nota=f"già all'ultima ({meta.get('versione', '?')})")
+        dati = scarica(app["windows"])
+    except (OSError, ValueError, KeyError) as e:
+        return Esito(nome, False, f"lo studio non risponde o manca la build ({e})")
+    if hashlib.sha256(dati).hexdigest() != meta.get("sha256"):
+        return Esito(nome, False, "l'impronta non corrisponde: non installo (riprova; se resta, avvisa chi la pubblica)")
+    nuovo, vecchio = dest + ".nuovo", dest + ".vecchio"
+    shutil.rmtree(nuovo, ignore_errors=True)
+    with zipfile.ZipFile(io.BytesIO(dati)) as z:
+        for f in z.namelist():  # mai fuori dalla cartella dell'app
+            if f.startswith(("/", "\\")) or ".." in f.replace("\\", "/").split("/"):
+                return Esito(nome, False, f"zip con un percorso non valido ({f}): non installo")
+        z.extractall(nuovo)
+    exe = next((f for f in os.listdir(nuovo) if f.lower().endswith(".exe")), None)
+    if not exe:
+        shutil.rmtree(nuovo, ignore_errors=True)
+        return Esito(nome, False, "nella zip non c'è un .exe")
+    with open(os.path.join(nuovo, "versione.json"), "w", encoding="utf-8") as f:
+        json.dump(meta, f)
+    shutil.rmtree(vecchio, ignore_errors=True)
+    try:
+        if os.path.isdir(dest):
+            os.replace(dest, vecchio)  # Windows: fallisce se l'app è aperta
+        os.replace(nuovo, dest)
+    except OSError:
+        shutil.rmtree(nuovo, ignore_errors=True)
+        return Esito(nome, False, f"chiudi {nome} e rilancia `pleyades-cli app`")
+    shutil.rmtree(vecchio, ignore_errors=True)
+    exe = os.path.join(dest, exe)
+    ok = collegamenti_app(app, exe)
+    return Esito(nome, True, nota=f"{meta.get('versione', '?')} installata" + ("" if ok else " (collegamenti non creati)"))
+
+
+def app(ui):
+    ui.titolo(f"{ui.nome} · app dei progetti")
+    elenco = app_progetti()
+    if not elenco:
+        ui.info("Nessun progetto su questo computer ha un'app da installare.")
+    for d, c, x in elenco:
+        ui.esito(installa_app(d, c, x))
+    return 0 if all(e.ok for e in ui.esiti) else 1
 
 
 def credenziali_note():
@@ -2191,6 +2284,10 @@ def giro_auto(ui):
     ok, cosa = pianifica()
     if not ok:
         ko.append(f"attività pianificata ({cosa})")
+    for d, c, x in app_progetti():  # l'app del progetto installata e aggiornata da sola (Windows)
+        e = installa_app(d, c, x)
+        if not e.ok:
+            ko.append(f"{e.nome} ({e.cosa})")
     salva_stato(auto={"t": time.time(), "esito": "ok" if not ko else "da sistemare: " + ", ".join(dict.fromkeys(ko)),
                       "teste": teste})
     ui.esiti = []
@@ -3389,7 +3486,7 @@ def main():
             ok, cosa = pianifica(togli="--togli" in a)
             ui.esito(Esito("aggiornamento automatico pianificato", ok, cosa, nota=cosa))
             return 0 if ok else 1
-        f = {"controlla": controlla, "squadra": squadra, "aggiorna": aggiorna, "auto": auto, "diagnosi": diagnosi, "progetti": progetti, "link": link, "kit": mio_kit}.get(cmd)
+        f = {"controlla": controlla, "squadra": squadra, "aggiorna": aggiorna, "auto": auto, "diagnosi": diagnosi, "progetti": progetti, "link": link, "kit": mio_kit, "app": app}.get(cmd)
         if f:
             return f(ui)
         print(f"pleyades-cli: comando «{cmd}» sconosciuto. `pleyades-cli --help` per l'elenco.")
