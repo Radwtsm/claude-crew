@@ -41,7 +41,8 @@
                             segnato in locale con data e motivo; `pleyades-cli aggiorna` non ne aggiunge mai altri
 
 Un progetto dice cosa gli serve in `.claude/progetto.json` del suo repo (stanza, talk, cartelle, plugin,
-marketplace, passi, dopo, primo_prompt, moduli, marchio, comando, tipo); i plugin di `.claude/settings.json` con valore true contano anche loro.
+marketplace, passi, dopo, primo_prompt, moduli, marchio, comando, tipo, allineamento = cartella dello studio dove ogni
+computer scrive il suo stato, letta da `squadra` e dall'app); i plugin di `.claude/settings.json` con valore true contano anche loro.
 `tipo`: «squadra» (l'agenzia: workflow unificati, regole personali, kit) o «progetto» (solo comunicare su quel
 progetto, in automatico); senza `tipo` è squadra chi ha `ruolo` o `cartelle`.
 L'indirizzo di Nextcloud viene dal `talk.py` del progetto, l'aspetto dal suo `marchio` (se c'è) e `comando` dà un
@@ -55,7 +56,7 @@ Mac, Linux e Windows (python3 o python). Solo libreria standard. Le funzioni non
 """
 import hashlib, importlib.util, io, json, os, platform, plistlib, re, shutil, subprocess, sys, tarfile, tempfile
 import textwrap, threading, time, urllib.error, urllib.parse, urllib.request, uuid, webbrowser
-import xml.etree.ElementTree as ET, zipfile
+import datetime, xml.etree.ElementTree as ET, zipfile
 from concurrent.futures import ThreadPoolExecutor
 
 CREW = "Radwtsm/claude-crew"
@@ -822,6 +823,61 @@ def dav_elenco(server, cred, percorso=""):
 
 def dav_leggi(server, cred, percorso):
     return chiama(_dav(server, cred, percorso)[0], cred=cred, timeout=120)
+
+
+# L'allineamento come dato (owner 30/10): ogni computer scrive il suo file nella cartella `allineamento` di
+# progetto.json; l'app Pleiadi e `squadra` leggono gli stessi file (schema: APP-PLEIADI.md → Dati dell'allineamento).
+def privato_via(x):
+    return (x or "").replace(CASA, "~")  # mai il percorso di casa (nome dell'utente del computer)
+
+
+def scrivi_allineamento(d, c, esiti, v):
+    """True se scritto, False se non serviva (uguale e recente), None se il progetto non lo chiede o lo studio non c'è."""
+    cartella, t = c.get("allineamento"), modulo_talk(d, c)
+    conf = cartella and t and stanza_collegata(t, c.get("stanza"))
+    if not conf:
+        return None
+    dati = {"persona": conf["utente"], "sistema": platform.system(), "cli": v.get("cli", "?"),
+            "versioni": {k: x.rstrip("*") for k, x in v.items() if k != "cli"},
+            "avanti": v.get("progetto", "").endswith("*"),
+            "esiti": [{"passo": passo_di(e.nome)["id"], "livello": e.livello, "nome": privato_via(e.nome),
+                       "stato": "ok" if e.ok else "saltato" if e.saltato else "manca",
+                       "azione": "" if e.ok or e.saltato else privato_via(e.cosa)[:200]} for e in esiti]}
+    impronta = sha7(json.dumps(dati, sort_keys=True).encode())
+    prima = stato().get("allineamento", {}).get(d, {})
+    if prima.get("impronta") == impronta and time.time() - prima.get("t", 0) < 6 * 3600:
+        return False  # niente scritture ogni 5 minuti: uguale e di meno di 6 ore (vale 24)
+    dati["quando"] = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
+    server = t.SERVER
+    try:
+        try:
+            chiama(_dav(server, conf, cartella)[0], "MKCOL", cred=conf)
+        except urllib.error.HTTPError as e:
+            if e.code != 405:  # 405 = c'è già
+                raise
+        chiama(_dav(server, conf, f"{cartella}/{conf['utente']}-{platform.system()}.json")[0], "PUT",
+               json.dumps(dati, ensure_ascii=False, indent=1).encode(), conf, {"Content-Type": "application/json"})
+    except (OSError, ValueError):
+        return None
+    salva_stato(allineamento={**stato().get("allineamento", {}), d: {"impronta": impronta, "t": time.time()}})
+    return True
+
+
+def leggi_allineamento(d, c):
+    """{(persona, sistema): dati} dalla cartella `allineamento` del progetto; {} se non c'è o lo studio non risponde."""
+    cartella, t = c.get("allineamento"), modulo_talk(d, c)
+    conf = cartella and t and stanza_collegata(t, c.get("stanza"))
+    out = {}
+    if not conf:
+        return out
+    try:
+        for nome, sotto in dav_elenco(t.SERVER, conf, cartella):
+            if not sotto and nome.endswith(".json"):
+                x = json.loads(dav_leggi(t.SERVER, conf, f"{cartella}/{nome}"))
+                out[(x["persona"], x["sistema"])] = x
+    except (OSError, ValueError, KeyError, ET.ParseError):
+        pass
+    return out
 
 
 def progetti_studio(server, cred):
@@ -2174,6 +2230,7 @@ def controlla(ui):
         for d in dove:
             c = config_progetto(d)
             if c.get("talk"):
+                scrivi_allineamento(d, c, ui.esiti, versioni(d, c))
                 v = " ".join(f"{k}={x}" for k, x in versioni(d, c).items())
                 msg = (f"{testo} · versioni: {v}" + (" · manca: " + ", ".join(manca) if manca else ""))[:390]
                 prima = inviati.get(d, {})
@@ -2214,30 +2271,42 @@ def squadra(ui):
         with ui.attesa("leggo la stanza e l'ultima versione"):
             rif = riferimento(d, c, cli)
             try:
-                ultimi = {}
+                ultimi = {}  # (nome, sistema) → {ok, tot, v, ora, giorni_max}
                 for m in t.messaggi(conf, 200):
                     r = RE_CONTROLLO.search(m.get("message", ""))
-                    if r:
-                        ultimi[(m.get("actorDisplayName") or "?", r.group("sis"))] = (m, r)
-                persone = {p.get("displayName") for p in t.api(conf, "GET", f"/v4/room/{conf['stanza']}/participants")
-                           if p.get("actorType") == "users"}
+                    if r:  # il riassunto 🔎 nella stanza (chi non ha ancora la versione che scrive i file)
+                        ultimi[(m.get("actorDisplayName") or "?", r.group("sis"))] = {
+                            "ok": int(r.group("ok")), "tot": int(r.group("tot")), "giorni_max": 7,
+                            "v": dict(x.split("=", 1) for x in (r.group("ver") or "").split() if "=" in x),
+                            "ora": m.get("lastEditTimestamp") or m["timestamp"]}  # si aggiorna modificandolo
+                gente = [p for p in t.api(conf, "GET", f"/v4/room/{conf['stanza']}/participants")
+                         if p.get("actorType") == "users"]
+                persone = {p.get("displayName") for p in gente}
+                nomi = {p.get("actorId"): p.get("displayName") for p in gente}
+                for (chi, sis), x in leggi_allineamento(d, c).items():  # i file dello studio vincono sulla stanza
+                    obbl = [e for e in x.get("esiti", []) if e.get("livello") == "obbligatorio"]
+                    ultimi[(nomi.get(chi, chi), sis)] = {
+                        "ok": sum(e.get("stato") != "manca" for e in obbl), "tot": len(obbl), "giorni_max": 1,
+                        "v": {"cli": x.get("cli", "?"), **x.get("versioni", {})}, "avanti": x.get("avanti"),
+                        "ora": datetime.datetime.fromisoformat(x["quando"]).timestamp()}
             except Exception as e:  # rete giù o accesso scaduto: lo dice e passa al progetto dopo
                 ultimi, persone = None, str(e)[:120]
         if ultimi is None:
             ui.esito(Esito("stanza Talk", False, f"rete o accesso: {persone}"))
             continue
         ui.info("ultima versione: " + " ".join(f"{k}={x}" for k, x in rif.items()))
-        for (nome, sis), (m, r) in sorted(ultimi.items()):
-            v = dict(x.split("=", 1) for x in (r.group("ver") or "").split() if "=" in x)
-            diverso = [f"{k}={v.get(k, '?')}" for k, x in rif.items() if v.get(k, "").rstrip("*") != x]
-            ora = m.get("lastEditTimestamp") or m["timestamp"]  # lo stato si aggiorna modificando il messaggio
+        for (nome, sis), x in sorted(ultimi.items()):
+            v, ora = x["v"], x["ora"]
+            diverso = [f"{k}={v.get(k, '?')}" for k, y in rif.items() if v.get(k, "").rstrip("*") != y]
             giorni = (time.time() - ora) / 86400
-            ui.esito(Esito(f"{nome} ({sis})", not diverso and r.group("ok") == r.group("tot") and giorni < 7,
+            conta = f"{x['ok']}/{x['tot']}"
+            ui.esito(Esito(f"{nome} ({sis})", not diverso and x["ok"] == x["tot"] and giorni < x["giorni_max"],
                            f"lì: pleyades-cli aggiorna, poi pleyades-cli controlla --talk · "
-                           + (f"diverso: {' '.join(diverso)}" if diverso else f"{r.group('ok')}/{r.group('tot')}")
-                           + (f" · controllo di {giorni:.0f} giorni fa" if giorni >= 7 else ""),
-                           nota=f"{r.group('ok')}/{r.group('tot')} · {time.strftime('%d/%m %H:%M', time.localtime(ora))}"
-                           + (" · lavoro non pubblicato" if v.get("progetto", "").endswith("*") else "")))
+                           + (f"diverso: {' '.join(diverso)}" if diverso else conta)
+                           + (f" · controllo di {giorni:.1f} giorni fa" if giorni >= x["giorni_max"] else ""),
+                           nota=f"{conta} · {time.strftime('%d/%m %H:%M', time.localtime(ora))}"
+                           + (" · lavoro non pubblicato" if x.get("avanti") or v.get("progetto", "").endswith("*")
+                              else "")))
         fatti = {n for n, _ in ultimi}
         mai = sorted(persone - fatti - {n[len("claude-"):] for n in fatti if n.startswith("claude-")})  # il suo Claude
         indietro += [e.nome for e in ui.esiti if not e.ok and e.nome != "stanza Talk"]
