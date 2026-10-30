@@ -11,6 +11,9 @@ Letto da `SKILL.md` prima di: script bash/zsh/Git Bash, comandi ssh, hook, hered
 - zsh su Mac: `log` è un builtin → `/usr/bin/log`; un risultato vuoto è sospetto finché una query nota non risponde.
 - Bash con `set -e`: un passo che deve fermare lo script non sta in una lista `a && b && c` (lì un errore è ignorato):
   usa `if …; then …; fi`.
+- Hook di guardia (PreToolUse, UserPromptSubmit) col computer sotto carico → scade, Claude Code lo annulla e lo
+  strumento passa: il controllo salta in silenzio → timeout largo (15-30 s) e lavoro locale veloce; i timeout si
+  vedono nei transcript (`hook_cancelled`, `timedOut`).
 - Hook shell: mai finire con `[ cond ] && …` (cond falsa = exit 1 = blocca tutto in silenzio); `if …; fi` + `exit 0`.
 - Hook con la seconda voce `python … --se-manca-python3` (per Windows): sul Mac `python` non esiste → «python:
   command not found» a ogni risposta → `command -v python >/dev/null 2>&1 || exit 0; python …`.
