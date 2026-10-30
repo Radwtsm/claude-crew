@@ -14,13 +14,16 @@ Cosa controlla (README di Pleyades tools → Formato):
 - Ogni .md di regole o skill: righe ≤ 120 caratteri (fuori dai blocchi di codice e dalle tabelle), niente spazi in
   fondo, a capo finale.
 - Contesto snello: i file elencati nei limiti (`byte glob…` per riga, `#` commento) non superano i loro byte,
-  contati senza CR (un checkout Windows pesa come su Mac). Questi non vanno in baseline: si sistemano subito.
+  contati senza CR (un checkout Windows pesa come su Mac). Una riga `byte somma glob…` limita i file insieme (tutto
+  ciò che entra all'avvio), `byte descrizioni glob…` la somma delle `description` (l'elenco delle skill sta in ogni
+  risposta). Questi non vanno in baseline: si sistemano subito.
 I problemi già presenti stanno in `lint-regole-baseline.txt` nella cartella controllata: possono solo calare.
 Solo libreria standard.
 """
 import fnmatch, glob, json, os, re, subprocess, sys
 
 MAX_RIGA = 120
+SOMME = ("somma", "descrizioni")  # righe di limiti-contesto.txt che contano più file insieme
 FILE = ("SKILL.md", "CLAUDE.md", "AGENTS.md")
 SALTA = {".git", "node_modules", "dist", "__pycache__", ".claude"}
 
@@ -125,7 +128,7 @@ def troppo_lungo(root, rel, path):
         return []
     for r in open(lim, encoding="utf-8"):
         parti = r.split()
-        if len(parti) >= 2 and parti[0].isdigit() and any(fnmatch.fnmatch(rel, g) for g in parti[1:]):
+        if len(parti) >= 2 and parti[0].isdigit() and parti[1] not in SOMME and any(fnmatch.fnmatch(rel, g) for g in parti[1:]):
             n = os.path.getsize(path)
             if n > int(parti[0]):
                 return [f"{rel}: {n} byte > {parti[0]} (dettagli in un file per tema letto quando serve)"]
@@ -190,6 +193,16 @@ def troppo_lunghi(root, limiti):
     for riga in open(limiti, encoding="utf-8"):
         parti = riga.split()
         if not parti or parti[0].startswith("#"):
+            continue
+        if len(parti) > 2 and parti[1] in SOMME:
+            fs = sorted({f for m in parti[2:] for f in glob.glob(os.path.join(root, m))})
+            testi = [open(f, "rb").read().replace(b"\r", b"") for f in fs]
+            if parti[1] == "descrizioni":
+                n = sum(len((frontmatter(t.decode("utf-8", "replace"))[0] or {}).get("description", "")) for t in testi)
+            else:
+                n = sum(len(t) for t in testi)
+            if n > int(parti[0]):
+                fuori.append(f"{parti[1]} di {' '.join(parti[2:])}: {n} > {parti[0]} ({len(fs)} file)")
             continue
         for modello in parti[1:]:
             for f in sorted(glob.glob(os.path.join(root, modello))):

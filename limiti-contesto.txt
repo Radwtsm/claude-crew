@@ -6,3 +6,7 @@
 3000   plugins/codice/architettura.md
 11500  CLAUDE.md
 6000   plugins/*/skills/*/SKILL.md
+# Somme (30/10, misurato: l'avvio pesa ~82k token e ogni risposta lo rilegge): tutto ciò che la crew mette in ogni
+# sessione insieme, così più plugin e regole non lo fanno crescere senza una scelta.
+11000  somma        plugins/regole/skills/regole-crew/SKILL.md plugins/codice/codice.md plugins/codice/architettura.md
+6600   descrizioni  plugins/*/skills/*/SKILL.md
