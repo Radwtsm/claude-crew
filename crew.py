@@ -1423,9 +1423,19 @@ class Terminale:
             self.misura = None
             self.disegna()
 
+    def avvolto(self, riga):
+        """Una riga lunga su più righe, rientrate sotto il testo (senza schermo pieno: Claude, script, Windows)."""
+        w = self.largo_testo() + 1
+        pulita = re.sub(r"\x1b\[[0-9;]*m", "", riga)
+        if len(pulita) <= w or any(x in pulita for x in "│╭╰"):
+            return riga
+        testa = re.match(r"\s*(?:[⎿❯?→✓✗·•…⏺✦]\s+|\d+\.\s+)*", pulita).group(0)
+        return "\n".join(textwrap.wrap(pulita, w, initial_indent="", subsequent_indent=" " * len(testa),
+                                        break_long_words=False, break_on_hyphens=False)) or riga
+
     def out(self, riga=""):
         if not self.pieno:
-            print(riga)
+            print("\n".join(self.avvolto(r) for r in riga.split("\n")))
             return
         self.apri()
         with self.blocco:
@@ -1456,9 +1466,13 @@ class Terminale:
             self.apri()
             self.disegna()
         else:
-            self.riquadro(righe + [self.c("2", "  ↑↓ scegli · Invio conferma · Ctrl+C esci (riprende da dove eri)")])
+            self.riquadro(righe + [self.c("2", "  ↑↓ scegli · Invio conferma · Ctrl+C esci (riprende da dove eri)"
+                                          if sys.stdin.isatty() else "  scrivi il numero e premi Invio")])
 
     def cornice(self, righe):
+        massimo = self.largo_testo() - 3  # mai oltre lo schermo (test_guida a 60 colonne, 30/10)
+        righe = [x for r in righe for x in ([r] if len(re.sub(r"\x1b\[[0-9;]*m", "", r)) <= massimo else
+                 textwrap.wrap(re.sub(r"\x1b\[[0-9;]*m", "", r), massimo, subsequent_indent="  "))]
         vis = [len(re.sub(r"\x1b\[[0-9;]*m", "", r)) for r in righe]
         w = self.largo = max(max(vis) + 2, getattr(self, "largo", 0))  # tutti i riquadri larghi uguali
         return ([self.c("2", "╭" + "─" * w + "╮")] + [self.c("2", "│") + " " + r + " " * (w - n - 1) + self.c("2", "│")
@@ -1550,8 +1564,8 @@ class Terminale:
         if self.pieno:
             return self._scrivi(domanda, base)
         try:
-            r = input("\n  " + self.acc("?") + " " + self.c("1", domanda) + self.c("2", f" [{base}]" if base else "")
-                      + "\n  " + self.acc("❯") + " ").strip()
+            r = input("\n" + self.avvolto("  " + self.acc("?") + " " + self.c("1", domanda)
+                                           + self.c("2", f" [{base}]" if base else "")) + "\n  " + self.acc("❯") + " ").strip()
         except EOFError:  # nessuno risponde (lanciato da Claude o da uno script): si va avanti con la scelta base
             self.eof, r = True, ""
         return r or base
@@ -1904,8 +1918,8 @@ def passo_claude(ui):
             raise RuntimeError("l'accesso non si salva su questo computer: salta, poi apri `claude` e scrivi /login")
         run("claude", "auth", "login", vivo=True)
         return claude_collegato()
-    ui.esito(Esito("accesso a Claude", ui.conferma("Accediamo a Claude?", "Sì, apri il browser", "Dopo") and
-                   accedi(), "accedi con il tuo account Claude", riprova=accedi))
+    si = ui.conferma("Accediamo a Claude?", "Sì, apri il browser", "Dopo") and not getattr(ui, "eof", False)
+    ui.esito(Esito("accesso a Claude", si and accedi(), "accedi con il tuo account Claude", riprova=accedi))
     return True  # senza accesso la guida va avanti: lo chiede Claude la prima volta che si apre
 
 
@@ -1917,6 +1931,8 @@ def passo_github(ui):
     i = ui.scegli("Hai (o vuoi creare) un account GitHub? Serve per i progetti privati e per mandare modifiche.",
                   ["Sì, ho un account o lo creo adesso (gratis)",
                    "No, per ora senza: solo le cose pubbliche (puoi cambiare idea con `pleyades-cli guida`)"])
+    if getattr(ui, "eof", False):  # nessuno risponde (script, Claude senza risposte): mai un accesso che aspetta per sempre
+        return ui.esito(Esito("GitHub", True, saltato=True, nota=f"nessuno ha risposto: `{NOME_CLI} guida` per collegarlo"))
     salva_stato(github=(i == 0))
     if i != 0:
         return ui.esito(Esito("GitHub", True, saltato=True, nota="senza account: solo repo pubblici"))
@@ -2181,7 +2197,7 @@ def guida(ui, richiesti, solo_progetti=False):
     if not solo_progetti:
         pronti += passo_studio(ui)
     fatti = {e for e, _ in pronti} | {r[1].get("repo") for _, r in pronti}  # copia dallo studio = quel repo
-    scelti = richiesti if solo_progetti else scegli_progetti(ui, richiesti)  # entra X = solo X
+    scelti = [] if lavoro() else richiesti if solo_progetti else scegli_progetti(ui, richiesti)  # entra X = solo X
     for repo in ([] if lavoro() else [x for x in scelti if x not in fatti]):
         r = passo_progetto(ui, repo)
         if r:
@@ -2555,6 +2571,8 @@ def giro_auto(ui):
 def pianifica(togli=False):
     """L'allineamento anche a Claude chiuso (owner 28/10: imposto, non affidato a chi riapre Claude): un'attività del
     sistema lancia `auto` all'accesso e ogni 5 minuti. Si rimette da sola a ogni `auto`. Torna (ok, cosa)."""
+    if casa_di_prova():  # launchd, cron e schtasks sono dell'utente vero: una prova toglierebbe la sua (test_guida, 30/10)
+        return True, "casa di prova: niente attività pianificata"
     if lavoro():
         return True, "computer di lavoro: niente attività pianificate"
     crew = os.path.join(CARTELLA, "crew.py")
@@ -2587,7 +2605,8 @@ def pianifica(togli=False):
         with open(p, "wb") as f:
             f.write(dati)
         c, out = run("launchctl", "bootstrap", dominio, p)
-        return c == 0, "attivata (launchd, ogni 5 minuti)" if c == 0 else out[:200]
+        return c == 0, "attivata (launchd, ogni 5 minuti)" if c == 0 else \
+            (out.strip()[:200] or f"launchd non l'ha accettata (codice {c}): riprova dopo un riavvio del Mac")
     if not ha("crontab"):
         return False, f"manca crontab: fai partire `{NOME_CLI} auto` all'accesso"
     attuale = run("crontab", "-l")[1]
@@ -3710,7 +3729,7 @@ def main():
             print(json.dumps(PASSI, ensure_ascii=False, indent=1))
         else:
             for p in PASSI:
-                print(f"{p['livello']:<12} {p['nome']} · {p['sistemi']} · {p['fa']}")
+                print(f"{p['livello']:<12} {p['nome']}\n{'':13}{p['sistemi']} · {p['fa']}")
         return 0
     path_aggiornato()
     for x in a:
