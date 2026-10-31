@@ -53,9 +53,27 @@ shopify theme push --store <negozio>.myshopify.com --theme <id>
   prefisso: controllali a parte.
 - Prova di una modifica all'intestazione fuori dal tema: copia la **struttura vera** (colonne, doppia ricerca,
   account nascosto, CSS di Horizon), non una versione semplificata, o la prova passa e il tema si rompe.
+- Menu ☰ forzato, ma su computer/iPad torna il menu in riga con «Altro» → Horizon sceglie `data-menu-style` due
+  volte: `setHeaderMenuStyle()` in `assets/utilities.js` e uno script in linea in `layout/theme.liquid` → cambiarli
+  tutti e due.
+- Dopo un pull dalla copia appena duplicata mancano file locali → la copia nuova può non avere tutto → i file
+  dell'editor si prendono dal tema **live** (`--theme <id live>`), poi push sulla copia.
+
+## Misurare velocità prima/dopo
+- Confronto falsato → misura **tutti e due i temi nella stessa sessione** con `?preview_theme_id=<id>`; peso con
+  `encodedBodySize` (con la cache `transferSize` vale 0).
+- Richieste che raddoppiano (+~175) → dopo una visita al checkout Shopify precarica i file `checkout-web` →
+  escludi `/checkout-web/` dal conteggio.
+- Un errore 401 in console → è l'accesso Shop di Shopify, c'è anche sul tema live → confronta col live prima di
+  cercarlo nel tuo codice.
+- Pannello del browser di Claude nascosto → `requestAnimationFrame` e screenshot non partono (script che aspettano
+  rAF vanno in timeout) → verifica con controlli sul DOM, senza rAF.
 
 ## Admin Shopify dal browser di Claude
 - Dopo un clic su un campo aspetta ~2 s prima di scrivere, o il testo si perde.
+- Menu (Contenuto → Menu): una voce si annida trascinandola **a destra e sotto** la voce madre; dove cade dipende
+  da dove la rilasci (più a destra = un livello più giù). Nei collegamenti scrivi il percorso (`/collections/x`) e
+  scegli il suggerimento con ↓ Invio.
 - Scorri con la rotella (azione di scroll): nell'admin `window.scrollY` resta 0, non usarlo per capire dove sei.
 - Il banner dei cookie del negozio copre la pagina: per i test nascondilo da JS solo nella tua vista, mai nel tema.
 
