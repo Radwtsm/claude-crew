@@ -15,6 +15,19 @@ function Python-Vero {  # 'python' of the Microsoft Store is only a stub that op
     return ($p -and $p -notlike '*WindowsApps*')
 }
 
+function Installa($id) {  # winget's own message if it fails: the colleague can tell us why, not just "missing"
+    # --source winget: on a new PC msstore matches too and winget stops asking which one (-1978335173);
+    # --scope user first: no admin rights, no UAC prompt (the all-users Python installer hangs waiting for it)
+    $w = @('install', '--id', $id, '-e', '--source', 'winget', '--silent', '--accept-package-agreements', '--accept-source-agreements')
+    $out = winget @w --scope user 2>&1
+    if ($LASTEXITCODE -ne 0) { $out = winget @w 2>&1 }
+    if ($LASTEXITCODE -ne 0) {
+        $motivo = ($out | ForEach-Object { "$_".Trim() } | Where-Object { $_ -match '\w{3}' } | Select-Object -Last 1)
+        Write-Host "⚠️ winget: $id non installato (codice $LASTEXITCODE)" -ForegroundColor Yellow
+        if ($motivo) { Write-Host "   $("$motivo".Substring(0, [Math]::Min(75, "$motivo".Length)))" -ForegroundColor Yellow }
+    }
+}
+
 function Avvia {
     if (-not ((Ha git) -and (Python-Vero))) {
         if (-not (Ha winget)) {
@@ -22,12 +35,12 @@ function Avvia {
             return
         }
         Write-Host "… installo Git e Python (winget), qualche minuto" -ForegroundColor Cyan
-        if (-not (Ha git)) { winget install --id Git.Git -e --silent --accept-package-agreements --accept-source-agreements | Out-Null }
-        if (-not (Python-Vero)) { winget install --id Python.Python.3.12 -e --silent --accept-package-agreements --accept-source-agreements | Out-Null }
+        if (-not (Ha git)) { Installa Git.Git }
+        if (-not (Python-Vero)) { Installa Python.Python.3.12 }
         Aggiorna-Path
     }
     if (-not ((Ha git) -and (Python-Vero))) {
-        Write-Host "❌ Git o Python non trovati: chiudi PowerShell, riaprilo e incolla di nuovo la stessa riga" -ForegroundColor Red
+        Write-Host "❌ Git o Python non trovati: chiudi PowerShell, riaprilo`n   e incolla di nuovo la stessa riga" -ForegroundColor Red
         return
     }
     $dir = Join-Path $HOME '.crew'
