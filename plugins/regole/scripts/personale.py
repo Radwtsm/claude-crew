@@ -47,7 +47,8 @@ CONSIGLI = {
 }
 RE_SEGRETO = re.compile(r"\b(sk-(ant-)?[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|"
                         r"AKIA[0-9A-Z]{16}|xox[abp]-[A-Za-z0-9-]{20,}|AIza[0-9A-Za-z_-]{30,})|-{5}BEGIN [A-Z ]*PRIVATE KEY|"
-                        r"\b(password|passwd|token|api[_-]?key|secret)\s*[:=]\s*\S{8,}", re.I)
+                        r"(?<![\w-])(password|passwd|token|api[_-]?key|secret)\s*[:=]\s*\S{8,}", re.I)
+RE_NOTE = re.compile(r"<system-reminder>.*?</system-reminder>", re.S)
 RE_LOG = re.compile(r"^\s*(\d{4}-\d\d-\d\d[ T]\d\d:\d\d|\[?\d\d:\d\d:\d\d|at [\w.$]+\(|File \".*\", line \d+|"
                     r"(ERROR|WARN|INFO|DEBUG)\b|Traceback)", re.M)
 RE_SALTA = re.compile(r"--no-verify|salta (i |il )?(test|controll|hook)|disattiva (i |il )?(test|controll|hook)|"
@@ -553,7 +554,8 @@ def suggerisci(prompt):
 def pratiche(prompt):
     """Una riga a Claude quando il messaggio mostra una cattiva pratica certa, una volta per tema ogni N giorni
     (buone-pratiche.md). Il testo del messaggio non viene mai ripetuto. Niente output se è tutto ok (0 token)."""
-    p = prompt or ""
+    # solo le parole dell'utente: le note che l'app aggiunge (<system-reminder>, es. «audit-token = local_…») non contano
+    p = RE_NOTE.sub("", prompt or "")
     temi = []
     if RE_SEGRETO.search(p):
         temi.append("segreto")

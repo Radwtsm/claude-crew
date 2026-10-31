@@ -24,9 +24,13 @@ WSB = """<Configuration>
 def ps(host, comando, check=True):
     # -EncodedCommand: niente virgolette da far passare per cmd; output in code page Windows → errors="replace"
     cod = base64.b64encode(("[Console]::OutputEncoding=[Text.Encoding]::UTF8; " + comando).encode("utf-16-le")).decode()
-    r = subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=20", host,
-                        "powershell", "-NoProfile", "-EncodedCommand", cod],
-                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+    try:
+        r = subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=20", host,
+                            "powershell", "-NoProfile", "-EncodedCommand", cod],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+    except subprocess.TimeoutExpired:
+        # la chiave c'è ma ssh non finisce: di solito aspetta il Touch ID (Secretive) o il PC dorme
+        sys.exit(f"prova_da_zero: {host} non risponde in 2 min: Touch ID sul Mac? (non compare: riavvia SecretAgent, trappole-tecniche → mac) PC sveglio?")
     if check and r.returncode:
         sys.exit(f"prova_da_zero: sul PC «{comando[:60]}» non va:\n{r.stderr.strip()[-600:]}")
     return r.stdout.strip()
