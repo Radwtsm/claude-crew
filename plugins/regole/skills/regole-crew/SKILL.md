@@ -25,11 +25,12 @@ Sicurezza la possono solo stringere. Tono e formato sono personali. Se non dicon
 
 ## Lavoro fatto bene
 - Prima di dire "fatto" o "è così", verifica davvero, sulla macchina (`verificare.md`); lavoro: `lavoro.md` prima.
+- **Radice sempre**: correggi la causa, mai solo il caso.
 - **Squadra allineata = priorità**: «Squadra non allineata» → dillo per primo, poi `ripara-allineamento`.
 - Problema sul PC di un altro: diagnosi dal suo Claude (`talk.py richiesta`), risolve chi è competente.
 - **Riuso**: soluzione solo per sé che servirebbe al team → avvisa, proponi quella comune (`riuso.md`).
 
-## Contesto snello (sempre una priorità)
+## Contesto snello
 - Ciò che Claude legge a ogni turno costa a ogni risposta: resta un indice corto; i dettagli in file per tema letti
   quando servono, e solo la parte che serve (skill `organizza-claude`).
 - Una sessione per argomento: se chiedo una cosa di un altro argomento, prima chiudi e salva il lavoro in corso,
