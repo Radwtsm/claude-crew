@@ -19,8 +19,9 @@ function Installa($id) {  # winget's own message if it fails: the colleague can 
     # --source winget: on a new PC msstore matches too and winget stops asking which one (-1978335173);
     # --scope user first: no admin rights, no UAC prompt (the all-users Python installer hangs waiting for it)
     $w = @('install', '--id', $id, '-e', '--source', 'winget', '--silent', '--accept-package-agreements', '--accept-source-agreements')
-    $out = winget @w --scope user 2>&1
-    if ($LASTEXITCODE -ne 0) { $out = winget @w 2>&1 }
+    # @() |: stdin vuoto, winget e l'installer non leggono le risposte destinate alla guida (né aspettano un tasto)
+    $out = @() | winget @w --scope user 2>&1
+    if ($LASTEXITCODE -ne 0) { $out = @() | winget @w 2>&1 }
     if ($LASTEXITCODE -ne 0) {
         $motivo = ($out | ForEach-Object { "$_".Trim() } | Where-Object { $_ -match '\w{3}' } | Select-Object -Last 1)
         Write-Host "⚠️ winget: $id non installato (codice $LASTEXITCODE)" -ForegroundColor Yellow
@@ -31,7 +32,7 @@ function Installa($id) {  # winget's own message if it fails: the colleague can 
 function Avvia {
     if (-not ((Ha git) -and (Python-Vero))) {
         if (-not (Ha winget)) {
-            Write-Host "❌ manca winget: Microsoft Store → cerca «Programma di installazione app» → «Aggiorna», poi rilancia" -ForegroundColor Red
+            Write-Host "❌ manca winget: Microsoft Store → cerca «Programma di installazione app»`n   → «Aggiorna», poi rilancia la stessa riga" -ForegroundColor Red
             return
         }
         Write-Host "… installo Git e Python (winget), qualche minuto" -ForegroundColor Cyan

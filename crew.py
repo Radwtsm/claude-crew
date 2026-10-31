@@ -65,7 +65,7 @@ CREW = "Radwtsm/claude-crew"
 ALIAS = "pley"  # il nome corto dello stesso comando
 NOME_CLI = "pleyades-cli"  # il nome che si vede (owner 28/10: tutto Pleyades tools, niente «crew»)
 CREW_PY = "https://raw.githubusercontent.com/Radwtsm/claude-crew/main/crew.py"
-GH_RELEASE = "https://api.github.com/repos/cli/cli/releases/latest"
+GH_RELEASE = "cli/cli"
 CASA = os.path.expanduser("~")
 CARTELLA = os.path.join(CASA, ".crew")  # crew.py installato
 LOG_AUTO = os.path.join(CARTELLA, "auto.log")  # l'output dell'ultimo `auto` (hook d'avvio di regole)
@@ -214,8 +214,9 @@ def run(*cmd, cwd=None, timeout=300, vivo=False):
                     tty.close()
                 if schermo:
                     schermo.riprendi()
+        # stdin chiuso: un programma che legge non si prende le risposte della persona né aspetta un tasto
         r = subprocess.run(list(cmd), capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=cwd,
-                           timeout=timeout, **SENZA_FINESTRA)
+                           timeout=timeout, stdin=subprocess.DEVNULL, **SENZA_FINESTRA)
         return r.returncode, (r.stdout + r.stderr).strip()
     except (OSError, subprocess.SubprocessError) as e:
         return 1, str(e)
@@ -233,7 +234,7 @@ def run_live(*cmd, cwd=None, timeout=900):
     """Come run, ma ogni riga del programma (anche quelle con \\r delle barre) va nella riga di stato live, con la
     percentuale se la riga ne ha una. Torna (codice, output)."""
     try:
-        p = subprocess.Popen(list(cmd), cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        p = subprocess.Popen(list(cmd), cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     except OSError as e:
         return 1, str(e)
     out, resto, fine = [], b"", time.time() + timeout
@@ -307,6 +308,17 @@ def scarica(url, timeout=60):
                 live(len(dati) / tot, f"{len(dati) // 1_000_000}/{tot // 1_000_000} MB")
 
 
+def release_file(repo):
+    """{nome: url} dei file dell'ultima versione, dalle pagine pubbliche: l'API di GitHub ne dà 60 l'ora per IP e
+    dietro una rete condivisa (o a prove ripetute) risponde «rate limit exceeded»."""
+    req = urllib.request.Request(f"https://github.com/{repo}/releases/latest", headers={"User-Agent": "pleyades-cli/1.0"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        tag = r.geturl().rsplit("/tag/", 1)[1]  # rimanda a …/releases/tag/<versione>
+    html = scarica(f"https://github.com/{repo}/releases/expanded_assets/{tag}").decode()
+    return {u.rsplit("/", 1)[1]: "https://github.com" + u
+            for u in re.findall(rf'href="(/{re.escape(repo)}/releases/download/[^"]+)"', html)}
+
+
 # Claude Code
 
 def installa_claude():
@@ -338,8 +350,7 @@ def installa_gh():
     if not sistema:
         return False, "sistema non riconosciuto"
     try:
-        rel = json.loads(scarica(GH_RELEASE))
-        asset = {a["name"]: a["browser_download_url"] for a in rel["assets"]}
+        asset = release_file(GH_RELEASE)
         nome = next(n for n in asset if n.endswith(fine))
         somme = scarica(asset[next(n for n in asset if n.endswith("_checksums.txt"))]).decode()
         dati = scarica(asset[nome], timeout=300)
@@ -551,7 +562,7 @@ def app_nextcloud():
     return ha("nextcloud")
 
 
-NEXTCLOUD_RELEASE = "https://api.github.com/repos/nextcloud-releases/desktop/releases/latest"
+NEXTCLOUD_RELEASE = "nextcloud-releases/desktop"
 NEXTCLOUD_TEAM = "Developer ID Installer: Nextcloud GmbH (NKUJUXUJ3B)"  # dalla firma del pacchetto ufficiale, 28/10
 
 
@@ -565,8 +576,7 @@ def installa_nextcloud():
     if not MAC:
         return False, "installala con il gestore pacchetti (es. sudo apt install nextcloud-desktop)"
     try:
-        rel = json.loads(scarica(NEXTCLOUD_RELEASE))
-        url = next(a["browser_download_url"] for a in rel["assets"] if re.fullmatch(r"Nextcloud-[\d.]+\.pkg", a["name"]))
+        url = next(u for n, u in release_file(NEXTCLOUD_RELEASE).items() if re.fullmatch(r"Nextcloud-[\d.]+\.pkg", n))
         pkg = os.path.join(CARTELLA, "Nextcloud.pkg")
         os.makedirs(CARTELLA, exist_ok=True)
         with open(pkg, "wb") as f:
@@ -583,7 +593,7 @@ def installa_nextcloud():
 
 # Le altre app native della suite (29/10, owner: «app native per tutti»): Talk sul computer, Calendario e Contatti
 # del sistema (CalDAV/CardDAV), le app ufficiali sul telefono
-TALK_RELEASE = "https://api.github.com/repos/nextcloud-releases/talk-desktop/releases/latest"
+TALK_RELEASE = "nextcloud-releases/talk-desktop"
 TALK_MAC = "/Applications/Nextcloud Talk.app"
 DAV_PROFILO = "org.pleyades.studio.dav"
 APP_TELEFONO = [  # verificati 29/10: App Store (Nextcloud GmbH) e Google Play
@@ -612,8 +622,7 @@ def installa_talk():
         return ok, "" if ok else "scaricala da nextcloud.com/talk («Desktop»)"
     dmg = os.path.join(CARTELLA, "Talk.dmg")
     try:
-        rel = json.loads(scarica(TALK_RELEASE))
-        url = next(a["browser_download_url"] for a in rel["assets"] if a["name"] == "Nextcloud.Talk-macos-universal.dmg")
+        url = release_file(TALK_RELEASE)["Nextcloud.Talk-macos-universal.dmg"]
         os.makedirs(CARTELLA, exist_ok=True)
         with open(dmg, "wb") as f:
             f.write(scarica(url, timeout=900))
@@ -1468,6 +1477,11 @@ class Terminale:
                 s.reconfigure(encoding="utf-8")
             except (AttributeError, ValueError):
                 pass
+        if not sys.stdin.isatty():  # risposte da pipe (PowerShell): UTF-8 col BOM in testa, non la code page di Windows
+            try:
+                sys.stdin.reconfigure(encoding="utf-8-sig", errors="replace")
+            except (AttributeError, ValueError):
+                pass
         if WIN and self.colori:  # colori ANSI nella console di Windows (VT)
             try:
                 import ctypes
@@ -2049,7 +2063,7 @@ def passo_github(ui):
     if i != 0:
         return ui.esito(Esito("GitHub", True, saltato=True, nota="senza account: solo repo pubblici"))
     if not ha("gh"):
-        with ui.attesa("installo GitHub CLI (cli.github.com), controllato col checksum ufficiale"):
+        with ui.attesa("installo GitHub CLI (cli.github.com), con checksum"):
             ok, out = installa_gh()
         if not ok:
             return ui.esito(Esito("GitHub CLI", False, f"{out}: scaricalo da cli.github.com e rilancia"))
@@ -3784,7 +3798,7 @@ def tema_windows():
                             "{ Invoke-Expression (&starship init powershell) }\"")
     scrivi_json(f, w)
     ps = shutil.which("powershell") and subprocess.run(["powershell", "-NoProfile", "-Command", "$PROFILE"],
-                                                       capture_output=True, text=True).stdout.strip()
+                                                       capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout.strip()
     if ps and os.path.isfile(ps):  # la riga della versione di prima, che con Restricted dà errore a ogni scheda
         testo = open(ps, encoding="utf-8-sig").read()
         if "# Pleyades tools" in testo:

@@ -5,8 +5,10 @@
 
 Copia `prova-da-zero/avvio.ps1` sul PC, apre la Sandbox nella sessione di chi è collegato al PC (la si vede sullo
 schermo), aspetta la fine (max 20 min) e controlla l'esito con le stesse regole di test_guida. La Sandbox si cancella
-alla chiusura: ogni prova parte da zero. Solo libreria standard; serve ssh senza password verso il PC."""
-import base64, os, subprocess, sys, tempfile, time
+alla chiusura: ogni prova parte da zero. Installer fermo da 2 min → si ferma subito col suo log.
+Per iterare: `--a-mano` (resta aperta) poi `--esegui "<powershell>"` gira dentro la Sandbox e stampa l'output.
+Solo libreria standard; serve ssh senza password verso il PC."""
+import base64, os, re, subprocess, sys, tempfile, time
 
 QUI = os.path.dirname(os.path.abspath(__file__))
 CARTELLA = "prova-da-zero"  # in C:\Users\Public: la vede anche l'utente sullo schermo, se è un altro
@@ -16,6 +18,8 @@ CHIUDI = ("schtasks /end /tn " + COMPITO + " 2>&1 | Out-Null; Get-Process Window
           "Restart-Service CmService -Force")  # finestra, VM rimasta e servizio: la prossima riparte pulita
 WSB = """<Configuration>
   <MappedFolders><MappedFolder><HostFolder>{dir}</HostFolder><SandboxFolder>C:\\prova</SandboxFolder>
+    <ReadOnly>false</ReadOnly></MappedFolder>
+    <MappedFolder><HostFolder>{dir}-cache</HostFolder><SandboxFolder>C:\\cache</SandboxFolder>
     <ReadOnly>false</ReadOnly></MappedFolder></MappedFolders>
   <LogonCommand><Command>powershell -ExecutionPolicy Bypass -File C:\\prova\\avvio.ps1</Command></LogonCommand>
 </Configuration>"""
@@ -50,6 +54,18 @@ def main():
         dir_pc = ps(host, "$env:PUBLIC") + "\\" + CARTELLA
         subprocess.run(["scp", "-q", "-o", "BatchMode=yes", os.path.join(QUI, CARTELLA, "sveglia.ps1"), f"{host}:{dir_pc}/".replace("\\", "/")], check=True)
         return sveglia(host, ps(host, "(Get-CimInstance Win32_ComputerSystem).UserName"), dir_pc)
+    if "--esegui" in sys.argv:  # un comando dentro la Sandbox già aperta (--a-mano), output qui: si itera in secondi
+        dir_pc = ps(host, "$env:PUBLIC") + "\\" + CARTELLA
+        # la Sandbox scrive l'output mentre gira: il segno finale dice che è completo
+        cod = (sys.argv[sys.argv.index("--esegui") + 1] + "\n'== fine'").replace("'", "''")
+        ps(host, f"Remove-Item '{dir_pc}\\esito\\esegui.txt' -EA SilentlyContinue; "
+                 f"Set-Content -Encoding UTF8 '{dir_pc}\\esegui.ps1' '{cod}'")
+        for _ in range(60):  # il controllo dentro gira ogni 10 s
+            time.sleep(4)
+            out = ps(host, f"Get-Content '{dir_pc}\\esito\\esegui.txt' -Raw -EA SilentlyContinue", False)
+            if out.endswith("== fine"):
+                return print(out.removesuffix("== fine").rstrip())
+        sys.exit("prova_da_zero: nessuna risposta dalla Sandbox in 4 min (è aperta? --a-mano)")
     if ps(host, "(Get-WindowsOptionalFeature -Online -FeatureName Containers-DisposableClientVM).State") != "Enabled":
         sys.exit("prova_da_zero: Windows Sandbox non è attiva sul PC (serve Windows Pro: Funzionalità di Windows)")
     # ne gira una alla volta: quella di una prova interrotta (o rimasta a metà) si chiude; il PC è solo di prova
@@ -58,9 +74,11 @@ def main():
     if not schermo:
         sys.exit("prova_da_zero: nessuno ha fatto l'accesso a Windows sul PC: entra (anche bloccato va bene) e rilancia")
     dir_pc = ps(host, "$env:PUBLIC") + "\\" + CARTELLA
-    ps(host, f"Remove-Item -Recurse -Force '{dir_pc}' -ErrorAction SilentlyContinue; New-Item -ItemType Directory '{dir_pc}' | Out-Null")
+    ps(host, f"Remove-Item -Recurse -Force '{dir_pc}' -ErrorAction SilentlyContinue; New-Item -ItemType Directory '{dir_pc}' | Out-Null; "
+             f"New-Item -ItemType Directory -Force '{dir_pc}-cache' | Out-Null")  # la cache (winget) resta fra le prove
     subprocess.run(["scp", "-q", "-o", "BatchMode=yes", os.path.join(QUI, CARTELLA, "avvio.ps1"), os.path.join(QUI, CARTELLA, "sveglia.ps1"),
-                    os.path.join(QUI, "..", "installa.ps1"), f"{host}:{dir_pc}/".replace("\\", "/")], check=True)  # provato prima del push
+                    os.path.join(QUI, "..", "installa.ps1"), os.path.join(QUI, "..", "crew.py"),
+                    f"{host}:{dir_pc}/".replace("\\", "/")], check=True)  # provati prima del push
     wsb = WSB.format(dir=dir_pc).replace("'", "''")
     ps(host, f"Set-Content -Encoding UTF8 '{dir_pc}\\prova.wsb' '{wsb}'" + ("" if a_mano else f"; New-Item '{dir_pc}\\chiudi' | Out-Null"))
     # da ssh la Sandbox non si apre (nessuno schermo): un compito nella sessione di chi è allo schermo, che la apre
@@ -76,14 +94,18 @@ def main():
     print(f"Sandbox aperta sul PC ({'resta aperta' if a_mano else 'si chiude alla fine'}); aspetto la fine…", flush=True)
     visti, t = "", time.time()
     while time.time() - t < MINUTI * 60:
-        time.sleep(30)
+        time.sleep(10)
         passi = ps(host, f"Get-Content '{dir_pc}\\esito\\passi.txt' -ErrorAction SilentlyContinue", False)
-        if time.time() - t > 6 * 60 and passi == visti and passi.endswith("installa.ps1"):  # bloccata: cosa gira dentro
-            print(ps(host, f"Get-Content '{dir_pc}\\esito\\processi.txt' -Tail 8 -EA SilentlyContinue", False), flush=True)
         if passi != visti:
             print("\n".join(passi.splitlines()[len(visti.splitlines()):]), flush=True)
             visti = passi
         if passi.endswith("fine"):
+            break
+        if " fermo: " in passi:  # installer bloccato (avvio.ps1): ultime righe del suo log, poi si chiude subito
+            print(ps(host, f"$l = Get-ChildItem '{dir_pc}\\esito\\log' | Sort-Object {{ $_.Name -match 'ython' }}, Length | Select-Object -Last 1; "
+                           "'== ' + $l.Name; Get-Content $l.FullName -Tail 15", False), flush=True)
+            if not a_mano:
+                ps(host, CHIUDI, False)
             break
     else:
         print(f"prova_da_zero: {MINUTI} minuti senza finire: chiudo la Sandbox", file=sys.stderr)
@@ -97,6 +119,12 @@ def main():
     err = forma(leggi("guida.txt"), "guida (da zero)") + forma(leggi("controlla.txt"), "controlla (da zero)")
     if "fine" not in visti:
         err.append("non è arrivata alla fine")
+    for riga in leggi("programmi.txt").splitlines():  # alla fine un collega li deve avere tutti
+        if riga.endswith("= "):
+            err.append(f"manca {riga.split()[0]} dopo la guida")
+    durata = re.search(r"a posto · ([\d.]+) min", leggi("guida.txt"))
+    if durata and float(durata[1]) > 5:  # una buona ne dura 1-2: qualcosa ha aspettato (risposte sfasate, browser)
+        err.append(f"guida lenta: {durata[1]} min (attesa nascosta? guarda guida.txt)")
     if "a posto" not in leggi("guida.txt"):
         err.append("guida: manca il riepilogo finale («x/y a posto»): si è fermata prima")
     print(leggi("programmi.txt"))

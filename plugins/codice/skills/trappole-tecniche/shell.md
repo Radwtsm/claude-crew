@@ -40,3 +40,7 @@ Letto da `SKILL.md` prima di: script bash/zsh/Git Bash, comandi ssh, hook, hered
 - Grafica a quadranti (▘▝▖▗▚…) nel terminale: in molti font mancano o le righe hanno spazi in mezzo → l'immagine
   esce rotta, «pixelata», mentre il calcolo è giusto (provalo disegnando il fotogramma in un'immagine) → di base
   mezzi blocchi ▀▄ (in ogni font, pixel quadrati), quadranti solo su richiesta; fotogrammi con `\e[?2026h`…`l`.
+- Windows Sandbox (24H2+): ogni MSI (Python, …) resta fermo per sempre a «File will have security applied from
+  OpCode» → Smart App Control acceso con Defender spento (Windows-Sandbox#68) → dentro la Sandbox, prima di
+  installare: `VerifiedAndReputablePolicyState` = 0 in `HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy`, poi
+  `'' | CiTool.exe -r`. Un PC vero (Defender acceso) non ce l'ha.
