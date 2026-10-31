@@ -171,6 +171,32 @@ def esiti(out):
     return [m.group(2).split(" · ")[0].strip() for m in re.finditer(r"^\s*(?:[❯⎿]\s+)*(✓|✗) (.+)$", out, re.M)]
 
 
+def app_mac(crew, casa):
+    """installa_app_mac con un .app finto firmato ad-hoc (niente portachiavi, niente rete)."""
+    err, fonte, dest = [], os.path.join(casa, "fonte"), os.path.join(casa, "Applicazioni")
+    os.makedirs(os.path.join(fonte, "Prova.app", "Contents", "MacOS"))
+    plistlib = __import__("plistlib")
+    plistlib.dump({"CFBundleIdentifier": "studio.prova.app", "CFBundleExecutable": "prova"},
+                  open(os.path.join(fonte, "Prova.app", "Contents", "Info.plist"), "wb"))
+    shutil.copy("/usr/bin/true", os.path.join(fonte, "Prova.app", "Contents", "MacOS", "prova"))
+    subprocess.run(["/usr/bin/codesign", "-s", "-", "-f", os.path.join(fonte, "Prova.app")], capture_output=True)
+    subprocess.run(["tar", "-czf", os.path.join(casa, "prova.tar.gz"), "-C", fonte, "Prova.app"], check=True)
+    dati = open(os.path.join(casa, "prova.tar.gz"), "rb").read()
+    app = {"nome": "Prova", "mac": {"url": "finto", "app": "Prova.app", "team": "AAAAAAAAAA"}}
+    giu = lambda url, timeout=0: dati
+    e = crew.installa_app_mac(app, scarica=giu, cartelle=[dest])
+    if e.ok or os.path.exists(os.path.join(dest, "Prova.app")):
+        err.append("app mac: installata un'app senza la firma della squadra")
+    e = crew.installa_app_mac(app, scarica=giu, cartelle=[dest], verifica=lambda a, t: True)
+    if not e.ok or not os.path.isfile(os.path.join(dest, "Prova.app", "Contents", "MacOS", "prova")):
+        err.append(f"app mac: non installata ({e.cosa})")
+    def mai(url, timeout=0):
+        raise OSError("riscaricata")
+    if not crew.installa_app_mac(app, scarica=mai, cartelle=[dest]).saltato:
+        err.append("app mac: già installata ma la riscarica (l'aggiornamento lo fa l'app)")
+    return err
+
+
 def main():
     tieni = "--tieni" in sys.argv
     casa = tempfile.mkdtemp(prefix="guida-")
@@ -246,6 +272,9 @@ def main():
                 err.append("guida (lavoro): il profilo lavoro non è stato preso")
         finally:
             shutil.rmtree(lavoro, ignore_errors=True)
+        # 5. app del progetto sul Mac: firma non della squadra → non installata; buona → copiata; poi non la riscarica
+        if crew.MAC:
+            err += app_mac(crew, casa)
         print(f"guida: {s1:.0f} s la prima volta, {s2:.0f} s il rilancio · casa finta {casa}")
     finally:
         if not tieni:

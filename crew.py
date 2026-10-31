@@ -144,7 +144,7 @@ PASSI = [
      "sistemi": "mac windows linux", "fa": "cli",
      "esiti": ["look Pleyades (terminale + Claude)", "aspetto messo ovunque", "colori di Windows",
                "icona «Pleyades tools» sul desktop"]},
-    {"id": "app", "nome": "App del progetto (Pleiadi)", "livello": "obbligatorio", "sistemi": "windows",
+    {"id": "app", "nome": "App del progetto (Pleiadi)", "livello": "obbligatorio", "sistemi": "mac windows",
      "fa": "cli", "esiti": ["app {}"]},
     {"id": "token", "nome": "Consumo di token (budget per risposta)", "livello": "facoltativo",
      "sistemi": "mac windows linux", "fa": "cli",
@@ -949,6 +949,7 @@ def cartelle_progetti():
 # L'app di un progetto: `"app": {"nome": "…", "windows": "<cartella dello studio>/<file>.zip"}` in progetto.json;
 # accanto alla zip `<file>.json` = {"versione", "commit", "sha256"}, scritto da chi pubblica. Si installa per
 # l'utente (niente amministratore), solo se l'impronta corrisponde, sostituendo la vecchia solo a copia completa.
+# Mac: `"mac": {"url": "<.app.tar.gz della release>", "app": "<Nome>.app", "team": "<Team ID della firma>"}`.
 
 def app_progetti():
     """[(cartella, config, app)] dei progetti su questo computer che dichiarano un'app."""
@@ -979,8 +980,10 @@ def installa_app(d, c, app, scarica=None):
     """Esito dell'installazione/aggiornamento. scarica(percorso) → bytes (default: lo studio con le credenziali
     di Talk del progetto; i test ne passano uno finto)."""
     nome = app["nome"]
+    if MAC and isinstance(app.get("mac"), dict):
+        return installa_app_mac(app)
     if not WIN:
-        return Esito(f"app {nome}", True, saltato=True, nota="per ora solo su Windows")
+        return Esito(f"app {nome}", True, saltato=True, nota="nessuna versione per questo sistema")
     if not app.get("windows"):
         return Esito(f"app {nome}", True, saltato=True, nota="nessuna versione per Windows")
     if scarica is None:
@@ -1025,6 +1028,40 @@ def installa_app(d, c, app, scarica=None):
     exe = os.path.join(dest, exe)
     ok = collegamenti_app(app, exe)
     return Esito(f"app {nome}", True, nota=f"{meta.get('versione', '?')} installata" + ("" if ok else " (collegamenti non creati)"))
+
+
+def firma_del_team(app, team):
+    """L'app è intatta e firmata con un certificato Apple della squadra `team` (Apple Development o Developer ID)."""
+    req = f'=anchor apple generic and certificate leaf[subject.OU] = "{team}"'
+    return run("codesign", "--verify", "--deep", "--strict", "-R" + req, app)[0] == 0
+
+
+def installa_app_mac(app, scarica=scarica, cartelle=None, verifica=firma_del_team):
+    """Mac: solo la prima volta, dalla release (la stessa fonte da cui l'app poi si aggiorna da sola) e solo se firmata
+    dalla squadra. Scaricata qui e non dal browser: niente quarantena, Gatekeeper non la ferma (owner 31/10)."""
+    nome, m = app["nome"], app["mac"]
+    cartelle = cartelle or [os.path.join(CASA, "Applications"), "/Applications"]
+    if any(os.path.isdir(os.path.join(c, m["app"])) for c in cartelle):
+        return Esito(f"app {nome}", True, saltato=True, nota="installata, si aggiorna da sola")
+    tmp = tempfile.mkdtemp(prefix="app-")
+    try:
+        try:
+            dati = scarica(m["url"], timeout=900)
+        except OSError as e:
+            return Esito(f"app {nome}", False, f"download non riuscito ({e}): controlla internet e rilancia `pleyades-cli app`")
+        archivio, nuova = os.path.join(tmp, "app.tar.gz"), os.path.join(tmp, m["app"])
+        with open(archivio, "wb") as f:
+            f.write(dati)
+        if run("tar", "-xzf", archivio, "-C", tmp)[0] != 0 or not os.path.isdir(nuova):
+            return Esito(f"app {nome}", False, "archivio rovinato: rilancia `pleyades-cli app`")
+        if not verifica(nuova, m["team"]):
+            return Esito(f"app {nome}", False, "non ha la firma della squadra: non la installo (avvisa chi la pubblica)")
+        os.makedirs(cartelle[0], exist_ok=True)
+        if run("ditto", nuova, os.path.join(cartelle[0], m["app"]))[0] != 0:
+            return Esito(f"app {nome}", False, f"non riesco a copiarla in {privato_via(cartelle[0])}: rilancia `pleyades-cli app`")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return Esito(f"app {nome}", True, nota=f"in {privato_via(cartelle[0])}: aprila da lì, poi si aggiorna da sola")
 
 
 def app(ui):
@@ -2634,7 +2671,7 @@ def giro_auto(ui):
     ok, cosa = pianifica()
     if not ok:
         ko.append(f"attività pianificata ({cosa})")
-    for d, c, x in app_progetti():  # l'app del progetto installata e aggiornata da sola (Windows)
+    for d, c, x in app_progetti():  # l'app del progetto: Windows installata e aggiornata, Mac solo installata
         e = installa_app(d, c, x)
         if not e.ok:
             ko.append(f"{e.nome} ({e.cosa})")
