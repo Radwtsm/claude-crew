@@ -197,6 +197,53 @@ def app_mac(crew, casa):
     return err
 
 
+# Chiave e firma minisign di prova (chiave privata buttata subito): firmano solo DATI_FINTI
+CHIAVE_PROVA = "dW50cnVzdGVkIGNvbW1lbnQ6IGNoaWF2ZSBkaSBwcm92YQpSV1FCQVFFQkFRRUJBYndQckNsbUhVbVFXZ1BDQnQrcWlaaExhVEZwVTk5eWp3TjF6MU1LaDVUego="
+FIRMA_PROVA = ("dW50cnVzdGVkIGNvbW1lbnQ6IGZpcm1hIGRpIHByb3ZhClJVUUJBUUVCQVFFQkFSV0p2TnphNmg3SndOS0Q5Vm9RSUVvek9YRDVrYVhCTzVqTkFj"
+               "OE1UTDRQL1hRYWdaeGNGb0N2Zkd1YlB0bTlzcG53d0MwOHdVeUhHdExRV0psOS93RT0KdHJ1c3RlZCBjb21tZW50OiBwcm92YQpBQUFBQUFBQUFB"
+               "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQT09Cg==")
+DATI_FINTI = b"installer finto"
+
+
+def app_windows(crew):
+    """installa_app_windows con installer e registro finti: si gira anche sul Mac e nella CI."""
+    err, stato = [], {"lanci": 0, "installata": False}
+    app = {"nome": "Prova", "windows": {"manifesto": "finto", "chiave": CHIAVE_PROVA, "app": "Prova"}}
+
+    def giu(dati, firma):
+        def f(url, timeout=0):
+            if url == "finto":
+                return json.dumps({"platforms": {"windows-x86_64": {"url": "setup", "signature": firma}}}).encode()
+            return dati
+        return f
+
+    def lancia(setup):
+        stato["lanci"] += 1
+        stato["installata"] = open(setup, "rb").read() == DATI_FINTI
+        return True
+    c = lambda d, f: crew.installa_app_windows(app, scarica=giu(d, f), installata=lambda: stato["installata"], lancia=lancia)
+    if c(DATI_FINTI + b"!", FIRMA_PROVA).ok or stato["lanci"]:
+        err.append("app windows: lanciato un installer con la firma che non corrisponde")
+    if c(DATI_FINTI, "").ok or stato["lanci"]:
+        err.append("app windows: lanciato un installer senza firma")
+    e = c(DATI_FINTI, FIRMA_PROVA)
+    if not e.ok or stato["lanci"] != 1:
+        err.append(f"app windows: firma buona ma non installata ({e.cosa})")
+    if not c(b"", "").saltato or stato["lanci"] != 1:
+        err.append("app windows: già installata ma la riscarica (l'aggiornamento lo fa l'app)")
+    # da zero (nessun progetto): la guida e `pleyades-cli app` installano l'app di base, con una chiave leggibile
+    import base64
+    vero, crew.cartelle_progetti = crew.cartelle_progetti, lambda: []
+    try:
+        if crew.app_progetti() or [x for _, _, x in crew.app_progetti(base=True)] != [crew.APP_BASE]:
+            err.append("app: senza progetti non propone l'app di base (o la propone anche al giro automatico)")
+    finally:
+        crew.cartelle_progetti = vero
+    if base64.b64decode(base64.b64decode(crew.APP_BASE["windows"]["chiave"]).decode().splitlines()[1])[:2] != b"Ed":
+        err.append("app: la chiave degli aggiornamenti dell'app di base non è una chiave minisign")
+    return err
+
+
 def main():
     tieni = "--tieni" in sys.argv
     casa = tempfile.mkdtemp(prefix="guida-")
@@ -275,6 +322,7 @@ def main():
         # 5. app del progetto sul Mac: firma non della squadra → non installata; buona → copiata; poi non la riscarica
         if crew.MAC:
             err += app_mac(crew, casa)
+        err += app_windows(crew)
         print(f"guida: {s1:.0f} s la prima volta, {s2:.0f} s il rilancio · casa finta {casa}")
     finally:
         if not tieni:

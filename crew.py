@@ -955,88 +955,156 @@ def cartelle_progetti():
     return [(e, d) for e, d in out if os.path.isdir(d)]
 
 
-# L'app di un progetto: `"app": {"nome": "…", "windows": "<cartella dello studio>/<file>.zip"}` in progetto.json;
-# accanto alla zip `<file>.json` = {"versione", "commit", "sha256"}, scritto da chi pubblica. Si installa per
-# l'utente (niente amministratore), solo se l'impronta corrisponde, sostituendo la vecchia solo a copia completa.
+# L'app di un progetto, in progetto.json. Una sola fonte per sistema: la release da cui l'app poi si aggiorna da sola
+# (owner 31/10: con due fonti l'aggiornamento finiva in un'altra cartella e il collegamento apriva la vecchia).
 # Mac: `"mac": {"url": "<.app.tar.gz della release>", "app": "<Nome>.app", "team": "<Team ID della firma>"}`.
+# Windows: `"windows": {"manifesto": "<latest.json dell'updater>", "chiave": "<updater.pubkey di tauri.conf>",
+# "app": "<productName>"}`: installer NSIS per l'utente (niente amministratore), solo con la firma degli aggiornamenti.
 
-def app_progetti():
-    """[(cartella, config, app)] dei progetti su questo computer che dichiarano un'app."""
+# L'app di base: da zero non c'è ancora un progetto (l'accesso allo studio arriva dal codice invito dell'app stessa),
+# quindi `pleyades-cli app` e la guida installano questa; un progetto con "app" in progetto.json la sostituisce
+APP_REPO = CREW.split("/")[0] + "/pleiadi-app"  # pubblico: da zero si scarica senza accesso
+APP_RELEASE = "https://github.com" + f"/{APP_REPO}/releases/latest/download/"
+APP_BASE = {"nome": "Pleiadi Studio",
+            "windows": {"manifesto": APP_RELEASE + "latest.json",
+                        "chiave": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU4MjFERURBRDdGQTQ5M0EKUldRNlNmclgydDRoNkFnVmcrRkFUa1AwMDQwSmJFMUtpb2NOR21pWndMYzNjSnZiTlg4SlA3eDYK",
+                        "app": "Pleiadi"},
+            "mac": {"url": APP_RELEASE + "Pleiadi.app.tar.gz",
+                    "app": "Pleiadi.app", "team": "4KLXZKJMRY"}}
+
+
+def app_progetti(base=False):
+    """[(cartella, config, app)] dei progetti su questo computer che dichiarano un'app; nessuno e base → APP_BASE."""
     out = []
     for _, d in cartelle_progetti():
         c = config_progetto(d)
         if isinstance(c.get("app"), dict) and c["app"].get("nome"):
             out.append((d, c, c["app"]))
-    return out
+    return out or ([(None, {}, APP_BASE)] if base else [])
 
 
-def cartella_app(app):
-    nome = re.sub(r'[<>:"/\\|?*]', "", app["nome"]).strip() or "app"
-    return os.path.join(os.environ.get("LOCALAPPDATA", os.path.join(CASA, "AppData", "Local")), "Programs", nome)
-
-
-def collegamenti_app(app, exe):
-    """Menu Start e Desktop, con l'icona dell'.exe."""
-    start = os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "Start Menu", "Programs")
-    ps = "; ".join(
-        f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{os.path.join(dove, app['nome'] + '.lnk')}'); "
-        f"$s.TargetPath='{exe}'; $s.WorkingDirectory='{os.path.dirname(exe)}'; $s.IconLocation='{exe},0'; $s.Save()"
-        for dove in (start, "$([Environment]::GetFolderPath('Desktop'))"))
-    return run("powershell", "-NoProfile", "-Command", ps)[0] == 0
-
-
-def installa_app(d, c, app, scarica=None):
-    """Esito dell'installazione/aggiornamento. scarica(percorso) → bytes (default: lo studio con le credenziali
-    di Talk del progetto; i test ne passano uno finto)."""
+def installa_app(d, c, app):
     nome = app["nome"]
     if MAC and isinstance(app.get("mac"), dict):
         return installa_app_mac(app)
-    if not WIN:
-        return Esito(f"app {nome}", True, saltato=True, nota="nessuna versione per questo sistema")
-    if not app.get("windows"):
-        return Esito(f"app {nome}", True, saltato=True, nota="nessuna versione per Windows")
-    if scarica is None:
-        t = modulo_talk(d, c)
-        cred = t.credenziali() if t else None
-        if not cred:
-            return Esito(f"app {nome}", False, "collega prima lo studio: `pleyades-cli guida`")
-        scarica = lambda percorso: dav_leggi(t.SERVER, cred, percorso)
-    dest = cartella_app(app)
+    if WIN and isinstance(app.get("windows"), dict):
+        return installa_app_windows(app)
+    return Esito(f"app {nome}", True, saltato=True, nota="nessuna versione per questo sistema")
+
+
+def ed25519_ok(pk, firma, msg):
+    """Verifica Ed25519 (RFC 8032) in Python puro: crew.py è un file solo, senza librerie da installare."""
+    q, l = 2**255 - 19, 2**252 + 27742317777372353535851937790883648493
+    d, radice = -121665 * pow(121666, q - 2, q) % q, pow(2, (q - 1) // 4, q)
+
+    def piu(P, Q):
+        (x1, y1, z1, t1), (x2, y2, z2, t2) = P, Q
+        a, b = (y1 - x1) * (y2 - x2) % q, (y1 + x1) * (y2 + x2) % q
+        c, e = 2 * t1 * t2 * d % q, 2 * z1 * z2 % q
+        return ((b - a) * (e - c) % q, (e + c) * (b + a) % q, (e - c) * (e + c) % q, (b - a) * (b + a) % q)
+
+    def per(P, n):
+        R = (0, 1, 1, 0)
+        while n:
+            R, P, n = (piu(R, P) if n & 1 else R), piu(P, P), n >> 1
+        return R
+
+    def punto(b):
+        y = int.from_bytes(b, "little")
+        s, y = y >> 255, y & ((1 << 255) - 1)
+        x2 = (y * y - 1) * pow(d * y * y + 1, q - 2, q) % q
+        x = pow(x2, (q + 3) // 8, q)
+        x = x if (x * x - x2) % q == 0 else x * radice % q
+        if y >= q or (x * x - x2) % q or (x == 0 and s):
+            return None
+        return (q - x if x & 1 != s else x, y, 1, (q - x if x & 1 != s else x) * y % q)
+
+    if len(pk) != 32 or len(firma) != 64:
+        return False
+    A, R, s = punto(pk), punto(firma[:32]), int.from_bytes(firma[32:], "little")
+    if A is None or R is None or s >= l:
+        return False
+    G = punto((4 * pow(5, q - 2, q) % q).to_bytes(32, "little"))
+    h = int.from_bytes(hashlib.sha512(firma[:32] + pk + msg).digest(), "little") % l
+    P, Q = per(G, s), piu(R, per(A, h))
+    return (P[0] * Q[2] - Q[0] * P[2]) % q == 0 and (P[1] * Q[2] - Q[1] * P[2]) % q == 0
+
+
+def firma_aggiornamenti(chiave, firma, dati):
+    """`dati` firmati con la chiave degli aggiornamenti di Tauri (minisign: chiave e firma in base64 del file .pub/.sig).
+    La stessa verifica che l'app fa da sola a ogni aggiornamento: chi installa la prima volta non si fida di meno."""
+    import base64
     try:
-        meta = json.loads(scarica(app["windows"][:-4] + ".json"))
-        gia = leggi_json(os.path.join(dest, "versione.json"), {}) or {}
-        if gia.get("sha256") == meta.get("sha256") and os.path.isdir(dest):
-            return Esito(f"app {nome}", True, saltato=True, nota=f"già all'ultima ({meta.get('versione', '?')})")
-        dati = scarica(app["windows"])
-    except (OSError, ValueError, KeyError) as e:
-        return Esito(f"app {nome}", False, f"lo studio non risponde o manca la build ({e})")
-    if hashlib.sha256(dati).hexdigest() != meta.get("sha256"):
-        return Esito(f"app {nome}", False, "l'impronta non corrisponde: non installo (riprova; se resta, avvisa chi la pubblica)")
-    nuovo, vecchio = dest + ".nuovo", dest + ".vecchio"
-    shutil.rmtree(nuovo, ignore_errors=True)
-    with zipfile.ZipFile(io.BytesIO(dati)) as z:
-        for f in z.namelist():  # mai fuori dalla cartella dell'app
-            if f.startswith(("/", "\\")) or ".." in f.replace("\\", "/").split("/"):
-                return Esito(f"app {nome}", False, f"zip con un percorso non valido ({f}): non installo")
-        z.extractall(nuovo)
-    exe = next((f for f in os.listdir(nuovo) if f.lower().endswith(".exe")), None)
-    if not exe:
-        shutil.rmtree(nuovo, ignore_errors=True)
-        return Esito(f"app {nome}", False, "nella zip non c'è un .exe")
-    with open(os.path.join(nuovo, "versione.json"), "w", encoding="utf-8") as f:
-        json.dump(meta, f)
-    shutil.rmtree(vecchio, ignore_errors=True)
+        pk = base64.b64decode(base64.b64decode(chiave).decode().splitlines()[1])
+        s = base64.b64decode(base64.b64decode(firma).decode().splitlines()[1])
+    except (ValueError, IndexError, UnicodeDecodeError):
+        return False
+    if pk[:2] != b"Ed" or s[:2] not in (b"ED", b"Ed") or s[2:10] != pk[2:10]:
+        return False
+    return ed25519_ok(pk[10:], s[10:], hashlib.blake2b(dati).digest() if s[:2] == b"ED" else dati)
+
+
+def app_windows_installata(nome):
+    """Cartella dell'app installata dal suo installer (chiave «Uninstall» dell'utente con DisplayName = nome), o None."""
+    import winreg
+    base = r"Software\Microsoft\Windows\CurrentVersion\Uninstall"
     try:
-        if os.path.isdir(dest):
-            os.replace(dest, vecchio)  # Windows: fallisce se l'app è aperta
-        os.replace(nuovo, dest)
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, base) as k:
+            for i in range(winreg.QueryInfoKey(k)[0]):
+                with winreg.OpenKey(k, winreg.EnumKey(k, i)) as s:
+                    try:
+                        if winreg.QueryValueEx(s, "DisplayName")[0] == nome:
+                            return winreg.QueryValueEx(s, "InstallLocation")[0].strip('"') or "?"
+                    except OSError:
+                        continue
     except OSError:
-        shutil.rmtree(nuovo, ignore_errors=True)
-        return Esito(f"app {nome}", False, f"chiudi {nome} e rilancia `pleyades-cli app`")
-    shutil.rmtree(vecchio, ignore_errors=True)
-    exe = os.path.join(dest, exe)
-    ok = collegamenti_app(app, exe)
-    return Esito(f"app {nome}", True, nota=f"{meta.get('versione', '?')} installata" + ("" if ok else " (collegamenti non creati)"))
+        pass
+    return None
+
+
+def togli_copia_vecchia(app):
+    """Fino al 31/10 l'app arrivava come zip dallo studio in Programs\\<nome> con collegamenti suoi: fuori, se c'è,
+    sennò Start e Desktop aprono quella e non l'aggiornata."""
+    nome = re.sub(r'[<>:"/\\|?*]', "", app["nome"]).strip() or "app"
+    loc = os.environ.get("LOCALAPPDATA", os.path.join(CASA, "AppData", "Local"))
+    shutil.rmtree(os.path.join(loc, "Programs", nome), ignore_errors=True)
+    for dove in (os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "Start Menu", "Programs"),
+                 os.path.join(CASA, "Desktop"), os.path.join(CASA, "OneDrive", "Desktop")):
+        try:
+            os.remove(os.path.join(dove, nome + ".lnk"))
+        except OSError:
+            pass
+
+
+def installa_app_windows(app, scarica=scarica, installata=None, lancia=None):
+    """Windows: solo la prima volta, l'installer della release (la stessa fonte e la stessa firma degli aggiornamenti
+    dell'app). Scaricato qui e non dal browser: niente «PC protetto da Windows» di SmartScreen."""
+    nome, w = app["nome"], app["windows"]
+    installata = installata or (lambda: app_windows_installata(w["app"]))
+    lancia = lancia or (lambda f: run(f, "/S", timeout=600)[0] == 0)
+    if installata():
+        if WIN:
+            togli_copia_vecchia(app)
+        return Esito(f"app {nome}", True, saltato=True, nota="installata, si aggiorna da sola")
+    try:
+        p = json.loads(scarica(w["manifesto"]))["platforms"]["windows-x86_64"]
+        dati = scarica(p["url"], timeout=900)
+    except (OSError, ValueError, KeyError) as e:
+        return Esito(f"app {nome}", False, f"download non riuscito ({e}): controlla internet e rilancia `pleyades-cli app`")
+    if not firma_aggiornamenti(w["chiave"], p.get("signature", ""), dati):
+        return Esito(f"app {nome}", False, "non ha la firma della squadra: non la installo (avvisa chi la pubblica)")
+    tmp = tempfile.mkdtemp(prefix="app-")
+    try:
+        setup = os.path.join(tmp, "setup.exe")
+        with open(setup, "wb") as f:
+            f.write(dati)
+        if not lancia(setup) or not installata():
+            return Esito(f"app {nome}", False, "l'installazione non è andata: rilancia `pleyades-cli app`")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    if WIN:
+        togli_copia_vecchia(app)
+    return Esito(f"app {nome}", True, nota="installata: aprila dal menu Start, poi si aggiorna da sola")
 
 
 def firma_del_team(app, team):
@@ -1075,10 +1143,7 @@ def installa_app_mac(app, scarica=scarica, cartelle=None, verifica=firma_del_tea
 
 def app(ui):
     ui.titolo(f"{ui.nome} · app dei progetti")
-    elenco = app_progetti()
-    if not elenco:
-        ui.info("Nessun progetto su questo computer ha un'app da installare.")
-    for d, c, x in elenco:
+    for d, c, x in app_progetti(base=True):
         ui.esito(installa_app(d, c, x))
     return 0 if all(e.ok for e in ui.esiti) else 1
 
