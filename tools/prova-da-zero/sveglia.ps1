@@ -5,8 +5,11 @@ Add-Type -Namespace Pleyades -Name Energia -MemberDefinition @'
 [DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint s);
 [DllImport("user32.dll")] public static extern void keybd_event(byte k, byte s, uint f, System.UIntPtr e);
 '@
-[Pleyades.Energia]::SetThreadExecutionState(0x80000003) | Out-Null  # CONTINUOUS | SYSTEM | DISPLAY
+# 0x80000003 = CONTINUOUS | SYSTEM | DISPLAY in decimale: in PowerShell 5.1 «0x80000003» è un Int32 negativo, la
+# chiamata falliva senza dirlo (finestra nascosta) e dopo 15 min il PC andava in standby a metà prova
+if (-not [Pleyades.Energia]::SetThreadExecutionState([uint32]2147483651)) {
+    "$(Get-Date -Format HH:mm:ss) sveglia: SetThreadExecutionState non va" | Add-Content "$PSScriptRoot\sveglia.txt" }
 [Pleyades.Energia]::keybd_event(0x10, 0, 0, [UIntPtr]::Zero); [Pleyades.Energia]::keybd_event(0x10, 0, 2, [UIntPtr]::Zero)  # Shift: schermo acceso
 if ($Wsb) { Start-Process WindowsSandbox.exe "`"$Wsb`""; Start-Sleep 60 }
 while (Get-Process WindowsSandboxServer, WindowsSandboxRemoteSession -ErrorAction SilentlyContinue) { Start-Sleep 30 }
-[Pleyades.Energia]::SetThreadExecutionState(0x80000000) | Out-Null
+[Pleyades.Energia]::SetThreadExecutionState([uint32]2147483648) | Out-Null

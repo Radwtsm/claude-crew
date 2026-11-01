@@ -44,3 +44,7 @@ Letto da `SKILL.md` prima di: script bash/zsh/Git Bash, comandi ssh, hook, hered
   OpCode» → Smart App Control acceso con Defender spento (Windows-Sandbox#68) → dentro la Sandbox, prima di
   installare: `VerifiedAndReputablePolicyState` = 0 in `HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy`, poi
   `'' | CiTool.exe -r`. Un PC vero (Defender acceso) non ce l'ha.
+- PowerShell 5.1: `0x80000003` (e ogni esadecimale ≥ 0x80000000) è un Int32 negativo → passato a una funzione
+  `uint` (`SetThreadExecutionState`) dà errore di conversione e la chiamata non parte; in una finestra nascosta non
+  si vede: il PC va in standby a metà prova → scrivi il decimale (`[uint32]2147483651`) e controlla con
+  `powercfg /requests` che il processo compaia.
