@@ -1237,7 +1237,7 @@ def salva_accesso_studio(server, cred):
 # Mai stampato né salvato: vale una volta e dà l'accesso allo studio.
 INVITO_FORMA = re.compile(r"[A-HJ-NP-Z2-9]{5}(?:-[A-HJ-NP-Z2-9]{5}){3}")  # pleiadi-app Inviti.php
 INVITO = {}
-INVITO_USATO = ("non vale più: ogni codice vale una volta sola e per 14 giorni. Se l'hai già usato su questo computer, "
+INVITO_USATO = ("non vale più: ogni codice vale una volta sola, fino alla data scritta nell'invito. Se l'hai già usato su questo computer, "
                 "rilancia `pleyades-cli`; altrimenti chiedine uno nuovo a chi ti ha invitato (app Pleiadi → Squadra → "
                 "Invita) e incolla la riga nuova")
 
