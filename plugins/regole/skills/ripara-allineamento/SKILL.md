@@ -47,6 +47,9 @@ Dopo ogni aggiornamento dei plugin: chiudi e riapri Claude (`/clear` non basta).
 - Rosso ma `diagnosi` tutto ✓ → il 🔎 nella stanza è vecchio → `pleyades-cli controlla --talk`.
 - «mai controllato» → nella stanza ma senza 🔎 → `pleyades-cli controlla --talk` dalla cartella del progetto
   (o `pleyades-cli entra PROPRIETARIO/REPO` se non è ancora entrato).
+- `app=0.2.0` o «app Pleiadi Studio» ✗ → copia vecchia (zip di prima del 31/10, fuori dall'installer: non si
+  aggiorna mai) o versione indietro → chiudi l'app, poi `pleyades-cli app`: installa l'ultima firmata e toglie le
+  copie in `%LOCALAPPDATA%\Programs\`. Dalla 0.3.4 l'app stessa dice «Copia vecchia» con «Reinstalla».
 - «accesso a Claude» ✗ ma il login è riuscito → `claude auth status` nello stesso terminale: se dice logged in,
   pleyades-cli è vecchio (`aggiorna`); se no il login era in un altro programma (app desktop ≠ Claude Code).
 - Accesso allo studio che «ricomincia» → «Concedi accesso» chiede di confermare la password e riceve il codice della
