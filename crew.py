@@ -126,7 +126,7 @@ PASSI = [
      "esiti": ["progetti", "{}", "repo in {}", "{}: plugin", "plugin del progetto ({})", "passi del progetto",
                "progetto", "progetto: dietro", "controlli prima del commit (hook git)"]},
     {"id": "studio", "nome": "Studio Nextcloud e cartelle", "livello": "obbligatorio", "sistemi": "mac windows linux",
-     "fa": "cli", "esiti": ["accesso allo studio", "progetti dello studio", "copia di «{}»", "copia di «{}» in {}",
+     "fa": "cli", "esiti": ["invito per lo studio", "accesso allo studio", "progetti dello studio", "copia di «{}»", "copia di «{}» in {}",
                              "cartelle condivise del progetto", "app Nextcloud", "app Nextcloud sul computer"]},
     {"id": "talk", "nome": "Stanza Talk", "livello": "obbligatorio", "sistemi": "mac windows linux", "fa": "cli",
      "esiti": ["stanza Talk", "{}: stanza Talk", "stanza Talk «{}»"]},
@@ -145,7 +145,7 @@ PASSI = [
      "esiti": ["look Pleyades (terminale + Claude)", "aspetto messo ovunque", "colori di Windows",
                "icona «Pleyades tools» sul desktop"]},
     {"id": "app", "nome": "App del progetto (Pleiadi)", "livello": "obbligatorio", "sistemi": "mac windows",
-     "fa": "cli", "esiti": ["app {}"]},
+     "fa": "cli", "esiti": ["app {}", "accesso per l'app Pleiadi"]},
     {"id": "token", "nome": "Consumo di token (budget per risposta)", "livello": "facoltativo",
      "sistemi": "mac windows linux", "fa": "cli",
      "esiti": ["compattazione a {}", "token all'avvio", "token per risposta"]},
@@ -1104,7 +1104,7 @@ def installa_app_windows(app, scarica=scarica, installata=None, lancia=None):
         shutil.rmtree(tmp, ignore_errors=True)
     if WIN:
         togli_copia_vecchia(app)
-    return Esito(f"app {nome}", True, nota="installata: aprila dal menu Start, poi si aggiorna da sola")
+    return Esito(f"app {nome}", True, nota="è nel menu Start, si aggiorna da sola")
 
 
 def firma_del_team(app, team):
@@ -1161,9 +1161,10 @@ PORTACHIAVI_STUDIO = "pleyades-studio"  # la stessa voce di talk.py (PORTACHIAVI
 VECCHIO_STUDIO = "Pleyades tools: studio"  # 998a321, 30/10: spostata sotto PORTACHIAVI_STUDIO alla prima lettura
 
 
-def segreto(utente, valore=None, servizio=PORTACHIAVI_STUDIO):
+def segreto(utente, valore=None, servizio=PORTACHIAVI_STUDIO, bersaglio=None):
     """La password per app dello studio di `utente` (utente@host): letta, o salvata se c'è `valore`. None/False se
-    questo computer non ha un portachiavi usabile: allora l'accesso si rifà, mai in un file."""
+    questo computer non ha un portachiavi usabile: allora l'accesso si rifà, mai in un file. bersaglio = il nome della
+    voce su Windows, se un altro programma la legge con un nome suo (l'app: crate keyring, «utente.servizio»)."""
     try:
         if MAC:
             if valore is None:
@@ -1186,7 +1187,7 @@ def segreto(utente, valore=None, servizio=PORTACHIAVI_STUDIO):
                             ("Persist", wintypes.DWORD), ("AttributeCount", wintypes.DWORD),
                             ("Attributes", ctypes.c_void_p), ("TargetAlias", wintypes.LPWSTR),
                             ("UserName", wintypes.LPWSTR)]
-            api, nome = ctypes.windll.advapi32, f"{servizio}:{utente}"
+            api, nome = ctypes.windll.advapi32, bersaglio or f"{servizio}:{utente}"
             if valore is None:
                 pc = ctypes.POINTER(CRED)()
                 if not api.CredReadW(nome, 1, 0, ctypes.byref(pc)):
@@ -1229,6 +1230,78 @@ def accesso_studio():
 def salva_accesso_studio(server, cred):
     if accesso_studio() != cred and segreto(cred["utente"], cred["password"]):
         salva_stato(studio_utente=cred["utente"])
+
+
+# Il codice d'invito (A67): la riga del messaggio d'invito lo porta nella variabile INVITO, mai negli argomenti (si
+# leggono nell'elenco dei processi); main lo toglie subito dall'ambiente, così i programmi lanciati dopo non lo vedono.
+# Mai stampato né salvato: vale una volta e dà l'accesso allo studio.
+INVITO_FORMA = re.compile(r"[A-HJ-NP-Z2-9]{5}(?:-[A-HJ-NP-Z2-9]{5}){3}")  # pleiadi-app Inviti.php
+INVITO = {}
+INVITO_USATO = ("non vale più: ogni codice vale una volta sola e per 14 giorni. Se l'hai già usato su questo computer, "
+                "rilancia `pleyades-cli`; altrimenti chiedine uno nuovo a chi ti ha invitato (app Pleiadi → Squadra → "
+                "Invita) e incolla la riga nuova")
+
+
+def prendi_invito():
+    x = re.sub(r"\s", "", os.environ.pop("INVITO", "")).upper()
+    if x:
+        INVITO["codice"] = x if INVITO_FORMA.fullmatch(x) else ""
+
+
+def nome_computer():
+    """Come lo chiama l'app (accesso.rs): compare fra i dispositivi della persona nello studio."""
+    if MAC:
+        n = run("scutil", "--get", "ComputerName")[1].strip()
+        if n:
+            return n
+    return os.environ.get("COMPUTERNAME") or platform.node() or "computer"
+
+
+def riscatta_invito(server):
+    """({utente, password, nome}, "") o (None, cosa fare). Lo stesso servizio dell'app: chi riscatta riceve una
+    password per app a suo nome; lo studio non distingue un codice usato da uno scaduto (lo consuma alla lettura)."""
+    codice = INVITO.pop("codice", "")
+    if not codice:
+        return None, "il codice d'invito non ha la forma giusta (4 gruppi di 5 lettere e numeri): ricopia la riga intera"
+    corpo = urllib.parse.urlencode({"codice": codice, "dispositivo": nome_computer()}).encode()
+    try:
+        d = json.loads(chiama(server + "/ocs/v2.php/apps/pleiadi/api/v1/invito", "POST", corpo, intestazioni={
+            "OCS-APIRequest": "true", "Accept": "application/json",
+            "Content-Type": "application/x-www-form-urlencoded"}))["ocs"]["data"]
+        return {"utente": d["utente"], "password": d["password"], "nome": d.get("nome") or d["utente"]}, ""
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return None, f"il codice {INVITO_USATO}"
+        if e.code == 429:
+            return None, "troppi tentativi con codici sbagliati: aspetta qualche minuto e rilancia la stessa riga"
+        return None, f"lo studio ha risposto {e.code}: rilancia la stessa riga fra poco; se si ripete, dillo a chi ti ha invitato"
+    except (OSError, ValueError, KeyError, TypeError):
+        return None, "lo studio non risponde: controlla internet e rilancia la stessa riga"
+
+
+# L'app Pleiadi parla solo col suo studio (chat.rs SERVER) e tiene l'accesso dove lo legge accesso.rs: portachiavi
+# «Pleiadi Studio» (Windows: voce «utente.Pleiadi Studio» del crate keyring) + accesso.txt nella sua cartella.
+# Lo studio come impronta sha256 del nome: il repo è pubblico, l'indirizzo no.
+APP_STUDIO_SHA, APP_PORTACHIAVI = "49c9755bfe5372fe72bbd986ad6347813c472787d7599842ad01a379b53b64ec", "Pleiadi Studio"
+
+
+def accesso_app(server, cred):
+    """Dà all'app l'accesso dell'invito, così si apre già collegata. None = non è lo studio dell'app (la password di
+    uno studio non va mai a un altro) o sistema senza app."""
+    u = urllib.parse.urlsplit(server)
+    if u.scheme != "https" or hashlib.sha256(u.netloc.lower().encode()).hexdigest() != APP_STUDIO_SHA or not (MAC or WIN):
+        return None
+    u = cred["utente"]
+    if not segreto(u, cred["password"], APP_PORTACHIAVI, bersaglio=f"{u}.{APP_PORTACHIAVI}"):
+        return False
+    d = os.path.join(os.environ.get("APPDATA", CASA), "Pleiadi") if WIN else os.path.join(CASA, ".config", "pleiadi")
+    try:
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, "accesso.txt"), "w", encoding="utf-8") as f:
+            f.write(f"utente={u}\nnome={' '.join(cred['nome'].split())}\n")
+    except OSError:
+        return False
+    return True
 
 
 # Token (owner 30/10: il costo non deve crescere con membri, plugin e regole): misurato dai transcript di Claude Code
@@ -2220,6 +2293,17 @@ def passo_studio(ui):
                 cred = None
         except (OSError, ValueError):
             pass
+    if not cred and INVITO:  # con un accesso che vale già il codice non si consuma
+        with ui.attesa("uso il codice d'invito"):
+            nuovo, perche = riscatta_invito(server)
+        if not ui.esito(Esito("invito per lo studio", bool(nuovo), perche,
+                              nota=nuovo and f"entri come {nuovo['nome']}")):
+            return []
+        cred = {"utente": nuovo["utente"], "password": nuovo["password"]}
+        a = accesso_app(server, nuovo)
+        if a is not None:
+            ui.esito(Esito("accesso per l'app Pleiadi", a, "l'app ti chiederà il codice: chiedine uno nuovo a chi ti "
+                           "ha invitato", nota="si apre già collegata"))
     tieni = [cred or accedi_studio(ui, server)]
 
     def di_nuovo():
@@ -2399,6 +2483,10 @@ def guida(ui, richiesti, solo_progetti=False):
     for _, r in pronti:
         if r[1].get("comando"):
             installa_comando(r[1]["comando"])
+    if not lavoro() and not solo_progetti:  # l'app del progetto, o quella di base: l'invito l'ha già collegata (A67)
+        for d, c, x in app_progetti(base=True):
+            ui.esito(Esito(f"app {x['nome']}", True, saltato=True, nota="casa di prova: niente download")
+                     if casa_di_prova() else installa_app(d, c, x))
     if pronti and type(ui) is Terminale and file_marchio():  # il progetto ha un marchio: da qui in poi il suo aspetto
         nuova = interfaccia()
         if isinstance(nuova, Marchio):  # stesso schermo, stessi esiti: cambia solo l'aspetto
@@ -3924,6 +4012,7 @@ def main():
             for p in PASSI:
                 print(f"{p['livello']:<12} {p['nome']}\n{'':13}{p['sistemi']} · {p['fa']}")
         return 0
+    prendi_invito()
     path_aggiornato()
     for x in a:
         if x.startswith("--studio="):

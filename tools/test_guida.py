@@ -75,8 +75,11 @@ FILE_STUDIO = {"Progetto Prova/.claude/progetto.json": b'{"nome": "Progetto Prov
                "Progetto Prova/LEGGIMI.md": b"# Progetto Prova\n"}
 
 
+INVITO_PROVA = "ABCDE-FGHJK-LMNPQ-RSTUV"
+
+
 class Studio(http.server.BaseHTTPRequestHandler):
-    accessi = 0
+    accessi = riscattati = 0
 
     def log_message(self, *a):
         pass
@@ -89,11 +92,16 @@ class Studio(http.server.BaseHTTPRequestHandler):
         self.wfile.write(corpo)
 
     def do_POST(self):
-        self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        corpo = self.rfile.read(int(self.headers.get("Content-Length") or 0)).decode()
         base = f"http://{LOCALE}:{self.server.server_address[1]}"
         if self.path == "/index.php/login/v2":
             Studio.accessi += 1
             return self.manda(200, f'{{"login": "{base}/accedi", "poll": {{"token": "t", "endpoint": "{base}/poll"}}}}'.encode())
+        if self.path == "/ocs/v2.php/apps/pleiadi/api/v1/invito":  # come Inviti.php: vale una volta, poi 404
+            if urllib.parse.parse_qs(corpo).get("codice") == [INVITO_PROVA] and not Studio.riscattati:
+                Studio.riscattati += 1
+                return self.manda(200, b'{"ocs": {"data": {"utente": "nuovo", "nome": "Nuovo", "password": "finta"}}}')
+            return self.manda(404, b'{"ocs": {"data": []}}')
         if self.path == "/poll":
             return self.manda(200, f'{{"server": "{base}", "loginName": "nuovo", "appPassword": "finta"}}'.encode())
         self.manda(404, b"")
@@ -304,6 +312,31 @@ def main():
             err += forma(out6, "guida (studio, rilancio)")
             if Studio.accessi != accessi:
                 err.append("guida (studio, rilancio): chiede di nuovo l'accesso allo studio (non l'ha tenuto)")
+            # 7. con l'invito (A67): niente «Concedi accesso», il codice mai a schermo, una volta sola
+            invito = tempfile.mkdtemp(prefix="guida-invito-")
+            try:
+                for giro in (1, 2):
+                    casa7 = os.path.join(invito, str(giro))
+                    os.makedirs(casa7)
+                    env7 = {**prepara(casa7), "INVITO": INVITO_PROVA.lower().replace("-", " - ")}  # come incollato male
+                    accessi = Studio.accessi
+                    c7, out7, _ = guida(env7, "1\n2\n\n\n\n\n", "guida", f"--studio={indirizzo}")
+                    err += forma(out7, f"guida (invito {giro})")
+                    if INVITO_PROVA in out7.upper().replace(" ", ""):
+                        err.append(f"guida (invito {giro}): il codice d'invito compare a schermo")
+                    if Studio.accessi != accessi:
+                        err.append(f"guida (invito {giro}): chiede «Concedi accesso» nel browser")
+                    attesi = ("invito per lo studio", "copia di «Progetto Prova»") if giro == 1 else ("non vale più",)
+                    for atteso in attesi:
+                        if atteso not in out7:
+                            err.append(f"guida (invito {giro}): manca «{atteso}»")
+                    if giro == 1:
+                        f7 = os.path.join(casa7, ".portachiavi-finto.json")
+                        voci = list(json.load(open(f7))) if os.path.exists(f7) else []
+                        if voci != ["pleyades-studio|nuovo"]:  # un altro studio: l'app Pleiadi non deve averne l'accesso
+                            err.append(f"guida (invito): voci del portachiavi {voci}, attesa solo «pleyades-studio|nuovo»")
+            finally:
+                shutil.rmtree(invito, ignore_errors=True)
         finally:
             server.shutdown()
             shutil.rmtree(studio, ignore_errors=True)

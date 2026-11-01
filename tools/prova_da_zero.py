@@ -7,6 +7,8 @@ Copia `prova-da-zero/avvio.ps1` sul PC, apre la Sandbox nella sessione di chi è
 schermo), aspetta la fine (max 20 min) e controlla l'esito con le stesse regole di test_guida. La Sandbox si cancella
 alla chiusura: ogni prova parte da zero. Installer fermo da 2 min → si ferma subito col suo log.
 Per iterare: `--a-mano` (resta aperta) poi `--esegui "<powershell>"` gira dentro la Sandbox e stampa l'output.
+Con un invito vero: `--invito <file>` (riga 1 il codice, riga 2 lo studio): come la riga del messaggio d'invito; il
+file arriva nella Sandbox e avvio.ps1 lo cancella appena letto. Il codice mai negli argomenti né nell'output.
 Solo libreria standard; serve ssh senza password verso il PC."""
 import base64, os, re, subprocess, sys, tempfile, time
 
@@ -79,6 +81,10 @@ def main():
     subprocess.run(["scp", "-q", "-o", "BatchMode=yes", os.path.join(QUI, CARTELLA, "avvio.ps1"), os.path.join(QUI, CARTELLA, "sveglia.ps1"),
                     os.path.join(QUI, "..", "installa.ps1"), os.path.join(QUI, "..", "crew.py"),
                     f"{host}:{dir_pc}/".replace("\\", "/")], check=True)  # provati prima del push
+    invito = open(sys.argv[sys.argv.index("--invito") + 1]).read().split() if "--invito" in sys.argv else []
+    if invito:
+        subprocess.run(["scp", "-q", "-o", "BatchMode=yes", sys.argv[sys.argv.index("--invito") + 1],
+                        f"{host}:{dir_pc}/invito.txt".replace("\\", "/")], check=True)
     wsb = WSB.format(dir=dir_pc).replace("'", "''")
     ps(host, f"Set-Content -Encoding UTF8 '{dir_pc}\\prova.wsb' '{wsb}'" + ("" if a_mano else f"; New-Item '{dir_pc}\\chiudi' | Out-Null"))
     # da ssh la Sandbox non si apre (nessuno schermo): un compito nella sessione di chi è allo schermo, che la apre
@@ -127,6 +133,13 @@ def main():
         err.append(f"guida lenta: {durata[1]} min (attesa nascosta? guarda guida.txt)")
     if "a posto" not in leggi("guida.txt"):
         err.append("guida: manca il riepilogo finale («x/y a posto»): si è fermata prima")
+    if invito:  # la riga dell'invito: studio, progetto e app senza «Concedi accesso»; resta solo l'accesso a Claude
+        g = leggi("guida.txt")
+        if invito[0].upper() in g.upper():
+            err.append("guida: il codice d'invito compare nell'output")
+        for atteso in ("invito per lo studio", "accesso per l'app Pleiadi", "copia di «", "app Pleiadi"):
+            if not re.search(r"✓[^\n]*" + re.escape(atteso), g):
+                err.append(f"guida (invito): «{atteso}» non è riuscito")
     print(leggi("programmi.txt"))
     print("esiti:", ", ".join(esiti(leggi("controlla.txt")) or esiti(leggi("guida.txt"))) or "nessuno")
     for e in err:

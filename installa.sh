@@ -3,6 +3,8 @@
 #   curl -fsSL https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.sh | bash
 # Con un progetto a cui sei stato invitato:
 #   curl -fsSL https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.sh | bash -s -- PROPRIETARIO/REPO
+# Con un invito dell'app Pleiadi (la riga del messaggio): il codice in una variabile, mai negli argomenti
+#   curl -fsSL …/installa.sh | INVITO='XXXXX-XXXXX-XXXXX-XXXXX' STUDIO='studio.nome.org' bash
 # Qui solo ciò che serve a far partire Python; tutto il resto (Claude Code, GitHub, plugin, progetti, Nextcloud)
 # lo fa crew.py, uguale su Mac, Linux e Windows.
 set -u
@@ -78,6 +80,7 @@ if ! curl -fsSL https://raw.githubusercontent.com/Radwtsm/claude-crew/main/crew.
   exit 1
 fi
 mv "$HOME/.crew/crew.py.tmp" "$HOME/.crew/crew.py"
+[ -n "${STUDIO:-}" ] && set -- "$@" "--studio=$STUDIO"  # INVITO arriva a crew.py per ambiente, che lo toglie subito
 term=/dev/$(ps -o tty= -p $$ 2>/dev/null | tr -d ' ')  # il terminale vero: da /dev/tty Claude Code (Bun) non legge su macOS
 [ -r "$term" ] || term=/dev/tty
 if [ -r "$term" ]; then

@@ -75,8 +75,14 @@ Passo 'installa.ps1'
 (Get-Content -Raw -Encoding UTF8 C:\prova\installa.ps1) -replace 'https://raw\.githubusercontent\.com/[^ ]+/crew\.py',
     'file:///C:/prova/crew.py' | Set-Content -Encoding UTF8 "$env:TEMP\installa.ps1"
 $risposte = "1`n2`n2`n`n`n`n`n`n`n`n"
+# Con un invito (prova_da_zero.py --invito): come la riga del messaggio, codice e studio in variabili; il file sparisce
+if (Test-Path C:\prova\invito.txt) {
+    $env:INVITO, $env:STUDIO = (Get-Content C:\prova\invito.txt) -split '\s+' | Where-Object { $_ }
+    Remove-Item -Force C:\prova\invito.txt
+}
 $risposte | powershell -NoProfile -ExecutionPolicy Bypass -Command `
     "Get-Content -Raw -Encoding UTF8 $env:TEMP\installa.ps1 | iex" 2>&1 | Out-File -Encoding utf8 "$esito\guida.txt"
+Remove-Item Env:INVITO -ErrorAction SilentlyContinue
 
 # Cosa resta da fare secondo la CLI stessa
 Passo 'controlla'

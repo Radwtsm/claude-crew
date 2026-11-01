@@ -2,6 +2,8 @@
 #   irm https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.ps1 | iex
 # Con un progetto a cui sei stato invitato:
 #   $env:PROGETTO='PROPRIETARIO/REPO'; $env:STUDIO='studio.nome.org'; irm https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.ps1 | iex
+# Con un invito dell'app Pleiadi (la riga del messaggio): il codice in una variabile, mai negli argomenti
+#   $env:INVITO='XXXXX-XXXXX-XXXXX-XXXXX'; $env:STUDIO='studio.nome.org'; irm …/installa.ps1 | iex
 # Tutto il resto (Claude Code, GitHub, plugin, progetti, Nextcloud) lo fa crew.py, uguale su Mac, Linux e Windows.
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 
@@ -60,4 +62,4 @@ function Avvia {
     python $crew @argomenti
 }
 
-Avvia
+try { Avvia } finally { Remove-Item Env:INVITO -ErrorAction SilentlyContinue }  # il codice non resta nella finestra
