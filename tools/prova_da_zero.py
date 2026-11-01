@@ -3,6 +3,7 @@
 
     python3 tools/prova_da_zero.py windows      # «windows» = host ssh del PC di prova (Windows Pro, Sandbox attiva)
     python3 tools/prova_da_zero.py mac-utente   # Mac: utente nuovo «pleyades-prova» (sudo), stessa riga e stesse regole
+    python3 tools/prova_da_zero.py mac-utente --invito   # con un invito: chiede il codice (non si vede)
 
 Copia `prova-da-zero/avvio.ps1` sul PC, apre la Sandbox nella sessione di chi è collegato al PC (la si vede sullo
 schermo), aspetta la fine (max 20 min) e controlla l'esito con le stesse regole di test_guida. La Sandbox si cancella
@@ -87,7 +88,15 @@ def utente_nuovo():
 
 
 def mac_utente():
-    invito = open(sys.argv[sys.argv.index("--invito") + 1]).read().split() if "--invito" in sys.argv else []
+    invito = []
+    if "--invito" in sys.argv:  # senza file: il codice lo si incolla qui (non si vede), lo studio è quello della squadra
+        dopo = sys.argv[sys.argv.index("--invito") + 1:]
+        if dopo and not dopo[0].startswith("--"):
+            invito = open(dopo[0]).read().split()
+        else:
+            import getpass
+            invito = [getpass.getpass("Codice invito (incollalo e premi Invio, non si vede): ").strip(),
+                      input("Studio [studio.radwtsm.org]: ").strip() or "studio.radwtsm.org"]
     app = "/Applications/Pleiadi.app"
     if os.path.isdir(app):  # installa_app_mac guarda anche lì: la prova la salterebbe
         print(f"prova_da_zero: {app} c'è già: il passo dell'app sarà «installata» (spostala in ~/Applications)", file=sys.stderr)
