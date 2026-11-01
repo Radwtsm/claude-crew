@@ -217,7 +217,7 @@ DATI_FINTI = b"installer finto"
 
 def app_windows(crew):
     """installa_app_windows con installer e registro finti: si gira anche sul Mac e nella CI."""
-    err, stato = [], {"lanci": 0, "installata": False}
+    err, stato, casa_vera = [], {"lanci": 0, "installata": False}, crew.CASA
     app = {"nome": "Prova", "windows": {"manifesto": "finto", "chiave": CHIAVE_PROVA, "app": "Prova"}}
 
     def giu(dati, firma):
@@ -258,6 +258,32 @@ def app_windows(crew):
         crew.cartelle_progetti = vero
     if base64.b64decode(base64.b64decode(crew.APP_BASE["windows"]["chiave"]).decode().splitlines()[1])[:2] != b"Ed":
         err.append("app: la chiave degli aggiornamenti dell'app di base non è una chiave minisign")
+    # progetto.json di prima del 31/10 (sistema come stringa): resta l'app di base, sennò `auto` la saltava
+    vecchio = crew.app_di({"app": {"nome": "Pleiadi Studio", "windows": "Pleiadi-setup.exe"}})
+    if vecchio.get("windows") != crew.APP_BASE["windows"]:
+        err.append("app: progetto.json vecchio (windows stringa) non prende l'installer dell'app di base")
+    if not crew.app_indietro("0.2.0", "0.3.3") or crew.app_indietro("0.3.10", "0.3.3") or crew.app_indietro(None, "0.3.3"):
+        err.append("app: confronto delle versioni sbagliato (0.2.0 < 0.3.3 < 0.3.10; senza versione non è «indietro»)")
+    # copia vecchia: via cartella e collegamento che punta lì, resta quello dell'installer con lo stesso nome
+    t = tempfile.mkdtemp(prefix="copia-")
+    loc, start, casa = (os.path.join(t, x) for x in ("Local", "Roaming", "casa"))
+    vecchia, desk = os.path.join(loc, "Programs", "Prova"), os.path.join(casa, "Desktop")
+    for x in (vecchia, desk, os.path.join(loc, "Prova")):
+        os.makedirs(x)
+    lnk = lambda n, dove: open(os.path.join(desk, n), "wb").write(b"L\0\0\0" + (dove + "\\prova.exe").encode("utf-16-le"))
+    lnk("vecchio.lnk", vecchia)
+    lnk("Prova.lnk", os.path.join(loc, "Prova"))
+    env, crew.CASA = dict(os.environ), casa
+    os.environ.update(LOCALAPPDATA=loc, APPDATA=start)
+    try:
+        crew.togli_copia_vecchia(app)
+    finally:
+        os.environ.clear(); os.environ.update(env); crew.CASA = casa_vera
+    if os.path.exists(vecchia) or os.path.exists(os.path.join(desk, "vecchio.lnk")):
+        err.append("app windows: copia vecchia o il suo collegamento rimasti")
+    if not os.path.exists(os.path.join(desk, "Prova.lnk")) or not os.path.isdir(os.path.join(loc, "Prova")):
+        err.append("app windows: tolto il collegamento o la cartella dell'installer")
+    shutil.rmtree(t, ignore_errors=True)
     return err
 
 

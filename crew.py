@@ -760,6 +760,9 @@ def versioni(d, c):
     for mk in marketplace_del_progetto(c):
         x = [i[0].get("gitCommitSha", "")[:7] for p, i in inst.items() if p in c["plugin"] and p.endswith("@" + mk) and i]
         v[mk] = x[0] if x else "manca"
+    a = versione_app_qui(app_di(c))
+    if a:
+        v["app"] = a
     return v
 
 
@@ -773,7 +776,15 @@ def riferimento(d, c, cli):
         if os.path.isdir(os.path.join(d, ".git")) else "studio"
     for mk, repo in marketplace_del_progetto(c).items():
         v[mk] = remoto(f"https://github.com/{repo}.git")
+    a = ultima_app(app_di(c))
+    if a:
+        v["app"] = a
     return v
+
+
+def app_indietro(mia, ultima):
+    """Solo più vecchia: una build di prova più nuova dell'ultima pubblicata non è indietro."""
+    return bool(mia and ultima) and versione(mia) < versione(ultima)
 
 
 # Studio (Nextcloud) senza GitHub: Login Flow v2 e WebDAV
@@ -975,12 +986,49 @@ APP_BASE = {"nome": "Pleiadi Studio",
 
 def app_progetti(base=False):
     """[(cartella, config, app)] dei progetti su questo computer che dichiarano un'app; nessuno e base → APP_BASE."""
-    out = []
+    out, visti = [], set()
     for _, d in cartelle_progetti():
         c = config_progetto(d)
-        if isinstance(c.get("app"), dict) and c["app"].get("nome"):
-            out.append((d, c, c["app"]))
+        if c.get("app") and app_di(c)["nome"] not in visti:  # una volta per app, anche se più progetti la usano
+            visti.add(app_di(c)["nome"])
+            out.append((d, c, app_di(c)))
     return out or ([(None, {}, APP_BASE)] if base else [])
+
+
+def app_di(c):
+    """L'app del progetto; un sistema scritto alla vecchia (stringa, prima del 31/10) o mancante prende quello
+    dell'app di base: sennò `auto` la saltava e quel computer restava con la copia vecchia (01/11, sanghez)."""
+    a = c.get("app")
+    if not (isinstance(a, dict) and a.get("nome")):
+        return APP_BASE
+    return {**APP_BASE, **{k: x for k, x in a.items() if k == "nome" or isinstance(x, dict)}}
+
+
+def versione_app_qui(app):
+    """La versione dell'app installata qui (Windows: dal suo installer; Mac: Info.plist), o None (Linux, non c'è,
+    o solo una copia vecchia fuori dall'installer: allora `controlla` la dà da installare)."""
+    try:
+        if WIN and isinstance(app.get("windows"), dict):
+            v = app_windows_installata(app["windows"]["app"], "DisplayVersion")
+            return v if v and v != "?" else None
+        if MAC and isinstance(app.get("mac"), dict):
+            for base in (os.path.join(CASA, "Applications"), "/Applications"):
+                pl = os.path.join(base, app["mac"]["app"], "Contents", "Info.plist")
+                if os.path.isfile(pl):
+                    with open(pl, "rb") as f:
+                        return plistlib.load(f).get("CFBundleShortVersionString")
+    except (OSError, ValueError, KeyError, plistlib.InvalidFileException):
+        pass
+    return None
+
+
+def ultima_app(app):
+    """L'ultima versione pubblicata dell'app (latest.json dell'updater, uguale per Mac e Windows), o None."""
+    w = app.get("windows")
+    try:
+        return json.loads(scarica(w["manifesto"])).get("version") if isinstance(w, dict) else None
+    except (OSError, ValueError, KeyError):
+        return None
 
 
 def installa_app(d, c, app):
@@ -1064,17 +1112,30 @@ def app_windows_installata(nome, campo="InstallLocation"):
 
 
 def togli_copia_vecchia(app):
-    """Fino al 31/10 l'app arrivava come zip dallo studio in Programs\\<nome> con collegamenti suoi: fuori, se c'è,
-    sennò Start e Desktop aprono quella e non l'aggiornata."""
-    nome = re.sub(r'[<>:"/\\|?*]', "", app["nome"]).strip() or "app"
-    loc = os.environ.get("LOCALAPPDATA", os.path.join(CASA, "AppData", "Local"))
-    shutil.rmtree(os.path.join(loc, "Programs", nome), ignore_errors=True)
+    """Fino al 31/10 l'app arrivava come zip dallo studio (Programs\\<nome>) o da crea-app-windows.sh
+    (Programs\\<app>), con collegamenti suoi: fuori, se c'è, sennò Start e Desktop aprono quella e non l'aggiornata.
+    L'installer mette l'app in LOCALAPPDATA\\<app>, mai sotto Programs, ma i suoi collegamenti hanno lo stesso nome:
+    si tolgono solo quelli che puntano dentro una cartella vecchia."""
+    progs = os.path.join(os.environ.get("LOCALAPPDATA", os.path.join(CASA, "AppData", "Local")), "Programs")
+    vecchie = [os.path.join(progs, n) for n in dict.fromkeys(
+        re.sub(r'[<>:"/\\|?*]', "", x).strip() for x in (app["nome"], app["windows"]["app"])) if n]
+    segni = [v.lower().encode(c) for v in vecchie for c in ("utf-16-le", "mbcs" if WIN else "latin-1")]
     for dove in (os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "Start Menu", "Programs"),
                  os.path.join(CASA, "Desktop"), os.path.join(CASA, "OneDrive", "Desktop")):
         try:
-            os.remove(os.path.join(dove, nome + ".lnk"))
+            nomi = [n for n in os.listdir(dove) if n.lower().endswith(".lnk")]
         except OSError:
-            pass
+            continue
+        for n in nomi:
+            try:
+                with open(os.path.join(dove, n), "rb") as f:
+                    dentro = f.read(65536).lower()
+                if any(x in dentro for x in segni):
+                    os.remove(os.path.join(dove, n))
+            except OSError:
+                pass
+    for v in vecchie:
+        shutil.rmtree(v, ignore_errors=True)
 
 
 def versione(v):
@@ -2606,6 +2667,13 @@ def controlla(ui):
             ui.esito(Esito("app Nextcloud Talk", app_talk(), "pleyades-cli guida (la installa)"))
         if t and MAC:
             ui.esito(Esito("Calendario e Contatti del Mac", profilo_dav_installato(), "pleyades-cli guida (li collega)"))
+    if MAC or WIN:  # obbligatoria (PASSI «app»): installata dal suo installer e non più vecchia dell'ultima
+        for _, _, app in app_progetti(base=True):
+            mia, ult = versione_app_qui(app), ultima_app(app)
+            ui.esito(Esito(f"app {app['nome']}", bool(mia) and not app_indietro(mia, ult),
+                           f"chiudi l'app, poi `{NOME_CLI} app`"
+                           + (f" (qui {mia}, ultima {ult})" if mia else " (non c'è o è una copia vecchia)"),
+                           nota=mia or ""))
     if ha("claude") and not lavoro():
         ui.esito(Esito("accesso a Claude", claude_collegato(), "apri `claude` e scrivi /login; se il login è già "
                        "riuscito: `claude auth status` nello stesso terminale e manda la risposta (senza email)"))
@@ -2703,7 +2771,9 @@ def squadra(ui):
         ui.info("ultima versione: " + " ".join(f"{k}={x}" for k, x in rif.items()))
         for (nome, sis), x in sorted(ultimi.items()):
             v, ora = x["v"], x["ora"]
-            diverso = [f"{k}={v.get(k, '?')}" for k, y in rif.items() if v.get(k, "").rstrip("*") != y]
+            # app: chi non la manda (Linux, pleyades-cli vecchio) non è confrontato; l'app che manca la conta l'esito
+            diverso = [f"{k}={v.get(k, '?')}" for k, y in rif.items()
+                       if (app_indietro(v.get(k), y) if k == "app" else v.get(k, "").rstrip("*") != y)]
             giorni = (time.time() - ora) / 86400
             conta = f"{x['ok']}/{x['tot']}"
             ui.esito(Esito(f"{nome} ({sis})", not diverso and x["ok"] == x["tot"] and giorni < x["giorni_max"],
@@ -2716,7 +2786,7 @@ def squadra(ui):
         fatti = {n for n, _ in ultimi}
         mai = sorted(persone - fatti - {n[len("claude-"):] for n in fatti if n.startswith("claude-")})  # il suo Claude
         indietro += [e.nome for e in ui.esiti if not e.ok and e.nome != "stanza Talk"]
-        senza += mai
+        senza += [f"{n} in {c['nome']}" for n in mai]  # sennò l'avviso non dice in quale stanza
         if mai:
             ui.info("nella stanza, senza controllo: " + ", ".join(mai) + " (`pleyades-cli controlla --talk`)")
     if not filtro:  # l'hook d'avvio di regole lo dice al Claude di ognuno (allineamento = priorità assoluta)
@@ -2853,7 +2923,7 @@ def giro_auto(ui):
     ok, cosa = pianifica()
     if not ok:
         ko.append(f"attività pianificata ({cosa})")
-    for d, c, x in app_progetti():  # l'app del progetto: Windows installata e aggiornata, Mac solo installata
+    for d, c, x in app_progetti(base=True):  # installa se manca o (Windows) è indietro; poi si aggiorna da sola
         e = installa_app(d, c, x)
         if not e.ok:
             ko.append(f"{e.nome} ({e.cosa})")

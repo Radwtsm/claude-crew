@@ -141,7 +141,7 @@ def main():
     if esito.startswith("da sistemare"):
         print(f"pleyades-cli: l'ultimo allineamento automatico ha {esito}: dillo all'utente in una riga e "
               "sistemalo con la skill `ripara-allineamento` (parte da `pleyades-cli diagnosi`).")
-    fuori = sq.get("indietro", []) + [f"{n} (mai controllato)" for n in sq.get("senza", [])]
+    fuori = sq.get("indietro", []) + [f"mai controllato: {n}" for n in sq.get("senza", [])]
     if fuori:  # allineamento costante del team = priorità assoluta (owner 2026-10-28)
         print(f"Squadra non allineata: {', '.join(fuori)}. Priorità assoluta: dillo all'utente prima del resto. "
               "Ogni computer acceso si allinea da solo entro ~5 minuti da un push; se resta "
