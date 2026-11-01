@@ -1,6 +1,6 @@
 ---
 name: regole-crew
-description: Le regole comuni di Pleyades (come rispondere, sicurezza, lavoro fatto bene, imparare insieme). Valgono in OGNI conversazione: leggila all'inizio di ogni conversazione e seguila, anche se l'argomento non sembra c'entrare. Le regole personali dell'utente vincono dove dicono altro.
+description: Le regole comuni di Pleyades (risposte, sicurezza, lavoro fatto bene, imparare insieme), valide sempre. In Claude Code le stampa già l'avvio: non riaprirla. Usala quando non le hai nel contesto (app Claude): leggila all'inizio e seguila. Le regole personali vincono dove dicono altro.
 ---
 
 # Regole comuni di Pleyades
