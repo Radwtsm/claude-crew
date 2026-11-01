@@ -170,6 +170,8 @@ def forma(out, dove):
     for i, r in enumerate(righe):
         if re.match(r"\s*(?:[❯⎿]\s+)*✗ ", r) and not any("→" in x for x in righe[i + 1:i + 3]) and "│" not in r:
             err.append(f"{dove}: «{r.strip()}» senza cosa fare (→)")
+        # risposte da stdin (prova da zero): la domanda «❯ » resta sulla riga dopo, nel terminale vero va a capo
+        r = re.sub(r"^\s*❯ (?=\s*[⎿✓✗?⏺])", "", r)
         if len(r) > LARGO and " " in r.strip():  # un percorso lungo da solo non si può andare a capo
             err.append(f"{dove}: riga di {len(r)} caratteri (schermo {LARGO}): «{r[:70]}…»")
     return err

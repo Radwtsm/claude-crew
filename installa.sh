@@ -82,8 +82,9 @@ fi
 mv "$HOME/.crew/crew.py.tmp" "$HOME/.crew/crew.py"
 [ -n "${STUDIO:-}" ] && set -- "$@" "--studio=$STUDIO"  # INVITO arriva a crew.py per ambiente, che lo toglie subito
 term=/dev/$(ps -o tty= -p $$ 2>/dev/null | tr -d ' ')  # il terminale vero: da /dev/tty Claude Code (Bun) non legge su macOS
-[ -r "$term" ] || term=/dev/tty
-if [ -r "$term" ]; then
+# aprirlo davvero: senza terminale (lanciata da un programma) /dev/tty è leggibile ma non si apre
+( : <"$term" ) 2>/dev/null || term=/dev/tty
+if ( : <"$term" ) 2>/dev/null; then
   exec python3 "$HOME/.crew/crew.py" guida "$@" <"$term"
 fi
 exec python3 "$HOME/.crew/crew.py" guida "$@"

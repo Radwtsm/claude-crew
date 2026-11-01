@@ -2,6 +2,7 @@
 """Prova da zero su Windows: un Windows nuovo (Windows Sandbox) fa la riga d'installazione di un collega.
 
     python3 tools/prova_da_zero.py windows      # «windows» = host ssh del PC di prova (Windows Pro, Sandbox attiva)
+    python3 tools/prova_da_zero.py mac-utente   # Mac: utente nuovo «pleyades-prova» (sudo), stessa riga e stesse regole
 
 Copia `prova-da-zero/avvio.ps1` sul PC, apre la Sandbox nella sessione di chi è collegato al PC (la si vede sullo
 schermo), aspetta la fine (max 20 min) e controlla l'esito con le stesse regole di test_guida. La Sandbox si cancella
@@ -10,7 +11,7 @@ Per iterare: `--a-mano` (resta aperta) poi `--esegui "<powershell>"` gira dentro
 Con un invito vero: `--invito <file>` (riga 1 il codice, riga 2 lo studio): come la riga del messaggio d'invito; il
 file arriva nella Sandbox e avvio.ps1 lo cancella appena letto. Il codice mai negli argomenti né nell'output.
 Solo libreria standard; serve ssh senza password verso il PC."""
-import base64, os, re, subprocess, sys, tempfile, time
+import base64, os, re, shutil, subprocess, sys, tempfile, time
 
 QUI = os.path.dirname(os.path.abspath(__file__))
 CARTELLA = "prova-da-zero"  # in C:\Users\Public: la vede anche l'utente sullo schermo, se è un altro
@@ -48,9 +49,100 @@ def sveglia(host, schermo, dir_pc, argomenti=""):
              f"schtasks /run /tn {COMPITO} | Out-Null")
 
 
+# Mac: un utente nuovo al posto della Sandbox. Senza password (non entra dalla schermata di accesso, nascosto): lo si
+# usa solo con sudo da qui. Ricreato a ogni prova; vede gli strumenti di Apple e /opt/homebrew già sul Mac
+UTENTE = "pleyades-prova"
+CASA_PROVA = "/Users/" + UTENTE
+
+
+def sudo(*cmd, **kw):
+    return subprocess.run(["sudo", *cmd], **kw)
+
+
+def utente_nuovo():
+    """Toglie l'utente di prova (casa compresa) e lo ricrea vuoto, col suo Portachiavi «login» aperto."""
+    if sudo("dscl", ".", "-read", CASA_PROVA, capture_output=True).returncode == 0:
+        sudo("dscl", ".", "-delete", CASA_PROVA, check=True)
+    if os.path.isdir(CASA_PROVA):
+        sudo("rm", "-rf", "--", CASA_PROVA, check=True)  # sempre e solo /Users/pleyades-prova
+    usati = {int(x.split()[-1]) for x in subprocess.run(["dscl", ".", "-list", "/Users", "UniqueID"],
+                                                       capture_output=True, text=True).stdout.splitlines()}
+    uid = str(next(u for u in range(601, 700) if u not in usati))
+    for k, v in (("UserShell", "/bin/zsh"), ("RealName", "Prova Pleyades"), ("UniqueID", uid),
+                 ("PrimaryGroupID", "20"), ("NFSHomeDirectory", CASA_PROVA), ("Password", "*"), ("IsHidden", "1")):
+        sudo("dscl", ".", "-create", CASA_PROVA, k, v, check=True)
+    if sudo("createhomedir", "-c", "-u", UTENTE, capture_output=True).returncode or not os.path.isdir(CASA_PROVA):
+        sudo("mkdir", "-p", CASA_PROVA + "/Library/Keychains", check=True)
+        sudo("chown", "-R", f"{UTENTE}:staff", CASA_PROVA, check=True)
+    sudo("-u", UTENTE, "mkdir", "-p", CASA_PROVA + "/Library/Keychains", check=True)
+    # Il Portachiavi «login» lo crea il primo accesso grafico, che qui non c'è: lo si crea come farebbe quello.
+    # Password a caso, solo in memoria e via stdin (mai negli argomenti); serve solo ad aprirlo
+    pw = __import__("secrets").token_hex(16)
+    kc = f"{CASA_PROVA}/Library/Keychains/login.keychain-db"
+    r = sudo("-u", UTENTE, "-H", "security", "-i", input=f"create-keychain -p {pw} {kc}\ndefault-keychain -s {kc}\n"
+             f"login-keychain -s {kc}\nlist-keychains -d user -s {kc}\nunlock-keychain -p {pw} {kc}\nset-keychain-settings {kc}\n",
+             capture_output=True, text=True, cwd="/")
+    if r.returncode or "error" in (r.stdout + r.stderr).lower():
+        sys.exit(f"prova_da_zero: Portachiavi dell'utente di prova non creato:\n{(r.stdout + r.stderr)[-400:]}")
+
+
+def mac_utente():
+    invito = open(sys.argv[sys.argv.index("--invito") + 1]).read().split() if "--invito" in sys.argv else []
+    app = "/Applications/Pleiadi.app"
+    if os.path.isdir(app):  # installa_app_mac guarda anche lì: la prova la salterebbe
+        print(f"prova_da_zero: {app} c'è già: il passo dell'app sarà «installata» (spostala in ~/Applications)", file=sys.stderr)
+    print("→ sudo per creare l'utente di prova (Touch ID o password del Mac)", flush=True)
+    sudo("-v", check=True)
+    utente_nuovo()
+    # le copie di installa.sh e crew.py da provare prima del push, leggibili dall'utente di prova
+    lavoro = tempfile.mkdtemp(prefix="da-zero-", dir="/Users/Shared")
+    esito = os.path.join(lavoro, "esito")
+    os.makedirs(esito)
+    crew = os.path.join(lavoro, "crew.py")
+    shutil.copy(os.path.join(QUI, "..", "crew.py"), crew)
+    sh = open(os.path.join(QUI, "..", "installa.sh"), encoding="utf-8").read()
+    sh = re.sub(r"https://raw\.githubusercontent\.com/[^ ]+/crew\.py", "file://" + crew, sh)
+    open(os.path.join(lavoro, "installa.sh"), "w", encoding="utf-8").write(sh)
+    if invito:  # come la riga del messaggio: codice e studio in variabili, il file sparisce appena letto
+        with os.fdopen(os.open(os.path.join(lavoro, "invito.txt"), os.O_WRONLY | os.O_CREAT, 0o600), "w") as f:
+            f.write("\n".join(invito))  # 600 da subito, poi suo
+    os.chmod(lavoro, 0o755)
+    os.chmod(esito, 0o777)
+    for f in os.listdir(lavoro):
+        if f not in ("esito", "invito.txt"):
+            os.chmod(os.path.join(lavoro, f), 0o644)
+    if invito:
+        sudo("chown", UTENTE, os.path.join(lavoro, "invito.txt"), check=True)
+    # le risposte di chi non sa nulla, come in avvio.ps1: «Mio», niente accesso a Claude, senza GitHub, poi Invio
+    risposte = "1\n2\n2\n" + "\n" * 7
+    corpo = (f"cd ~; if [ -f {lavoro}/invito.txt ]; then set -- $(cat {lavoro}/invito.txt); "
+             "export INVITO=$1 STUDIO=$2; fi; bash " + lavoro + "/installa.sh > " + esito + "/guida.txt 2>&1; unset INVITO; "
+             f"export PATH=$HOME/.local/bin:$PATH; c=$HOME/.crew/crew.py; "
+             f"if [ -f $c ]; then echo | python3 $c controlla > {esito}/controlla.txt 2>&1; python3 $c passi --json > {esito}/passi.json 2>&1; "
+             f"else echo 'crew.py non scaricato' > {esito}/controlla.txt; fi; "
+             f"for p in git python3 claude pleyades-cli; do echo \"$p = $(command -v $p)\" >> {esito}/programmi.txt; done")
+    # niente terminale (nuova sessione): installa.sh legge le risposte da stdin come in avvio.ps1
+    print(f"guida come {UTENTE}; aspetto la fine (max {MINUTI} min)…", flush=True)
+    t = time.time()
+    try:
+        sudo("-u", UTENTE, "-H", "env", "-i", f"HOME={CASA_PROVA}", f"USER={UTENTE}", f"LOGNAME={UTENTE}",
+             "PATH=/usr/bin:/bin:/usr/sbin:/sbin", "TERM=xterm-256color", "LANG=it_IT.UTF-8", "SHELL=/bin/zsh",
+             "bash", "-c", corpo, input=risposte, text=True, timeout=MINUTI * 60, start_new_session=True, cwd="/")
+        finita = True
+    except subprocess.TimeoutExpired:
+        print(f"prova_da_zero: {MINUTI} minuti senza finire", file=sys.stderr)
+        finita = False
+    finally:
+        sudo("rm", "-f", os.path.join(lavoro, "invito.txt"))  # la cartella è mia: il file lo tolgo io
+    print(f"{(time.time() - t) / 60:.1f} min · l'utente {UTENTE} resta per guardarci (si ricrea alla prossima prova)")
+    return verifica(esito, finita, invito)
+
+
 def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
+    if sys.argv[1] == "mac-utente":
+        return mac_utente()
     host, a_mano = sys.argv[1], "--a-mano" in sys.argv
     if "--sveglia" in sys.argv:  # solo riaccendere lo schermo e tenerlo sveglio per la Sandbox già aperta
         dir_pc = ps(host, "$env:PUBLIC") + "\\" + CARTELLA
@@ -118,12 +210,16 @@ def main():
         ps(host, CHIUDI, False)
     dest = tempfile.mkdtemp(prefix="da-zero-")
     subprocess.run(["scp", "-q", "-r", "-o", "BatchMode=yes", f"{host}:{dir_pc}/esito".replace("\\", "/"), dest])
-    esito = os.path.join(dest, "esito")
+    return verifica(os.path.join(dest, "esito"), "fine" in visti, invito)
+
+
+def verifica(esito, finita, invito):
+    """Stesse regole per Windows e Mac: forma dell'output (test_guida), programmi, durata, passi dell'invito."""
     leggi = lambda f: open(os.path.join(esito, f), encoding="utf-8-sig", errors="replace").read() if os.path.exists(os.path.join(esito, f)) else ""
     sys.path.insert(0, QUI)
     from test_guida import forma, esiti  # stesse regole di UX della prova in casa finta
     err = forma(leggi("guida.txt"), "guida (da zero)") + forma(leggi("controlla.txt"), "controlla (da zero)")
-    if "fine" not in visti:
+    if not finita:
         err.append("non è arrivata alla fine")
     for riga in leggi("programmi.txt").splitlines():  # alla fine un collega li deve avere tutti
         if riga.endswith("= "):
