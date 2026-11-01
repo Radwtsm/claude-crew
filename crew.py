@@ -2724,6 +2724,13 @@ def controlla(ui):
     return 0 if all(e.ok or e.saltato for e in ui.esiti) else 1
 
 
+def solo_presenti(ultimi, persone):
+    """Solo chi è ancora nella stanza (o il Claude di uno che c'è): chi è tolto dallo studio lascia messaggi e file
+    d'allineamento, e restava «non allineato» per sempre (02/11, sette account eliminati)."""
+    return {(n, s): x for (n, s), x in ultimi.items()
+            if n in persone or (n.startswith("claude-") and n[len("claude-"):] in persone)}
+
+
 def squadra(ui):
     """Chi del progetto è allineato: l'ultimo «🔎 controlla --talk» di ognuno nella stanza contro l'ultima versione."""
     filtro = ([x for x in sys.argv[2:] if not x.startswith("-")] or [""])[0]
@@ -2763,6 +2770,7 @@ def squadra(ui):
                         "ok": sum(e.get("stato") != "manca" for e in obbl), "tot": len(obbl), "giorni_max": 1,
                         "v": {"cli": x.get("cli", "?"), **x.get("versioni", {})}, "avanti": x.get("avanti"),
                         "ora": datetime.datetime.fromisoformat(x["quando"]).timestamp()}
+                ultimi = solo_presenti(ultimi, persone)
             except Exception as e:  # rete giù o accesso scaduto: lo dice e passa al progetto dopo
                 ultimi, persone = None, str(e)[:120]
         if ultimi is None:

@@ -27,6 +27,8 @@ python3 tools/lint_passi.py || exit 1
 python3 crew.py passi --json | python3 -c "import json,sys; json.load(sys.stdin)" || exit 1
 # La guida di un collega nuovo in una casa finta (programmi con effetti finti, studio Nextcloud finto): percorso e forma
 python3 tools/test_guida.py || exit 1
+# `squadra` conta solo chi è ancora nella stanza (chi è tolto dallo studio non resta rosso)
+python3 tools/test_squadra.py || exit 1
 # Ogni plugin ha le sue `keywords` nel catalogo: da lì l'hook dei messaggi suggerisce un plugin mancante (personale.py)
 senza=$(python3 -c "import json;print(' '.join(p['name'] for p in json.load(open('.claude-plugin/marketplace.json'))['plugins'] if not p.get('keywords')))")
 if [ -n "$senza" ]; then
