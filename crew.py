@@ -1044,8 +1044,9 @@ def firma_aggiornamenti(chiave, firma, dati):
     return ed25519_ok(pk[10:], s[10:], hashlib.blake2b(dati).digest() if s[:2] == b"ED" else dati)
 
 
-def app_windows_installata(nome):
-    """Cartella dell'app installata dal suo installer (chiave «Uninstall» dell'utente con DisplayName = nome), o None."""
+def app_windows_installata(nome, campo="InstallLocation"):
+    """Cartella dell'app installata dal suo installer (chiave «Uninstall» dell'utente con DisplayName = nome), o None.
+    campo="DisplayVersion": la sua versione."""
     import winreg
     base = r"Software\Microsoft\Windows\CurrentVersion\Uninstall"
     try:
@@ -1054,7 +1055,7 @@ def app_windows_installata(nome):
                 with winreg.OpenKey(k, winreg.EnumKey(k, i)) as s:
                     try:
                         if winreg.QueryValueEx(s, "DisplayName")[0] == nome:
-                            return winreg.QueryValueEx(s, "InstallLocation")[0].strip('"') or "?"
+                            return winreg.QueryValueEx(s, campo)[0].strip('"') or "?"
                     except OSError:
                         continue
     except OSError:
@@ -1076,21 +1077,35 @@ def togli_copia_vecchia(app):
             pass
 
 
-def installa_app_windows(app, scarica=scarica, installata=None, lancia=None):
-    """Windows: solo la prima volta, l'installer della release (la stessa fonte e la stessa firma degli aggiornamenti
-    dell'app). Scaricato qui e non dal browser: niente «PC protetto da Windows» di SmartScreen."""
+def versione(v):
+    return tuple(int(x) for x in re.findall(r"\d+", v or "")[:3])
+
+
+def installa_app_windows(app, scarica=scarica, installata=None, lancia=None, versione_installata=None):
+    """Windows: l'installer della release (la stessa fonte e la stessa firma degli aggiornamenti dell'app), la prima
+    volta o sopra una versione più vecchia dell'ultima: una copia di prima dell'aggiornamento automatico non si
+    aggiornerebbe mai da sola (01/11, sanghez fermo alla 0.2.0). Scaricato qui e non dal browser: niente SmartScreen."""
     nome, w = app["nome"], app["windows"]
     installata = installata or (lambda: app_windows_installata(w["app"]))
+    versione_installata = versione_installata or (lambda: app_windows_installata(w["app"], "DisplayVersion"))
     lancia = lancia or (lambda f: run(f, "/S", timeout=600)[0] == 0)
-    if installata():
+    gia = installata()
+    try:
+        m = json.loads(scarica(w["manifesto"]))
+        p = m["platforms"]["windows-x86_64"]
+        if gia and versione(versione_installata()) >= versione(m.get("version")):
+            raise LookupError
+        dati = scarica(p["url"], timeout=900)
+    except LookupError:
+        dati = None
+    except (OSError, ValueError, KeyError) as e:
+        if not gia:
+            return Esito(f"app {nome}", False, f"download non riuscito ({e}): controlla internet e rilancia `pleyades-cli app`")
+        dati = None
+    if dati is None:
         if WIN:
             togli_copia_vecchia(app)
         return Esito(f"app {nome}", True, saltato=True, nota="installata, si aggiorna da sola")
-    try:
-        p = json.loads(scarica(w["manifesto"]))["platforms"]["windows-x86_64"]
-        dati = scarica(p["url"], timeout=900)
-    except (OSError, ValueError, KeyError) as e:
-        return Esito(f"app {nome}", False, f"download non riuscito ({e}): controlla internet e rilancia `pleyades-cli app`")
     if not firma_aggiornamenti(w["chiave"], p.get("signature", ""), dati):
         return Esito(f"app {nome}", False, "non ha la firma della squadra: non la installo (avvisa chi la pubblica)")
     tmp = tempfile.mkdtemp(prefix="app-")

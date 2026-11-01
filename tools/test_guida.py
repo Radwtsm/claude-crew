@@ -223,7 +223,7 @@ def app_windows(crew):
     def giu(dati, firma):
         def f(url, timeout=0):
             if url == "finto":
-                return json.dumps({"platforms": {"windows-x86_64": {"url": "setup", "signature": firma}}}).encode()
+                return json.dumps({"version": "0.3.3", "platforms": {"windows-x86_64": {"url": "setup", "signature": firma}}}).encode()
             return dati
         return f
 
@@ -231,7 +231,9 @@ def app_windows(crew):
         stato["lanci"] += 1
         stato["installata"] = open(setup, "rb").read() == DATI_FINTI
         return True
-    c = lambda d, f: crew.installa_app_windows(app, scarica=giu(d, f), installata=lambda: stato["installata"], lancia=lancia)
+    stato["versione"] = "0.3.3"
+    c = lambda d, f: crew.installa_app_windows(app, scarica=giu(d, f), installata=lambda: stato["installata"], lancia=lancia,
+                                               versione_installata=lambda: stato["versione"])
     if c(DATI_FINTI + b"!", FIRMA_PROVA).ok or stato["lanci"]:
         err.append("app windows: lanciato un installer con la firma che non corrisponde")
     if c(DATI_FINTI, "").ok or stato["lanci"]:
@@ -241,6 +243,11 @@ def app_windows(crew):
         err.append(f"app windows: firma buona ma non installata ({e.cosa})")
     if not c(b"", "").saltato or stato["lanci"] != 1:
         err.append("app windows: già installata ma la riscarica (l'aggiornamento lo fa l'app)")
+    stato["versione"] = "0.2.0"  # copia di prima dell'aggiornamento automatico: non si aggiornerebbe mai da sola
+    if not c(DATI_FINTI, FIRMA_PROVA).ok or stato["lanci"] != 2:
+        err.append("app windows: versione vecchia installata ma non aggiornata")
+    if c(DATI_FINTI + b"!", FIRMA_PROVA).ok or stato["lanci"] != 2:
+        err.append("app windows: aggiornata con la firma che non corrisponde")
     # da zero (nessun progetto): la guida e `pleyades-cli app` installano l'app di base, con una chiave leggibile
     import base64
     vero, crew.cartelle_progetti = crew.cartelle_progetti, lambda: []
