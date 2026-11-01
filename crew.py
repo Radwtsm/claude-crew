@@ -3806,7 +3806,7 @@ def tema_salvaschermo(asp=None):
     if minuti:
         cli = os.path.join(BIN, NOME_CLI)
         testo += (f"\n{inizio}\nTMOUT={minuti * 60}\n"
-                  f"TRAPALRM() {{ [[ -t 1 ]] && \"{cli}\" salvaschermo; zle && zle reset-prompt }}\n{fine}\n")
+                  f"TRAPALRM() {{ [[ -t 1 && $TERM_PROGRAM != claude-desktop ]] && \"{cli}\" salvaschermo; zle && zle reset-prompt }}\n{fine}\n")
     with open(rc, "w", encoding="utf-8") as f:
         f.write(testo)
     return f"salvaschermo dopo {minuti} min" if minuti else "salvaschermo spento"
@@ -4082,6 +4082,8 @@ def main():
         except Exception:
             return 0
     if a[:1] == ["salvaschermo"]:
+        if os.environ.get("TERM_PROGRAM") == "claude-desktop":  # pannelli nascosti dell'app Claude: animazioni invisibili
+            return 0                                           # che consumano CPU (6 insieme sul Mac, 2026-11-01)
         return intro(salvaschermo=True)
     if a[:1] == ["intro"]:
         if "--256" in a:
