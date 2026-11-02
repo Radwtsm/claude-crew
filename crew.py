@@ -25,7 +25,7 @@
     pleyades-cli auto [--subito]    (hook d'avvio di regole e «📦 Push» nella stanza, in background) aggiorna tutto, poi
                                     `controlla --talk` solo se il riassunto è cambiato o ha più di 3 giorni
     pleyades-cli pianifica [--togli]   l'attività del sistema che lancia `auto` all'accesso e ogni 5 minuti, anche a
-                                    Claude chiuso (launchd, Utilità di pianificazione, cron); `auto` la rimette da sola
+                                    Claude chiuso (launchd, Utilità di pianificazione, cron); `auto` la rimette, non dopo --togli
     pleyades-cli intro [--256] [--resta]   le 7 Pleiadi in pixel art con forme 3D, titolo, frase e nome del tuo
                                     aspetto (un tasto la salta); la prima volta poi chiede l'aspetto; --resta: le
                                     forme girano finché premi un tasto; --256: colori per i terminali vecchi
@@ -142,8 +142,8 @@ PASSI = [
      "fa": "cli", "esiti": ["Calendario e Contatti del Mac"]},
     {"id": "aspetto", "nome": "Aspetto (terminale, Claude, Windows, icona)", "livello": "facoltativo",
      "sistemi": "mac windows linux", "fa": "cli",
-     "esiti": ["look Pleyades (terminale + Claude)", "aspetto messo ovunque", "colori di Windows",
-               "icona «Pleyades tools» sul desktop"]},
+     "esiti": ["look Pleyades (terminale + Claude)", "look Pleyades (Claude)", "aspetto messo ovunque",
+               "colori di Windows", "icona «Pleyades tools» sul desktop"]},
     {"id": "app", "nome": "App del progetto (Pleiadi)", "livello": "obbligatorio", "sistemi": "mac windows",
      "fa": "cli", "esiti": ["app {}", "accesso per l'app Pleiadi"]},
     {"id": "token", "nome": "Consumo di token (budget per risposta)", "livello": "facoltativo",
@@ -1031,8 +1031,17 @@ def ultima_app(app):
         return None
 
 
-def installa_app(d, c, app):
+def installa_app(d, c, app, auto=False, presente=None):
+    """`auto`: un'app già vista qui e poi disinstallata non si rimette da sola (owner 02/11): solo `pleyades-cli app`
+    o la guida la reinstallano."""
     nome = app["nome"]
+    presente = presente or app_presente
+    viste = stato().get("app_viste", [])
+    c_e = presente(app)
+    if auto and not c_e and nome in viste:
+        return Esito(f"app {nome}", True, saltato=True, nota=f"disinstallata da te: `{NOME_CLI} app` per rimetterla")
+    if c_e and nome not in viste:
+        salva_stato(app_viste=viste + [nome])
     if MAC and isinstance(app.get("mac"), dict):
         return installa_app_mac(app)
     if WIN and isinstance(app.get("windows"), dict):
@@ -1140,6 +1149,15 @@ def togli_copia_vecchia(app):
 
 def versione(v):
     return tuple(int(x) for x in re.findall(r"\d+", v or "")[:3])
+
+
+def app_presente(app):
+    if MAC and isinstance(app.get("mac"), dict):
+        return any(os.path.isdir(os.path.join(c, app["mac"]["app"])) for c in (os.path.join(CASA, "Applications"),
+                                                                               "/Applications"))
+    if WIN and isinstance(app.get("windows"), dict):
+        return bool(app_windows_installata(app["windows"]["app"]))
+    return False
 
 
 def installa_app_windows(app, scarica=scarica, installata=None, lancia=None, versione_installata=None):
@@ -2581,9 +2599,10 @@ def guida(ui, richiesti, solo_progetti=False):
         ui.esito(Esito("aggiornamento automatico pianificato", ok, f"{cosa} → `{NOME_CLI} pianifica`", nota=cosa))
         if not stato().get("tema_proposto") and sys.stdin.isatty():
             salva_stato(tema_proposto=True)
-            if ui.conferma("Metto il look Pleyades? Terminale nero con l'intro delle Pleiadi e Claude dello stesso colore",
+            if ui.conferma("Metto il look Pleyades a Claude? I colori dello studio e le parole della rotella "
+                           f"(il terminale resta com'è: `{NOME_CLI} tema` per quello nero con l'intro)",
                            "Sì, mettilo", "No, grazie"):
-                voce_tema(ui)
+                voce_tema(ui, terminale=False)
     minuti = round((time.time() - inizio) / 60, 1)
     ui.riepilogo(minuti)
     ui.titolo("Regole d'uso")
@@ -2932,7 +2951,7 @@ def giro_auto(ui):
     if not ok:
         ko.append(f"attività pianificata ({cosa})")
     for d, c, x in app_progetti(base=True):  # installa se manca o (Windows) è indietro; poi si aggiorna da sola
-        e = installa_app(d, c, x)
+        e = installa_app(d, c, x, auto=True)
         if not e.ok:
             ko.append(f"{e.nome} ({e.cosa})")
     salva_stato(auto={"t": time.time(), "esito": "ok" if not ko else "da sistemare: " + ", ".join(dict.fromkeys(ko)),
@@ -2942,9 +2961,14 @@ def giro_auto(ui):
     return 0
 
 
-def pianifica(togli=False):
+def pianifica(togli=False, rimetti=False):
     """L'allineamento anche a Claude chiuso (owner 28/10: imposto, non affidato a chi riapre Claude): un'attività del
-    sistema lancia `auto` all'accesso e ogni 5 minuti. Si rimette da sola a ogni `auto`. Torna (ok, cosa)."""
+    sistema lancia `auto` all'accesso e ogni 5 minuti. Si rimette da sola a ogni `auto`, tranne dopo `--togli` (owner
+    02/11): solo `pleyades-cli pianifica` (`rimetti`) la riattiva. Torna (ok, cosa)."""
+    if togli or rimetti:
+        salva_stato(pianifica_tolta=togli)
+    elif stato().get("pianifica_tolta"):
+        return True, f"tolta da te: `{NOME_CLI} pianifica` per rimetterla"
     if casa_di_prova():  # launchd, cron e schtasks sono dell'utente vero: una prova toglierebbe la sua (test_guida, 30/10)
         return True, "casa di prova: niente attività pianificata"
     if lavoro():
@@ -3661,7 +3685,7 @@ def voce_aspetto(ui, primo=False):
     ok, cosa = tema(forza=True, terminale_mac=primo)
     if WIN and (stato().get("finestre_prima") or ui.scegli(
             "Anche i colori di tutto Windows? (modo scuro, la tua tinta su barre del titolo e bordi)",
-            ["Sì", "No, solo il terminale"]) == 0):
+            ["Sì", "No"]) == 0):
         ok2, cosa2 = tema_finestre()
         ok, cosa = ok and ok2, f"{cosa}; {cosa2}"
     ui.esito(Esito("aspetto messo ovunque", ok, cosa, nota="Claude: dalla prossima sessione (o /theme)"))
@@ -3820,11 +3844,12 @@ def tema_salvaschermo(asp=None):
     return f"salvaschermo dopo {minuti} min" if minuti else "salvaschermo spento"
 
 
-def tema(forza=False, terminale_mac=True):
+def tema(forza=False, terminale_mac=True, terminale=None):
     """`pleyades-cli tema`: tema di Claude con la tinta dell'aspetto e parole della rotella in Claude Code + il
     terminale nero con l'intro (Mac: profilo del Terminale e iTerm2; Windows: schema di Windows Terminal + intro) +
     il prompt Starship. `forza`: il tema di Claude cambia anche se ne avevi già uno dello studio (scelta dell'aspetto).
-    `terminale_mac=False`: non reimporta il profilo del Terminale (aprirlo apre una finestra)."""
+    `terminale_mac=False`: non reimporta il profilo del Terminale (aprirlo apre una finestra).
+    `terminale`: True lo mette (solo `tema` e il menu: mai dal setup, owner 02/11), None lo ricolora solo se c'è già."""
     asp = aspetto()
     p = os.path.join(CASA, ".claude", "settings.json")
     s = leggi_json(p, {})
@@ -3841,6 +3866,11 @@ def tema(forza=False, terminale_mac=True):
         mancanti, _ = assicura_plugin({"claude-crew": CREW}, ["tema-studio@claude-crew"])
         if mancanti:
             return False, "plugin tema-studio non installato: `claude plugin marketplace add Radwtsm/claude-crew`, poi rilancia"
+    if terminale is None:
+        terminale = terminale_messo()
+    if not terminale:
+        return True, f"Claude con la tinta dell'aspetto; terminale invariato (`{NOME_CLI} tema` per quello nero con l'intro)"
+    salva_stato(terminale_messo=True)
     pr = tema_prompt(asp)
     ss = tema_salvaschermo(asp)
     pr = f"{pr}; {ss}" if ss else pr
@@ -3858,6 +3888,25 @@ def tema(forza=False, terminale_mac=True):
 
 
 ITERM_GUID = "pleyades-pleiad-fire-red"
+
+
+def terminale_messo():
+    """Il terminale «Pleiad Fire Red» c'è già (da `tema`, o dal setup di prima del 02/11): l'aspetto lo ricolora."""
+    if stato().get("terminale_messo"):
+        return True
+    if WIN:
+        return any(os.path.exists(f + ".prima-di-crew") for f in file_windows_terminal())
+    if MAC:
+        return (run("defaults", "read", "com.apple.Terminal", "Default Window Settings")[1].strip() == "Pleiad Fire Red"
+                or os.path.isfile(os.path.join(CASA, "Library", "Application Support", "iTerm2", "DynamicProfiles",
+                                               "pleyades.json")))
+    return False
+
+
+def file_windows_terminal():
+    loc = os.environ.get("LOCALAPPDATA", "")
+    return [os.path.join(loc, "Packages", f"Microsoft.WindowsTerminal{x}_8wekyb3d8bbwe", "LocalState", "settings.json")
+            for x in ("", "Preview")] + [os.path.join(loc, "Microsoft", "Windows Terminal", "settings.json")]
 
 
 def app_iterm():
@@ -3894,9 +3943,12 @@ def tema_iterm():
     return True, "iTerm2: profilo «Pleiad Fire Red» predefinito (nero, intro all'apertura)"
 
 
-def voce_tema(ui):
-    ok, cosa = tema()
-    ui.esito(Esito("look Pleyades (terminale + Claude)", ok, f"{cosa} → `{NOME_CLI} tema`", nota=cosa))
+def voce_tema(ui, terminale=True):
+    ok, cosa = tema(terminale=terminale)
+    if terminale:
+        ui.esito(Esito("look Pleyades (terminale + Claude)", ok, f"{cosa} → `{NOME_CLI} tema`", nota=cosa))
+    else:
+        ui.esito(Esito("look Pleyades (Claude)", ok, f"{cosa} → `{NOME_CLI} tema`", nota=cosa))
     return 0 if ok else 1
 
 
@@ -3995,10 +4047,7 @@ def tema_finestre(togli=False):
 
 def tema_windows():
     nome = "Pleiad Fire Red"
-    loc = os.environ.get("LOCALAPPDATA", "")
-    cand = [os.path.join(loc, "Packages", f"Microsoft.WindowsTerminal{x}_8wekyb3d8bbwe", "LocalState", "settings.json")
-            for x in ("", "Preview")] + [os.path.join(loc, "Microsoft", "Windows Terminal", "settings.json")]
-    f = next((c for c in cand if os.path.isfile(c)), None)
+    f = next((c for c in file_windows_terminal() if os.path.isfile(c)), None)
     if not f:
         return False, "Windows Terminal non trovato: installalo dal Microsoft Store e rilancia"
     try:
@@ -4147,7 +4196,7 @@ def main():
             ui.esito(Esito("colori di Windows", ok, cosa, nota="se una barra resta com'era: esci e rientra da Windows"))
             return 0 if ok else 1
         if cmd == "pianifica":
-            ok, cosa = pianifica(togli="--togli" in a)
+            ok, cosa = pianifica(togli="--togli" in a, rimetti="--togli" not in a)
             ui.esito(Esito("aggiornamento automatico pianificato", ok, cosa, nota=cosa))
             return 0 if ok else 1
         if cmd == "token":

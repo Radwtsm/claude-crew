@@ -29,6 +29,8 @@ python3 crew.py passi --json | python3 -c "import json,sys; json.load(sys.stdin)
 python3 tools/test_guida.py || exit 1
 # `squadra` conta solo chi è ancora nella stanza (chi è tolto dallo studio non resta rosso)
 python3 tools/test_squadra.py || exit 1
+# Il setup tocca il PC solo dove serve: terminale fuori dal setup, `auto` non rimette app o attività tolte
+python3 tools/test_setup_pc.py || exit 1
 # Ogni plugin ha le sue `keywords` nel catalogo: da lì l'hook dei messaggi suggerisce un plugin mancante (personale.py)
 senza=$(python3 -c "import json;print(' '.join(p['name'] for p in json.load(open('.claude-plugin/marketplace.json'))['plugins'] if not p.get('keywords')))")
 if [ -n "$senza" ]; then

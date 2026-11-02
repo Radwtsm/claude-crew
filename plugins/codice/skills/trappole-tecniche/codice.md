@@ -10,3 +10,5 @@ Letto da `SKILL.md` prima di: rinomine, spostamenti, rimozioni in blocco, Swift,
 - Strumenti di "codice inutilizzato" = lista da verificare, non da cancellare; build + test dopo ogni lotto.
 - `re.sub` con un percorso Windows nel testo di sostituzione (`~\agenzia`) → `\a` diventa un carattere speciale
   → passa una funzione come sostituzione (`lambda _: testo`).
+- Test con una casa finta: su Windows `os.path.expanduser("~")` legge `USERPROFILE`, non `HOME` → imposta
+  entrambe, e finti anche i comandi con effetti (`schtasks`): senza, il test scrive nella casa vera.
