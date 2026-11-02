@@ -5,12 +5,54 @@
 #   curl -fsSL https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.sh | bash -s -- PROPRIETARIO/REPO
 # Con un invito dell'app Pleiadi (la riga del messaggio): il codice in una variabile, mai negli argomenti
 #   curl -fsSL …/installa.sh | INVITO='XXXXX-XXXXX-XXXXX-XXXXX' STUDIO='studio.nome.org' bash
+#   su Mac installa solo l'app Pleiadi e la apre col codice; PLEYADES_COMPLETO=1 fa anche il resto (la guida)
 # Qui solo ciò che serve a far partire Python; tutto il resto (Claude Code, GitHub, plugin, progetti, Nextcloud)
 # lo fa crew.py, uguale su Mac, Linux e Windows.
 set -u
 tempo() { local s=$(( $(date +%s) - $1 )); [ $s -ge 60 ] && printf '%d:%02d' $((s/60)) $((s%60)) || printf '%d s' $s; }
 giro=(✦ ✧ ⋆ · ⋆ ✧)  # la stella che pulsa (Pleyades tools); array: il bash 3.2 del Mac taglia male i caratteri UTF-8
 A='\033[38;5;153m'; F='\033[38;5;61m'; Z='\033[0m'  # azzurro stella, blu fioco (marchio Pleyades)
+# Con l'invito su Mac (A90, owner 02/11): solo l'app, niente strumenti di Apple, password o domande; il resto si prepara
+# dopo, se serve (PLEYADES_COMPLETO=1 = la guida completa di prima). Scaricata con curl: niente quarantena, quindi
+# Gatekeeper non la ferma; installata solo se firmata dalla squadra (come crew.py installa_app_mac).
+RELEASE_APP="$(dirname https://github.com/Radwtsm/claude-crew)/pleiadi-app/releases/latest/download"  # come crew.py APP_RELEASE
+solo_app() (  # sottoshell: la trap pulisce la cartella temporanea a ogni uscita
+  codice=$(printf '%s' "$INVITO" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
+  if ! printf '%s' "$codice" | grep -Eq '^[A-HJ-NP-Z2-9]{5}(-[A-HJ-NP-Z2-9]{5}){3}$'; then
+    printf "  ✗ Il codice dell'invito non è giusto: copia di nuovo la riga intera dal messaggio.\n"; exit 1
+  fi
+  printf "\n  ${A}Pleiadi Studio${Z} · preparo il computer (circa un minuto, non devi fare niente)\n\n"
+  cartella="${PLEYADES_APP_DIR:-$HOME/Applications}"  # PLEYADES_APP_DIR: i test, in una cartella da buttare
+  if [ -z "${PLEYADES_APP_DIR:-}" ] && [ -d /Applications/Pleiadi.app ] || [ -d "$cartella/Pleiadi.app" ]; then
+    printf "  ✓ Pleiadi c'è già (si aggiorna da sola)\n"
+  else
+    tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+    printf '  … Scarico Pleiadi\n'
+    if ! curl -fsSL "$RELEASE_APP/Pleiadi.app.tar.gz" -o "$tmp/app.tar.gz" ||
+       ! tar -xzf "$tmp/app.tar.gz" -C "$tmp" || [ ! -d "$tmp/Pleiadi.app" ]; then
+      printf '  ✗ Non riesco a scaricare Pleiadi: controlla internet e incolla di nuovo la stessa riga.\n'; exit 1
+    fi
+    printf '  … Controllo che sia quella della squadra\n'
+    if ! codesign --verify --deep --strict \
+         -R='anchor apple generic and certificate leaf[subject.OU] = "4KLXZKJMRY"' "$tmp/Pleiadi.app" 2>/dev/null; then
+      printf "  ✗ Il file scaricato non ha la firma della squadra: non lo installo. Avvisa chi ti ha invitato.\n"; exit 1
+    fi
+    printf '  … Installo Pleiadi (nella tua cartella Applicazioni: niente password)\n'
+    mkdir -p "$cartella" && ditto "$tmp/Pleiadi.app" "$cartella/Pleiadi.app" ||
+      { printf "  ✗ L'installazione non è andata: incolla di nuovo la stessa riga.\n"; exit 1; }
+    # registrata subito: senza, il primo `open pleiadi://` non sa ancora a chi darlo
+    [ -z "${PLEYADES_APP_DIR:-}" ] && /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
+      -f "$cartella/Pleiadi.app" 2>/dev/null
+    printf '  ✓ Pleiadi installata\n'
+  fi
+  [ "${PLEYADES_NON_APRIRE:-}" = 1 ] && exit 0  # i test: installa e controlla, senza aprire l'app
+  # il link apre l'app col codice già scritto; entra solo chi preme la freccia (accesso.rs → link_aperto)
+  open "pleiadi://invito/$codice" 2>/dev/null || open "$cartella/Pleiadi.app"
+  printf "\n  ✓ Pleiadi è aperta: premi la freccia per entrare. Puoi chiudere questa finestra.\n\n"
+)
+if [ -n "${INVITO:-}" ] && [ "${PLEYADES_COMPLETO:-}" != 1 ] && [ "$(uname)" = Darwin ]; then
+  solo_app; exit $?
+fi
 if [ "$(uname)" = Darwin ] && ! xcode-select -p >/dev/null 2>&1; then
   if [ "${PLEYADES_SI:-}" != 1 ]; then  # PLEYADES_SI=1: chi lancia da script, senza domanda
     printf '→ Mancano gli strumenti di Apple (git e python3, circa 1 GB): li installo da Apple (softwareupdate)?\n'

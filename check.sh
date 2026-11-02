@@ -38,6 +38,8 @@ python3 tools/test_disinstalla.py || exit 1
 python3 tools/test_pianifica.py || exit 1
 # Chiede prima di installare (installa.ps1/.sh) e di cancellare la copia vecchia dell'app; `auto` non cancella
 python3 tools/test_chiedi_prima.py || exit 1
+# Con l'invito la riga installa solo l'app firmata dalla squadra, senza domande né altri programmi (A90)
+python3 tools/test_solo_app.py || exit 1
 # Ogni plugin ha le sue `keywords` nel catalogo: da lì l'hook dei messaggi suggerisce un plugin mancante (personale.py)
 senza=$(python3 -c "import json;print(' '.join(p['name'] for p in json.load(open('.claude-plugin/marketplace.json'))['plugins'] if not p.get('keywords')))")
 if [ -n "$senza" ]; then
