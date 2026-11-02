@@ -3080,16 +3080,18 @@ def pianifica(togli=False, rimetti=False):
     crew = os.path.join(CARTELLA, "crew.py")
     if WIN:
         pyw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")  # senza finestra
-        tr = f'"{pyw if os.path.isfile(pyw) else sys.executable}" "{crew}" auto --leggero'
+        prog, arg = pyw if os.path.isfile(pyw) else sys.executable, f'"{crew}" auto --leggero'
         if togli:
             return run("schtasks", "/Delete", "/TN", "Pleyades tools", "/F")[0] == 0, "tolta"
+        # già giusta: questa versione delle impostazioni (i PC vecchi la rifanno) e lo stesso comando, che
+        # schtasks mostra col programma senza virgolette
         if (stato().get("pianifica_win") == PIANO_WIN
-                and tr in run("schtasks", "/Query", "/TN", "Pleyades tools", "/V", "/FO", "LIST")[1]):
+                and f"{prog} {arg}" in run("schtasks", "/Query", "/TN", "Pleyades tools", "/V", "/FO", "LIST")[1]):
             return True, "attiva (Utilità di pianificazione, ogni 5 minuti)"
         xml = os.path.join(CARTELLA, "pianifica.xml")
         os.makedirs(CARTELLA, exist_ok=True)
         with open(xml, "w", encoding="utf-16") as f:
-            f.write(xml_attivita(tr.split('" ', 1)[0].strip('"'), tr.split('" ', 1)[1]))
+            f.write(xml_attivita(prog, arg))
         c, out = run("schtasks", "/Create", "/TN", "Pleyades tools", "/XML", xml, "/F")
         os.remove(xml)
         if c == 0:
