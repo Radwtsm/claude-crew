@@ -29,6 +29,8 @@ python3 crew.py passi --json | python3 -c "import json,sys; json.load(sys.stdin)
 python3 tools/test_guida.py || exit 1
 # `squadra` conta solo chi è ancora nella stanza (chi è tolto dallo studio non resta rosso)
 python3 tools/test_squadra.py || exit 1
+# Dopo il login GitHub l'invito al repo del progetto si accetta da solo, solo quello
+python3 tools/test_invito.py || exit 1
 # Il setup tocca il PC solo dove serve: terminale fuori dal setup, `auto` non rimette app o attività tolte
 python3 tools/test_setup_pc.py || exit 1
 # `disinstalla` rimette i file come prima del setup e lascia le cose della persona (casa finta)

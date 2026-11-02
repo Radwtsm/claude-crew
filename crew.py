@@ -388,9 +388,19 @@ def installa_gh():
 def repo_accessibile(repo):
     """'si', 'no' (privato o inesistente per te) o 'rete'."""
     if gh_collegato():
-        return "si" if run("gh", "api", f"repos/{repo}", "-q", ".full_name")[0] == 0 else "no"
+        vede = lambda: run("gh", "api", f"repos/{repo}", "-q", ".full_name")[0] == 0
+        return "si" if vede() or (accetta_invito(repo) and vede()) else "no"
     codice, out = run("git", "ls-remote", f"https://github.com/{repo}.git", "HEAD", timeout=30)
     return "si" if codice == 0 else ("rete" if "resolve host" in out.lower() else "no")
+
+
+def accetta_invito(repo):
+    """Accetta l'invito GitHub a questo solo repo, se c'è (lo manda Pleiadi a chi è invitato col nome GitHub)."""
+    codice, out = run("gh", "api", "user/repository_invitations", "-q",
+                      f'.[] | select(.repository.full_name | ascii_downcase == "{repo.lower()}") | .id')
+    ids = out.split() if codice == 0 else []
+    return bool(ids) and all(run("gh", "api", "-X", "PATCH", f"user/repository_invitations/{i}")[0] == 0
+                             for i in ids if i.isdigit())
 
 
 def progetti_github():
@@ -2483,8 +2493,7 @@ def passo_progetto(ui, repo, cred=None):
                            "manda il tuo nome GitHub a chi ti ha invitato"))
         else:
             ui.esito(Esito(repo, False, f"non hai accesso: manda il tuo nome GitHub «{gh_utente()}» a chi ti ha "
-                           "invitato, accetta l'invito che arriva per mail (o su github.com → «Notifications»), "
-                           "poi rilancia `pleyades-cli`"))
+                           "invitato; quando ti aggiunge, rilancia `pleyades-cli`: l'invito lo accetta da solo"))
         return None
     with ui.attesa("scarico il progetto"):
         ok, d, out = clona(repo)
