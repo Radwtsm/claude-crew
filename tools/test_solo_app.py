@@ -2,7 +2,7 @@
 """Con l'invito la riga installa solo l'app Pleiadi (A90, owner 02/11): niente Git, Python, strumenti di Apple né domande;
 installa solo un'app con la firma della squadra; codice sbagliato = nessun download. Rete e programmi finti.
 Uso: python3 tools/test_solo_app.py"""
-import os, shutil, stat, subprocess, sys, tempfile
+import base64, os, shutil, stat, subprocess, sys, tempfile
 
 radice = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 male = []
@@ -52,6 +52,21 @@ if "[S/N]" in testo:
     male.append("installa.sh: con l'invito fa domande")
 shutil.rmtree(casa, ignore_errors=True)
 
+# installa.ps1: con l'invito va a Solo-App, che non chiama winget, Python né Read-Host; la chiave è quella di crew.py
+ps = open(os.path.join(radice, "installa.ps1"), encoding="utf-8").read()
+inizio, fine = ps.find("function Solo-App"), ps.find("\n}\n", ps.find("function Solo-App"))
+solo = ps[inizio:fine]
+if "if ($env:INVITO -and $env:PLEYADES_COMPLETO -ne '1') { Solo-App } else { Avvia }" not in ps:
+    male.append("installa.ps1: con l'invito non va a Solo-App")
+for vietato in ("winget", "Installa ", "Read-Host", "python", "Voce-Disinstalla"):
+    if vietato in solo:
+        male.append(f"installa.ps1: Solo-App usa {vietato}")
+if "Firma-Ok" not in solo or "/S" not in solo:
+    male.append("installa.ps1: Solo-App deve controllare la firma prima di installare in silenzio")
+crew = open(os.path.join(radice, "crew.py"), encoding="utf-8").read()
+pub = crew.split('APP_BASE = ', 1)[1].split('"chiave": "', 1)[1].split('"', 1)[0]
+if f"$CHIAVE_APP = '{base64.b64decode(pub).decode().splitlines()[-1]}'" not in ps:
+    male.append("installa.ps1: $CHIAVE_APP diversa dalla chiave dell'app in crew.py (APP_BASE)")
 for m in male:
     print("test_solo_app: " + m, file=sys.stderr)
 sys.exit(1 if male else print("test_solo_app: ok"))
