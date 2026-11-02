@@ -5,7 +5,7 @@
 cd "$(dirname "$0")" || exit 1
 p='([0-9]{1,3}\.){3}[0-9]{1,3}|https?://|[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+\.[A-Za-z.]{2,}'
 p="$p|(\+39[ .]?)?3[0-9]{2}[ .]?[0-9]{6,7}\b|IT[0-9]{2}[A-Z][0-9]{10}|-----BEGIN|(api[_-]?key|token|password|secret)[\"' ]*[:=][\"' ]*[A-Za-z0-9/+_-]{8,}"
-ok="https://(github\.com|raw\.githubusercontent\.com)/(\{\{REPO\}\}|Radwtsm/claude-crew|\{REPO\})|https://claude\.ai/install\.(sh|ps1)|https://raw\.githubusercontent\.com/Homebrew/install/|https://github\.com(/\{repo\}|\"|/microsoft/winget-cli/releases/)|https://raw\\\.githubusercontent\\\.com/\[|https://apps\.apple\.com/app/id[0-9]+|https://play\.google\.com/store/apps/details\?id=|https://\{host\}/|http://\{LOCALE\}"
+ok="https://(github\.com|raw\.githubusercontent\.com)/(\{\{REPO\}\}|Radwtsm/claude-crew|\{REPO\})|https://claude\.ai/install\.(sh|ps1)|https://raw\.githubusercontent\.com/Homebrew/install/|https://github\.com(/\{repo\}|\"|/microsoft/winget-cli/releases/)|https://raw\\\.githubusercontent\\\.com/\[|https://apps\.apple\.com/app/id[0-9]+|https://play\.google\.com/store/apps/details\?id=|https://\{host\}/|http://\{LOCALE\}|http://schemas\.microsoft\.com/windows/2004/02/mit/task"
 files=$(git ls-files 2>/dev/null; git ls-files -o --exclude-standard 2>/dev/null)
 [ -n "$files" ] || files=$(find . -type f -not -path './.git/*' -not -path './dist/*')
 hits=$(echo "$files" | grep -vE '^(\./)?(\.github/workflows/|check\.sh$)' | xargs grep -nIE "$p" 2>/dev/null | grep -vE "$ok")
@@ -35,6 +35,7 @@ python3 tools/test_invito.py || exit 1
 python3 tools/test_setup_pc.py || exit 1
 # `disinstalla` rimette i file come prima del setup e lascia le cose della persona (casa finta)
 python3 tools/test_disinstalla.py || exit 1
+python3 tools/test_pianifica.py || exit 1
 # Chiede prima di installare (installa.ps1/.sh) e di cancellare la copia vecchia dell'app; `auto` non cancella
 python3 tools/test_chiedi_prima.py || exit 1
 # Ogni plugin ha le sue `keywords` nel catalogo: da lì l'hook dei messaggi suggerisce un plugin mancante (personale.py)

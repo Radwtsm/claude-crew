@@ -9,7 +9,11 @@ Windows (PowerShell): `irm https://raw.githubusercontent.com/Radwtsm/claude-crew
 `$env:STUDIO='studio.nome.org';`).
 Con un invito dell'app Pleiadi: la riga del messaggio d'invito, che porta il codice in `INVITO` (mai negli
 argomenti) e lo studio in `STUDIO`: la guida entra nello studio col codice, clona il progetto e installa l'app già
-collegata; resta a mano solo l'accesso a Claude. Dopo: `pleyades-cli` o `pley` (menu, aggiorna, controlla, kit, entra in un progetto). Un progetto dice cosa gli serve in `.claude/progetto.json` (vedi `crew.py`).
+collegata; resta a mano solo l'accesso a Claude.
+**Si blocca o vuoi togliere tutto** (Windows, anche da un'installazione a metà, senza Python): Impostazioni → App →
+«Pleyades tools» → Disinstalla, oppure in PowerShell
+`irm https://raw.githubusercontent.com/Radwtsm/claude-crew/main/disinstalla.ps1 | iex`: attività, comandi, app
+Pleiadi, plugin, accessi salvati, cartelle. Mac/Linux: `pleyades-cli disinstalla`. Dopo: `pleyades-cli` o `pley` (menu, aggiorna, controlla, kit, entra in un progetto). Un progetto dice cosa gli serve in `.claude/progetto.json` (vedi `crew.py`).
 
 Queste istruzioni sono per Claude: l'utente ha incollato una frase come "installa Pleyades seguendo INSTALLA.md".
 Fai tu i passi, spiegando in breve cosa fai; chiedi solo le scelte. Funziona su Windows, Mac e Linux.

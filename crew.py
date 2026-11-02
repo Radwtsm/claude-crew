@@ -26,9 +26,11 @@
                                     `controlla --talk` solo se il riassunto è cambiato o ha più di 3 giorni
     pleyades-cli pianifica [--togli]   l'attività del sistema che lancia `auto` all'accesso e ogni 5 minuti, anche a
                                     Claude chiuso (launchd, Utilità di pianificazione, cron); `auto` la rimette, non dopo --togli
-    pleyades-cli disinstalla [--prova]   toglie ciò che il setup ha messo (attività, comando e PATH, terminale, chiavi
-                                    di Claude, icona, portachiavi, ~/.crew); --prova elenca soltanto. Restano
-                                    programmi, plugin, progetti e git config: alla fine come toglierli a mano
+    pleyades-cli disinstalla [--prova] [--si]   toglie ciò che il setup ha messo (attività, comando e PATH, terminale,
+                                    chiavi di Claude, icona, portachiavi, ~/.crew); --prova elenca soltanto, --si non
+                                    chiede. Restano programmi, plugin, progetti e git config: alla fine come toglierli.
+                                    Windows, tutto anche senza Python (app, plugin, installazione a metà): Impostazioni
+                                    → App → «Pleyades tools», o disinstalla.ps1 (INSTALLA.md)
     pleyades-cli intro [--256] [--resta]   le 7 Pleiadi in pixel art con forme 3D, titolo, frase e nome del tuo
                                     aspetto (un tasto la salta); la prima volta poi chiede l'aspetto; --resta: le
                                     forme girano finché premi un tasto; --256: colori per i terminali vecchi
@@ -72,7 +74,7 @@ GH_RELEASE = "cli/cli"
 CASA = os.path.expanduser("~")
 CARTELLA = os.path.join(CASA, ".crew")  # crew.py installato
 LOG_AUTO = os.path.join(CARTELLA, "auto.log")  # l'output dell'ultimo `auto` (hook d'avvio di regole)
-LOG_PIANO = os.path.join(CARTELLA, "pianificato.log")  # l'output dell'ultimo `auto` lanciato dall'attività del sistema
+LOG_PIANO = os.path.join(CARTELLA, "pianificato.log")  # gli output di `auto` lanciati dall'attività del sistema (in coda)
 PIANO = "studio.pleyades.auto"  # nome dell'attività pianificata (launchd; su Windows «Pleyades tools»)
 STATO = os.path.join(CASA, ".config", "crew", "stato.json")  # scelte della persona, mai segreti
 BIN = os.path.join(CASA, ".local", "bin")
@@ -1597,6 +1599,37 @@ def aggiorna_comando():
     return True, "aggiornato"
 
 
+VOCE_DIS = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\PleyadesTools"
+DIS_WIN = os.path.join(os.environ.get("LOCALAPPDATA", CASA), "Pleyades")  # disinstalla.ps1 della voce
+
+
+def voce_disinstalla():
+    """Windows: «Pleyades tools» in Impostazioni → App, che toglie tutto con disinstalla.ps1 anche se crew.py o Python
+    non vanno più (owner 02/11). La scrive installa.ps1 per prima cosa; qui, a ogni `aggiorna`, per i PC di prima e
+    per tenere lo script all'ultima versione."""
+    if not WIN or casa_di_prova():
+        return
+    import winreg
+    f = os.path.join(DIS_WIN, "disinstalla.ps1")
+    try:
+        nuovo = scarica(CREW_PY.rsplit("/", 1)[0] + "/disinstalla.ps1")
+        if not os.path.isfile(f) or open(f, "rb").read() != nuovo:
+            os.makedirs(DIS_WIN, exist_ok=True)
+            with open(f, "wb") as h:
+                h.write(nuovo)
+        # letto come UTF-8: `-File` o `& file` in Windows PowerShell 5.1 lo leggerebbe ANSI e le «» lo rompono
+        cmd = f"powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"$env:PLEYADES_PAUSA='1'; iex ([IO.File]::ReadAllText('{f}'))\""
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, VOCE_DIS) as k:
+            for nome, v in (("DisplayName", "Pleyades tools"),
+                            ("Publisher", "Pleyades Studio"), ("UninstallString", cmd), ("DisplayIcon", "powershell.exe"),
+                            ("InstallLocation", CARTELLA)):
+                winreg.SetValueEx(k, nome, 0, winreg.REG_SZ, v)
+            for nome in ("NoModify", "NoRepair"):
+                winreg.SetValueEx(k, nome, 0, winreg.REG_DWORD, 1)
+    except (OSError, ValueError):
+        pass
+
+
 # Profilo del computer e plugin presi uno per volta (solo locale)
 
 def lavoro():
@@ -2857,6 +2890,7 @@ def squadra(ui):
 def aggiorna(ui):
     ui.titolo(f"{ui.nome} · aggiorno ciò che c'è già")
     ok, cosa = aggiorna_comando()
+    voce_disinstalla()
     ui.esito(Esito("comando pleyades-cli", ok, cosa, nota=cosa))
     server, cred = stato().get("studio"), credenziali_note()
     for cartella in ([] if lavoro() or not (server and cred) else stato().get("studio_progetti", [])):
@@ -2994,6 +3028,43 @@ def giro_auto(ui):
     return 0
 
 
+PIANO_WIN = 2  # versione dell'attività di Windows: cambiata qui → ogni PC la ricrea al primo `auto`
+
+
+def xml_attivita(comando, argomenti):
+    """L'attività di Windows con le impostazioni giuste: i default di `schtasks /SC MINUTE` (02/11, PC di sanghez
+    indietro) la fermano a batteria e non la fanno mai partire lì, non recuperano i giri persi in standby e lasciano
+    un giro appeso bloccare tutti i successivi per 72 ore. Qui: anche a batteria, all'accesso, subito dopo un giro
+    perso, al massimo 20 minuti a giro."""
+    from xml.sax.saxutils import escape
+    # il SID: DOMINIO\\nome non sempre si risolve (WORKGROUP via ssh, account Microsoft) e l'attività non nasce
+    sid = run("whoami", "/user", "/fo", "csv", "/nh")[1].strip().rsplit(",", 1)[-1].strip('"')
+    utente = escape(sid if sid.startswith("S-1-") else os.environ.get("USERNAME", ""))
+    return f"""<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo><Description>Pleyades tools: pleyades-cli auto ogni 5 minuti (v{PIANO_WIN})</Description></RegistrationInfo>
+  <Triggers>
+    <LogonTrigger><Enabled>true</Enabled><UserId>{utente}</UserId><Delay>PT1M</Delay></LogonTrigger>
+    <TimeTrigger><StartBoundary>2026-01-01T00:00:00</StartBoundary><Enabled>true</Enabled>
+      <Repetition><Interval>PT5M</Interval><StopAtDurationEnd>false</StopAtDurationEnd></Repetition></TimeTrigger>
+  </Triggers>
+  <Principals><Principal id="Author"><UserId>{utente}</UserId><LogonType>InteractiveToken</LogonType>
+    <RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings><StopOnIdleEnd>false</StopOnIdleEnd><RestartOnIdle>false</RestartOnIdle></IdleSettings>
+    <ExecutionTimeLimit>PT20M</ExecutionTimeLimit>
+    <Enabled>true</Enabled>
+  </Settings>
+  <Actions Context="Author"><Exec><Command>{escape(comando)}</Command><Arguments>{escape(argomenti)}</Arguments></Exec></Actions>
+</Task>
+"""
+
+
 def pianifica(togli=False, rimetti=False):
     """L'allineamento anche a Claude chiuso (owner 28/10: imposto, non affidato a chi riapre Claude): un'attività del
     sistema lancia `auto` all'accesso e ogni 5 minuti. Si rimette da sola a ogni `auto`, tranne dopo `--togli` (owner
@@ -3012,9 +3083,17 @@ def pianifica(togli=False, rimetti=False):
         tr = f'"{pyw if os.path.isfile(pyw) else sys.executable}" "{crew}" auto --leggero'
         if togli:
             return run("schtasks", "/Delete", "/TN", "Pleyades tools", "/F")[0] == 0, "tolta"
-        if tr in run("schtasks", "/Query", "/TN", "Pleyades tools", "/V", "/FO", "LIST")[1]:
+        if (stato().get("pianifica_win") == PIANO_WIN
+                and tr in run("schtasks", "/Query", "/TN", "Pleyades tools", "/V", "/FO", "LIST")[1]):
             return True, "attiva (Utilità di pianificazione, ogni 5 minuti)"
-        c, out = run("schtasks", "/Create", "/TN", "Pleyades tools", "/SC", "MINUTE", "/MO", "5", "/TR", tr, "/F")
+        xml = os.path.join(CARTELLA, "pianifica.xml")
+        os.makedirs(CARTELLA, exist_ok=True)
+        with open(xml, "w", encoding="utf-16") as f:
+            f.write(xml_attivita(tr.split('" ', 1)[0].strip('"'), tr.split('" ', 1)[1]))
+        c, out = run("schtasks", "/Create", "/TN", "Pleyades tools", "/XML", xml, "/F")
+        os.remove(xml)
+        if c == 0:
+            salva_stato(pianifica_win=PIANO_WIN)
         return c == 0, "attivata (Utilità di pianificazione, ogni 5 minuti)" if c == 0 else out[:200]
     if MAC:
         p = os.path.join(CASA, "Library", "LaunchAgents", PIANO + ".plist")
@@ -4402,12 +4481,15 @@ def dis_portachiavi(prova):
 
 
 def dis_cartelle(prova):
-    c = [x for x in (CARTELLA, os.path.dirname(STATO)) if os.path.isdir(x)]
+    c = [x for x in (CARTELLA, os.path.dirname(STATO)) + ((DIS_WIN,) if WIN else ()) if os.path.isdir(x)]
     if not c:
         return None
+    if WIN and not prova and not casa_di_prova():
+        run("reg", "delete", "HKCU\\" + VOCE_DIS, "/f")
     resta = [] if prova else cancella(c)
     return Esito("disinstalla: cartelle di pleyades-cli", not resta, f"togli a mano: {', '.join(resta)}",
-                 nota="~/.crew (comando, copie dello studio, log) e ~/.config/crew (stato)")
+                 nota="~/.crew (comando, copie dello studio, log) e ~/.config/crew (stato)"
+                 + ("; «Pleyades tools» in Impostazioni → App" if WIN else ""))
 
 
 def tieni():
@@ -4426,9 +4508,9 @@ def tieni():
             "app Pleiadi e il suo accesso (voce «Pleiadi Studio» del portachiavi): si toglie come ogni app"]
 
 
-def disinstalla(ui, prova=False):
-    """`pleyades-cli disinstalla [--prova]`: elenca, chiede conferma, poi toglie (--prova: elenca soltanto); per
-    ultime ~/.crew e lo stato."""
+def disinstalla(ui, prova=False, si=False):
+    """`pleyades-cli disinstalla [--prova] [--si]`: elenca, chiede conferma, poi toglie (--prova: elenca soltanto;
+    --si: senza domanda, lo lancia disinstalla.ps1 che ha già chiesto); per ultime ~/.crew e lo stato."""
     passi = (dis_pianifica, dis_finestre, dis_terminale, dis_claude, dis_comandi, dis_prompt, dis_icona,
              dis_portachiavi, dis_cartelle)
     ui.titolo(f"{NOME_CLI} disinstalla" + (" · prova: non cambio niente" if prova else ""))
@@ -4438,7 +4520,7 @@ def disinstalla(ui, prova=False):
     if not voci:
         ui.info(f"niente di {NOME_CLI} su questo computer")
     if voci and not prova:
-        if not ui.conferma("Tolgo tutto questo da questo computer?", "Sì, togli", "No, lascia com'è"):
+        if not si and not ui.conferma("Tolgo tutto questo da questo computer?", "Sì, togli", "No, lascia com'è"):
             return 0
         voci = [e for e in (f(False) for f in passi) if e]
         for e in voci:
@@ -4449,10 +4531,28 @@ def disinstalla(ui, prova=False):
     return 0 if all(e.ok for e in voci) else 1
 
 
+def log_pianificato():
+    """Il log dell'attività in aggiunta, non riscritto: con "w" il giro di 5 minuti dopo cancellava l'errore di quello
+    fallito (02/11). Oltre 200 kB resta solo la metà più nuova."""
+    try:
+        if os.path.getsize(LOG_PIANO) > 200_000:
+            with open(LOG_PIANO, "rb") as f:
+                f.seek(-100_000, 2)
+                coda = f.read()
+            with open(LOG_PIANO, "wb") as f:
+                f.write(coda)
+    except OSError:
+        pass
+    os.makedirs(CARTELLA, exist_ok=True)
+    f = open(LOG_PIANO, "a", encoding="utf-8")
+    f.write(f"\n── {time.strftime('%Y-%m-%d %H:%M:%S')} {' '.join(sys.argv[1:])}\n")
+    return f
+
+
 def main():
     a = sys.argv[1:]
     if sys.stdout is None:  # pythonw (attività pianificata su Windows): l'output nel log
-        sys.stdout = sys.stderr = open(LOG_PIANO, "w", encoding="utf-8")
+        sys.stdout = sys.stderr = log_pianificato()
     if a[:1] == ["hook"]:
         try:
             return hook()
@@ -4516,7 +4616,7 @@ def main():
             ui.esito(Esito("colori di Windows", ok, cosa, nota="se una barra resta com'era: esci e rientra da Windows"))
             return 0 if ok else 1
         if cmd == "disinstalla":
-            return disinstalla(ui, prova="--prova" in a)
+            return disinstalla(ui, prova="--prova" in a, si="--si" in a)
         if cmd == "pianifica":
             ok, cosa = pianifica(togli="--togli" in a, rimetti="--togli" not in a)
             ui.esito(Esito("aggiornamento automatico pianificato", ok, cosa, nota=cosa))

@@ -1,4 +1,5 @@
-# La riga unica su Windows (PowerShell): installa Git e Python se mancano (chiede prima; PLEYADES_SI=1 non chiede), scarica la guida `pleyades-cli` (Pleyades tools) e la lancia.
+# La riga unica su Windows (PowerShell): per prima cosa la voce «Pleyades tools» in Impostazioni → App (toglie tutto,
+# anche da un'installazione a metà: disinstalla.ps1), poi Git e Python se mancano (chiede prima; PLEYADES_SI=1 non chiede), scarica la guida `pleyades-cli` (Pleyades tools) e la lancia.
 #   irm https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.ps1 | iex
 # Con un progetto a cui sei stato invitato:
 #   $env:PROGETTO='PROPRIETARIO/REPO'; $env:STUDIO='studio.nome.org'; irm https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.ps1 | iex
@@ -31,7 +32,26 @@ function Installa($id) {  # winget's own message if it fails: the colleague can 
     }
 }
 
+function Voce-Disinstalla {  # per prima cosa: un'installazione che si blocca a metà si toglie da Impostazioni → App
+    $dir = Join-Path $env:LOCALAPPDATA 'Pleyades'
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    $f = Join-Path $dir 'disinstalla.ps1'
+    try { Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/Radwtsm/claude-crew/main/disinstalla.ps1 -OutFile $f }
+    catch { return }
+    $k = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\PleyadesTools'
+    New-Item -Force -Path $k | Out-Null
+    $cmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command `"`$env:PLEYADES_PAUSA='1'; iex ([IO.File]::ReadAllText('$f'))`""  # UTF-8: con & file PowerShell 5.1 legge ANSI
+    @{ DisplayName = 'Pleyades tools'; Publisher = 'Pleyades Studio'; UninstallString = $cmd; NoModify = 1; NoRepair = 1
+       DisplayIcon = 'powershell.exe'; InstallLocation = (Join-Path $HOME '.crew') }.GetEnumerator() |
+        ForEach-Object { Set-ItemProperty -Path $k -Name $_.Key -Value $_.Value }
+}
+
+function Bloccato {
+    Write-Host "`nSi è fermato? Rilancia la stessa riga: riparte da dove era.`nPer togliere tutto: Impostazioni → App → «Pleyades tools» → Disinstalla, oppure`n   irm https://raw.githubusercontent.com/Radwtsm/claude-crew/main/disinstalla.ps1 | iex" -ForegroundColor Yellow
+}
+
 function Avvia {
+    Voce-Disinstalla
     if (-not ((Ha git) -and (Python-Vero))) {
         if (-not (Ha winget)) {
             Write-Host "❌ manca winget: Microsoft Store → cerca «Programma di installazione app»`n   → «Aggiorna», poi rilancia la stessa riga" -ForegroundColor Red
@@ -53,7 +73,7 @@ function Avvia {
     }
     if (-not ((Ha git) -and (Python-Vero))) {
         Write-Host "❌ Git o Python non trovati: chiudi PowerShell, riaprilo`n   e incolla di nuovo la stessa riga" -ForegroundColor Red
-        return
+        Bloccato; return
     }
     $dir = Join-Path $HOME '.crew'
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
@@ -63,12 +83,13 @@ function Avvia {
         Move-Item -Force "$crew.tmp" $crew
     } catch {
         Write-Host "❌ non riesco a scaricare la guida: controlla internet e rilancia la stessa riga" -ForegroundColor Red
-        return
+        Bloccato; return
     }
     $argomenti = @('guida')
     if ($env:PROGETTO) { $argomenti += $env:PROGETTO }
     if ($env:STUDIO) { $argomenti += "--studio=$env:STUDIO" }
     python $crew @argomenti
+    if ($LASTEXITCODE -ne 0) { Bloccato }
 }
 
-try { Avvia } finally { Remove-Item Env:INVITO -ErrorAction SilentlyContinue }  # il codice non resta nella finestra
+try { Avvia } catch { Write-Host "❌ $_" -ForegroundColor Red; Bloccato } finally { Remove-Item Env:INVITO -ErrorAction SilentlyContinue }  # il codice non resta nella finestra
