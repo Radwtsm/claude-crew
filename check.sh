@@ -31,6 +31,10 @@ python3 tools/test_guida.py || exit 1
 python3 tools/test_squadra.py || exit 1
 # Il setup tocca il PC solo dove serve: terminale fuori dal setup, `auto` non rimette app o attività tolte
 python3 tools/test_setup_pc.py || exit 1
+# `disinstalla` rimette i file come prima del setup e lascia le cose della persona (casa finta)
+python3 tools/test_disinstalla.py || exit 1
+# Chiede prima di installare (installa.ps1/.sh) e di cancellare la copia vecchia dell'app; `auto` non cancella
+python3 tools/test_chiedi_prima.py || exit 1
 # Ogni plugin ha le sue `keywords` nel catalogo: da lì l'hook dei messaggi suggerisce un plugin mancante (personale.py)
 senza=$(python3 -c "import json;print(' '.join(p['name'] for p in json.load(open('.claude-plugin/marketplace.json'))['plugins'] if not p.get('keywords')))")
 if [ -n "$senza" ]; then

@@ -12,6 +12,16 @@ tempo() { local s=$(( $(date +%s) - $1 )); [ $s -ge 60 ] && printf '%d:%02d' $((
 giro=(✦ ✧ ⋆ · ⋆ ✧)  # la stella che pulsa (Pleyades tools); array: il bash 3.2 del Mac taglia male i caratteri UTF-8
 A='\033[38;5;153m'; F='\033[38;5;61m'; Z='\033[0m'  # azzurro stella, blu fioco (marchio Pleyades)
 if [ "$(uname)" = Darwin ] && ! xcode-select -p >/dev/null 2>&1; then
+  if [ "${PLEYADES_SI:-}" != 1 ]; then  # PLEYADES_SI=1: chi lancia da script, senza domanda
+    printf '→ Mancano gli strumenti di Apple (git e python3, circa 1 GB): li installo da Apple (softwareupdate)?\n'
+    printf '  Installo? [S/N] '
+    r=''; read -r r </dev/tty 2>/dev/null
+    case "$r" in
+      [sSyY]*) ;;
+      *) printf 'Niente installato. A mano: nel Terminale `xcode-select --install`, poi incolla di nuovo la stessa riga.\n'
+         exit 0 ;;
+    esac
+  fi
   # come Homebrew: gli strumenti di Apple da softwareupdate (minuti) invece della finestra (che stima anche 35 h)
   printf '→ Installo gli strumenti di Apple (git e python3, circa 1 GB).\n'
   printf '  NON scrivere niente finché non compare «Password del Mac»: quello che scrivi prima resta visibile.\n'

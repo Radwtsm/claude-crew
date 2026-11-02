@@ -273,12 +273,13 @@ def app_windows(crew):
     lnk = lambda n, dove: open(os.path.join(desk, n), "wb").write(b"L\0\0\0" + (dove + "\\prova.exe").encode("utf-16-le"))
     lnk("vecchio.lnk", vecchia)
     lnk("Prova.lnk", os.path.join(loc, "Prova"))
-    env, crew.CASA = dict(os.environ), casa
+    env, crew.CASA, stdin = dict(os.environ), casa, sys.stdin
     os.environ.update(LOCALAPPDATA=loc, APPDATA=start)
+    crew.sys.stdin = type("Tty", (), {"isatty": lambda s: True})()  # col terminale e col sì (senza: test_chiedi_prima)
     try:
-        crew.togli_copia_vecchia(app)
+        crew.togli_copia_vecchia(app, chiedi=lambda d: True)
     finally:
-        os.environ.clear(); os.environ.update(env); crew.CASA = casa_vera
+        os.environ.clear(); os.environ.update(env); crew.CASA = casa_vera; crew.sys.stdin = stdin
     if os.path.exists(vecchia) or os.path.exists(os.path.join(desk, "vecchio.lnk")):
         err.append("app windows: copia vecchia o il suo collegamento rimasti")
     if not os.path.exists(os.path.join(desk, "Prova.lnk")) or not os.path.isdir(os.path.join(loc, "Prova")):

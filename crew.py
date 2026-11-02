@@ -26,6 +26,9 @@
                                     `controlla --talk` solo se il riassunto è cambiato o ha più di 3 giorni
     pleyades-cli pianifica [--togli]   l'attività del sistema che lancia `auto` all'accesso e ogni 5 minuti, anche a
                                     Claude chiuso (launchd, Utilità di pianificazione, cron); `auto` la rimette, non dopo --togli
+    pleyades-cli disinstalla [--prova]   toglie ciò che il setup ha messo (attività, comando e PATH, terminale, chiavi
+                                    di Claude, icona, portachiavi, ~/.crew); --prova elenca soltanto. Restano
+                                    programmi, plugin, progetti e git config: alla fine come toglierli a mano
     pleyades-cli intro [--256] [--resta]   le 7 Pleiadi in pixel art con forme 3D, titolo, frase e nome del tuo
                                     aspetto (un tasto la salta); la prima volta poi chiede l'aspetto; --resta: le
                                     forme girano finché premi un tasto; --256: colori per i terminali vecchi
@@ -151,6 +154,11 @@ PASSI = [
      "esiti": ["compattazione a {}", "token all'avvio", "token per risposta"]},
     {"id": "lavoro-in-corso", "nome": "Lavoro non ancora pubblicato", "livello": "stato",
      "sistemi": "mac windows linux", "fa": "cli", "esiti": ["progetto: modifiche non pubblicate"]},
+    {"id": "disinstalla", "nome": "Disinstallazione (pleyades-cli disinstalla)", "livello": "azione",
+     "sistemi": "mac windows linux", "fa": "cli",
+     "esiti": ["disinstalla: attività pianificata", "disinstalla: colori di Windows", "disinstalla: terminale",
+               "disinstalla: impostazioni di Claude", "disinstalla: comandi e PATH", "disinstalla: prompt e salvaschermo",
+               "disinstalla: icona sul desktop", "disinstalla: portachiavi", "disinstalla: cartelle di pleyades-cli"]},
     {"id": "azioni", "nome": "Esiti di comandi chiesti (prendi, togli, squadra)", "livello": "azione",
      "sistemi": "mac windows linux", "fa": "cli", "esiti": ["{}: {}", "preso: {}", "{} ({})"]},
 ]
@@ -1120,15 +1128,18 @@ def app_windows_installata(nome, campo="InstallLocation"):
     return None
 
 
-def togli_copia_vecchia(app):
+def togli_copia_vecchia(app, chiedi=None):
     """Fino al 31/10 l'app arrivava come zip dallo studio (Programs\\<nome>) o da crea-app-windows.sh
     (Programs\\<app>), con collegamenti suoi: fuori, se c'è, sennò Start e Desktop aprono quella e non l'aggiornata.
     L'installer mette l'app in LOCALAPPDATA\\<app>, mai sotto Programs, ma i suoi collegamenti hanno lo stesso nome:
-    si tolgono solo quelli che puntano dentro una cartella vecchia."""
+    si tolgono solo quelli che puntano dentro una cartella vecchia.
+    Cancella solo col sì di chi è al terminale (owner 02/11): senza terminale (`auto`) lascia tutto e lo dice.
+    Torna la frase per la nota dell'esito, "" se non c'è niente. chiedi(domanda) -> bool: per i test."""
     progs = os.path.join(os.environ.get("LOCALAPPDATA", os.path.join(CASA, "AppData", "Local")), "Programs")
     vecchie = [os.path.join(progs, n) for n in dict.fromkeys(
         re.sub(r'[<>:"/\\|?*]', "", x).strip() for x in (app["nome"], app["windows"]["app"])) if n]
     segni = [v.lower().encode(c) for v in vecchie for c in ("utf-16-le", "mbcs" if WIN else "latin-1")]
+    via = []
     for dove in (os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "Start Menu", "Programs"),
                  os.path.join(CASA, "Desktop"), os.path.join(CASA, "OneDrive", "Desktop")):
         try:
@@ -1138,13 +1149,27 @@ def togli_copia_vecchia(app):
         for n in nomi:
             try:
                 with open(os.path.join(dove, n), "rb") as f:
-                    dentro = f.read(65536).lower()
-                if any(x in dentro for x in segni):
-                    os.remove(os.path.join(dove, n))
+                    if any(x in f.read(65536).lower() for x in segni):
+                        via.append(os.path.join(dove, n))
             except OSError:
                 pass
+    vecchie = [v for v in vecchie if os.path.isdir(v)]
+    if not (via or vecchie):
+        return ""
+    cosa = ", ".join([privato_via(v) for v in vecchie] + ([f"{len(via)} collegamenti"] if via else []))
+    if not sys.stdin.isatty():
+        return f"copia vecchia rimasta ({cosa}): `{NOME_CLI} app` dal terminale per toglierla"
+    chiedi = chiedi or (lambda d: input(f"\n  ? {d} [s/N] ").strip().lower() in ("s", "si", "sì", "y", "yes"))
+    if not chiedi(f"C'è una copia vecchia dell'app ({cosa}): la cancello?"):
+        return f"copia vecchia lasciata ({cosa})"
+    for x in via:
+        try:
+            os.remove(x)
+        except OSError:
+            pass
     for v in vecchie:
         shutil.rmtree(v, ignore_errors=True)
+    return "tolta la copia vecchia"
 
 
 def versione(v):
@@ -1182,9 +1207,9 @@ def installa_app_windows(app, scarica=scarica, installata=None, lancia=None, ver
             return Esito(f"app {nome}", False, f"download non riuscito ({e}): controlla internet e rilancia `pleyades-cli app`")
         dati = None
     if dati is None:
-        if WIN:
-            togli_copia_vecchia(app)
-        return Esito(f"app {nome}", True, saltato=True, nota="installata, si aggiorna da sola")
+        vecchia = togli_copia_vecchia(app) if WIN else ""
+        return Esito(f"app {nome}", True, saltato=True,
+                     nota="installata, si aggiorna da sola" + (f"; {vecchia}" if vecchia else ""))
     if not firma_aggiornamenti(w["chiave"], p.get("signature", ""), dati):
         return Esito(f"app {nome}", False, "non ha la firma della squadra: non la installo (avvisa chi la pubblica)")
     tmp = tempfile.mkdtemp(prefix="app-")
@@ -1196,9 +1221,8 @@ def installa_app_windows(app, scarica=scarica, installata=None, lancia=None, ver
             return Esito(f"app {nome}", False, "l'installazione non è andata: rilancia `pleyades-cli app`")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-    if WIN:
-        togli_copia_vecchia(app)
-    return Esito(f"app {nome}", True, nota="è nel menu Start, si aggiorna da sola")
+    vecchia = togli_copia_vecchia(app) if WIN else ""
+    return Esito(f"app {nome}", True, nota="è nel menu Start, si aggiorna da sola" + (f"; {vecchia}" if vecchia else ""))
 
 
 def firma_del_team(app, team):
@@ -4129,6 +4153,293 @@ def tema_terminale():
     return True, f"profilo «{nome}» predefinito: le finestre nuove del Terminale sono nere, con l'intro"
 
 
+# ───────────────────────────── disinstalla ─────────────────────────────
+# owner 02/11: `pleyades-cli disinstalla [--prova]` toglie dal PC ciò che il setup ha messo, riconosciuto da come lo
+# scrive questo file (stesse righe, stessi segni); mai programmi, repo, git config, plugin o claude-personale (tieni).
+
+RC_PATH = ("# pleyades-cli: i comandi in ~/.local/bin (pleyades-cli, claude, gh)",
+           'export PATH="$HOME/.local/bin:$PATH"')  # come le scrive installa_comando
+RC_PROMPT = f"# prompt Pleiadi Studio (colori: {NOME_CLI} aspetto)"  # tema_prompt, sopra a eval "$(starship init …)"
+RC_SALVASCHERMO = ("# >>> salvaschermo Pleiadi (pleyades-cli aspetto)", "# <<< salvaschermo Pleiadi")  # tema_salvaschermo
+SEGNO_STARSHIP = "# scritto da pleyades-cli aspetto"  # tema_prompt
+
+
+def togli_righe(testo, commento, riga):
+    """Le due righe che crew aggiunge in fondo a un file («\\n# commento\\nriga\\n»): tolte, il resto resta com'era."""
+    return re.sub(rf"(?:^|\n){re.escape(commento)}\n{re.escape(riga)}(?:\n|$)", "", testo)
+
+
+def comandi_crew():
+    """I lanciatori in ~/.local/bin che aprono ~/.crew/crew.py (pleyades-cli, pley, il `comando` di un progetto)."""
+    dest, tutti = f'"{os.path.join(CARTELLA, "crew.py")}"', []
+    for n in sorted(os.listdir(BIN)) if os.path.isdir(BIN) else []:
+        f = os.path.join(BIN, n)
+        try:
+            if os.path.isfile(f) and os.path.getsize(f) < 2000 and dest in open(f, encoding="utf-8", errors="replace").read():
+                tutti.append(f)
+        except OSError:
+            pass
+    return tutti
+
+
+def cancella(percorsi):
+    """File e cartelle di crew; torna ciò che resta. Windows: il .cmd che sta girando (e ciò che è in uso) lo toglie
+    un `cmd` staccato dopo qualche secondo, a programma uscito (mai in una casa di prova: lì subito)."""
+    dopo = []
+    for p in percorsi:
+        if WIN and p.lower().endswith(".cmd") and not casa_di_prova():
+            dopo.append(p)
+            continue
+        if os.path.isdir(p):
+            shutil.rmtree(p, ignore_errors=True)
+        elif os.path.lexists(p):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+        if os.path.lexists(p):
+            dopo.append(p)
+    if dopo and WIN and not casa_di_prova():
+        togli = " & ".join(f'rmdir /s /q "{p}"' if os.path.isdir(p) else f'del /f /q "{p}"' for p in dopo)
+        subprocess.Popen(f"cmd /c ping -n 4 localhost >nul & {togli}", creationflags=0x08000008, close_fds=True)
+        return []
+    return dopo
+
+
+def togli_segreto(utente, servizio=PORTACHIAVI_STUDIO):
+    """La voce del portachiavi scritta da `segreto` (stesso servizio e account)."""
+    if MAC:
+        return run("security", "delete-generic-password", "-s", servizio, "-a", utente)[0] == 0
+    if WIN:
+        try:
+            import ctypes
+            return bool(ctypes.windll.advapi32.CredDeleteW(f"{servizio}:{utente}", 1, 0))
+        except (OSError, AttributeError):
+            return False
+    return ha("secret-tool") and run("secret-tool", "clear", "service", servizio, "account", utente)[0] == 0
+
+
+def senza_chiavi_crew(s):
+    """~/.claude/settings.json senza le chiavi di impostazioni_utente e tema, solo se hanno ancora il valore di crew."""
+    env = s.get("env")
+    if isinstance(env, dict) and env.get("CLAUDE_CODE_PLUGIN_PREFER_HTTPS") == "1":
+        del env["CLAUDE_CODE_PLUGIN_PREFER_HTTPS"]
+        if not env:
+            del s["env"]
+    if s.get("autoCompactWindow") == TETTO_CONTESTO:
+        del s["autoCompactWindow"]
+    if str(s.get("theme", "")).startswith("custom:tema-studio:"):
+        del s["theme"]
+    if s.get("spinnerVerbs") == {"mode": "append", "verbs": PAROLE_ROTELLA}:
+        del s["spinnerVerbs"]
+    ep = s.get("enabledPlugins")
+    if isinstance(ep, dict) and "tema-studio@claude-crew" in ep:
+        del ep["tema-studio@claude-crew"]
+        if not ep:
+            del s["enabledPlugins"]
+    return s
+
+
+def dis_pianifica(prova):
+    crew = os.path.join(CARTELLA, "crew.py")
+    if WIN:
+        c = run("schtasks", "/Query", "/TN", "Pleyades tools")[0] == 0
+    elif MAC:
+        c = os.path.isfile(os.path.join(CASA, "Library", "LaunchAgents", PIANO + ".plist"))
+    else:
+        c = ha("crontab") and f'"{crew}" auto' in run("crontab", "-l")[1]
+    if not c:
+        return None
+    dove = "Utilità di pianificazione «Pleyades tools»" if WIN else f"LaunchAgent {PIANO}" if MAC else "riga di cron"
+    ok, cosa = (True, "") if prova else pianifica(togli=True)
+    return Esito("disinstalla: attività pianificata", ok, cosa, nota=dove)
+
+
+def dis_finestre(prova):
+    if not (WIN and stato().get("finestre_prima")):
+        return None
+    ok, cosa = (True, "") if prova else tema_finestre(togli=True)
+    return Esito("disinstalla: colori di Windows", ok, cosa, nota="i colori di Windows di prima")
+
+
+def dis_terminale(prova):
+    fatto, nome = [], "Pleiad Fire Red"
+    for f in file_windows_terminal() if WIN else []:
+        if os.path.isfile(f + ".prima-di-crew"):
+            fatto.append("Windows Terminal com'era (settings.json.prima-di-crew)")
+            if not prova:
+                os.replace(f + ".prima-di-crew", f)
+    if MAC:
+        if run("defaults", "read", "com.apple.Terminal", "Default Window Settings")[1].strip() == nome:
+            fatto.append(f"Terminale: profilo predefinito «Basic» invece di «{nome}» (il profilo resta nell'elenco)")
+            if prova:
+                pass
+            elif run("pgrep", "-x", "Terminal")[0] == 0:  # aperto: le preferenze le riscrive lui, si chiede a lui
+                run("osascript", "-e", 'tell application "Terminal" to set default settings to settings set "Basic"',
+                    "-e", 'tell application "Terminal" to set startup settings to settings set "Basic"')
+            else:
+                for k in ("Default Window Settings", "Startup Window Settings"):
+                    run("defaults", "write", "com.apple.Terminal", k, "Basic")
+        dyn = os.path.join(CASA, "Library", "Application Support", "iTerm2", "DynamicProfiles", "pleyades.json")
+        if os.path.isfile(dyn):
+            fatto.append(f"iTerm2: profilo «{nome}» tolto")
+            if not prova:
+                os.remove(dyn)
+                dom = "com.googlecode.iterm2"
+                if run("defaults", "read", dom, "Default Bookmark Guid")[1].strip() == ITERM_GUID:
+                    run("defaults", "delete", dom, "Default Bookmark Guid")
+                if run("defaults", "read", dom, "TabStyleWithAutomaticOption")[1].strip() == "5":  # quello di tema_iterm
+                    run("defaults", "delete", dom, "TabStyleWithAutomaticOption")
+    return Esito("disinstalla: terminale", True, nota="; ".join(fatto)) if fatto else None
+
+
+def dis_claude(prova):
+    p = os.path.join(CASA, ".claude", "settings.json")
+    s = leggi_json(p)
+    if not isinstance(s, dict):
+        return None
+    prima = json.dumps(s, sort_keys=True)
+    s = senza_chiavi_crew(s)
+    copia = os.path.exists(p + ".prima-di-crew")
+    if json.dumps(s, sort_keys=True) == prima and not copia:
+        return None
+    # la copia .prima-di-crew non torna al suo posto: è di prima dell'ultimo cambio di crew, non del primo, e
+    # perderebbe i plugin e le scelte venute dopo; tolte solo le chiavi di crew, la copia va via
+    if not prova:
+        if s:
+            scrivi_json(p, s)
+        else:
+            os.remove(p)
+        if copia:
+            os.remove(p + ".prima-di-crew")
+    return Esito("disinstalla: impostazioni di Claude", True,
+                 nota="tolte le chiavi di crew da ~/.claude/settings.json (HTTPS, compattazione, tema, rotella)")
+
+
+def dis_comandi(prova):
+    com = comandi_crew()
+    altri = [n for n in (os.listdir(BIN) if os.path.isdir(BIN) else []) if os.path.join(BIN, n) not in com]
+    fatto = [f"comandi {', '.join(os.path.basename(c) for c in com)}"] if com else []
+    if WIN and not altri and os.path.isdir(BIN):
+        fatto.append("~/.local/bin dalla PATH utente")
+        if not prova:
+            run("powershell", "-NoProfile", "-Command",
+                "$p=[Environment]::GetEnvironmentVariable('Path','User'); $b=\"$HOME\\.local\\bin\"; "
+                "$n=(($p -split ';') | Where-Object { $_ -and $_ -ne $b }) -join ';'; "
+                "if ($n -ne $p) { [Environment]::SetEnvironmentVariable('Path', $n, 'User') }")
+    for rc in () if WIN or altri else (".zshrc", ".bashrc"):  # la PATH resta se ~/.local/bin ha altro (claude, gh)
+        f = os.path.join(CASA, rc)
+        testo = open(f, encoding="utf-8").read() if os.path.isfile(f) else ""
+        nuovo = togli_righe(testo, *RC_PATH)
+        if nuovo != testo:
+            fatto.append(f"PATH da ~/{rc}")
+            if not prova:
+                with open(f, "w", encoding="utf-8") as h:
+                    h.write(nuovo)
+    if not prova:
+        cancella(com)
+        if not altri and os.path.isdir(BIN) and not os.listdir(BIN):
+            os.rmdir(BIN)
+    nota = "; ".join(fatto) + (f"; ~/.local/bin resta nella PATH: ci sono {', '.join(altri)}" if altri else "")
+    return Esito("disinstalla: comandi e PATH", True, nota=nota) if fatto else None
+
+
+def dis_prompt(prova):
+    fatto = []
+    st = os.path.join(CASA, ".config", "starship.toml")
+    if os.path.isfile(st) and SEGNO_STARSHIP in open(st, encoding="utf-8").read():
+        fatto.append("~/.config/starship.toml")
+        if not prova:
+            os.remove(st)
+    for rc in () if WIN else (".zshrc", ".bashrc"):
+        f = os.path.join(CASA, rc)
+        if not os.path.isfile(f):
+            continue
+        testo = nuovo = open(f, encoding="utf-8").read()
+        for sh in ("zsh", "bash"):
+            nuovo = togli_righe(nuovo, RC_PROMPT, f'eval "$(starship init {sh})"')
+        nuovo = re.sub(rf"(?:^|\n){re.escape(RC_SALVASCHERMO[0])}\n.*?{re.escape(RC_SALVASCHERMO[1])}(?:\n|$)", "",
+                       nuovo, flags=re.S)
+        if nuovo != testo:
+            fatto.append(f"prompt e salvaschermo da ~/{rc}")
+            if not prova:
+                with open(f, "w", encoding="utf-8") as h:
+                    h.write(nuovo)
+    return Esito("disinstalla: prompt e salvaschermo", True, nota="; ".join(fatto)) if fatto else None
+
+
+def dis_icona(prova):
+    desk = [os.path.join(CASA, "Desktop"), os.path.join(CASA, "OneDrive", "Desktop")]
+    if WIN:
+        desk.insert(0, run("powershell", "-NoProfile", "-Command", "[Environment]::GetFolderPath('Desktop')")[1].strip())
+    nome = "Pleyades tools.lnk" if WIN else "Pleyades tools.command" if MAC else "pleyades-tools.desktop"
+    f = list(dict.fromkeys(os.path.join(d, nome) for d in desk if d and os.path.isfile(os.path.join(d, nome))))
+    if not f:
+        return None
+    if not prova:
+        cancella(f)
+    return Esito("disinstalla: icona sul desktop", True, nota=", ".join(f))
+
+
+def dis_portachiavi(prova):
+    utente = stato().get("studio_utente")
+    if not utente:
+        return None
+    if WIN and casa_di_prova():  # il Gestore credenziali è dell'utente vero
+        return Esito("disinstalla: portachiavi", True, nota="casa di prova: portachiavi non toccato")
+    ok = prova or togli_segreto(utente)
+    return Esito("disinstalla: portachiavi", True, nota=f"voce {PORTACHIAVI_STUDIO} dell'accesso allo studio"
+                 + ("" if ok else " (non c'era più)"))
+
+
+def dis_cartelle(prova):
+    c = [x for x in (CARTELLA, os.path.dirname(STATO)) if os.path.isdir(x)]
+    if not c:
+        return None
+    resta = [] if prova else cancella(c)
+    return Esito("disinstalla: cartelle di pleyades-cli", not resta, f"togli a mano: {', '.join(resta)}",
+                 nota="~/.crew (comando, copie dello studio, log) e ~/.config/crew (stato)")
+
+
+def tieni():
+    """Cosa `disinstalla` non tocca, con come toglierlo a mano."""
+    claude = (r'Remove-Item "$HOME\.local\bin\claude.exe"; Remove-Item -Recurse "$HOME\.local\share\claude"' if WIN
+              else "rm -f ~/.local/bin/claude; rm -rf ~/.local/share/claude")
+    prog = ("winget uninstall --id Git.Git (e Python.Python.3.x, Nextcloud.NextcloudDesktop, Nextcloud.Talk)" if WIN
+            else "dalla cartella Applicazioni (Nextcloud, Talk); git e Python sono del sistema" if MAC
+            else "con il gestore dei pacchetti (git, python3, nextcloud-desktop)")
+    return ["plugin di Claude: `claude plugin list`, poi `claude plugin uninstall NOME`; il catalogo: "
+            "`claude plugin marketplace remove claude-crew`",
+            f"Claude Code (e ~/.claude, le tue impostazioni): {claude}",
+            f"GitHub CLI: cancella {os.path.join(BIN, 'gh.exe' if WIN else 'gh')}; programmi: {prog}",
+            f"progetti clonati in {CODICE} e claude-personale: cancella le cartelle quando non servono più",
+            "git config (nome, email, hooksPath dei progetti): `git config --global --edit`",
+            "app Pleiadi e il suo accesso (voce «Pleiadi Studio» del portachiavi): si toglie come ogni app"]
+
+
+def disinstalla(ui, prova=False):
+    """`pleyades-cli disinstalla [--prova]`: elenca, chiede conferma, poi toglie (--prova: elenca soltanto); per
+    ultime ~/.crew e lo stato."""
+    passi = (dis_pianifica, dis_finestre, dis_terminale, dis_claude, dis_comandi, dis_prompt, dis_icona,
+             dis_portachiavi, dis_cartelle)
+    ui.titolo(f"{NOME_CLI} disinstalla" + (" · prova: non cambio niente" if prova else ""))
+    voci = [e for e in (f(True) for f in passi) if e]
+    for e in voci:
+        ui.info(f"• {e.nome.split(': ', 1)[1]}: {e.nota}")
+    if not voci:
+        ui.info(f"niente di {NOME_CLI} su questo computer")
+    if voci and not prova:
+        if not ui.conferma("Tolgo tutto questo da questo computer?", "Sì, togli", "No, lascia com'è"):
+            return 0
+        voci = [e for e in (f(False) for f in passi) if e]
+        for e in voci:
+            ui.esito(e)
+    ui.titolo("Restano (non li tocco)")
+    for t in tieni():
+        ui.info(f"• {t}")
+    return 0 if all(e.ok for e in voci) else 1
+
+
 def main():
     a = sys.argv[1:]
     if sys.stdout is None:  # pythonw (attività pianificata su Windows): l'output nel log
@@ -4195,6 +4506,8 @@ def main():
             ok, cosa = tema_finestre(togli="--togli" in a)
             ui.esito(Esito("colori di Windows", ok, cosa, nota="se una barra resta com'era: esci e rientra da Windows"))
             return 0 if ok else 1
+        if cmd == "disinstalla":
+            return disinstalla(ui, prova="--prova" in a)
         if cmd == "pianifica":
             ok, cosa = pianifica(togli="--togli" in a, rimetti="--togli" not in a)
             ui.esito(Esito("aggiornamento automatico pianificato", ok, cosa, nota=cosa))

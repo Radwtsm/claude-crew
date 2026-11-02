@@ -1,4 +1,4 @@
-# La riga unica su Windows (PowerShell): installa Git e Python se mancano, scarica la guida `pleyades-cli` (Pleyades tools) e la lancia.
+# La riga unica su Windows (PowerShell): installa Git e Python se mancano (chiede prima; PLEYADES_SI=1 non chiede), scarica la guida `pleyades-cli` (Pleyades tools) e la lancia.
 #   irm https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.ps1 | iex
 # Con un progetto a cui sei stato invitato:
 #   $env:PROGETTO='PROPRIETARIO/REPO'; $env:STUDIO='studio.nome.org'; irm https://raw.githubusercontent.com/Radwtsm/claude-crew/main/installa.ps1 | iex
@@ -37,7 +37,16 @@ function Avvia {
             Write-Host "❌ manca winget: Microsoft Store → cerca «Programma di installazione app»`n   → «Aggiorna», poi rilancia la stessa riga" -ForegroundColor Red
             return
         }
-        Write-Host "… installo Git e Python (winget), qualche minuto" -ForegroundColor Cyan
+        $manca = @(); if (-not (Ha git)) { $manca += 'Git' }; if (-not (Python-Vero)) { $manca += 'Python 3.12' }
+        if ($env:PLEYADES_SI -ne '1') {  # PLEYADES_SI=1: chi lancia da script, senza domanda
+            Write-Host "→ Mancano $($manca -join ' e '). Li installo con winget (il programma di Microsoft),`n   dai siti ufficiali (Git for Windows, python.org), solo per il tuo utente." -ForegroundColor Cyan
+            $r = Read-Host "   Installo? [S/N]"
+            if ("$r".Trim() -notmatch '^(s|si|sì|y|yes)$') {
+                Write-Host "Niente installato. A mano: git-scm.com e python.org (spunta «Add python.exe to PATH»),`n   poi incolla di nuovo la stessa riga." -ForegroundColor Yellow
+                return
+            }
+        }
+        Write-Host "… installo $($manca -join ' e ') (winget), qualche minuto" -ForegroundColor Cyan
         if (-not (Ha git)) { Installa Git.Git }
         if (-not (Python-Vero)) { Installa Python.Python.3.12 }
         Aggiorna-Path
