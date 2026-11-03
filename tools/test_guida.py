@@ -202,8 +202,17 @@ def app_mac(crew, casa):
         err.append(f"app mac: non installata ({e.cosa})")
     def mai(url, timeout=0):
         raise OSError("riscaricata")
-    if not crew.installa_app_mac(app, scarica=mai, cartelle=[dest]).saltato:
-        err.append("app mac: già installata ma la riscarica (l'aggiornamento lo fa l'app)")
+    if not crew.installa_app_mac(app, scarica=mai, cartelle=[dest], ultima=lambda: None).saltato:
+        err.append("app mac: già installata ma la riscarica senza sapere l'ultima versione")
+    plistlib.dump({"CFBundleIdentifier": "studio.prova.app", "CFBundleExecutable": "prova",
+                   "CFBundleShortVersionString": "0.3.3"},
+                  open(os.path.join(dest, "Prova.app", "Contents", "Info.plist"), "wb"))
+    if not crew.installa_app_mac(app, scarica=mai, cartelle=[dest], ultima=lambda: "0.3.3").saltato:
+        err.append("app mac: già all'ultima versione ma la riscarica")
+    open(os.path.join(dest, "Prova.app", "Contents", "vecchio"), "w").close()
+    e = crew.installa_app_mac(app, scarica=giu, cartelle=[dest], verifica=lambda a, t: True, ultima=lambda: "0.3.5")
+    if e.saltato or os.path.exists(os.path.join(dest, "Prova.app", "Contents", "vecchio")):
+        err.append("app mac: una copia vecchia (0.3.3 < 0.3.5) non si sostituisce con l'ultima")
     return err
 
 

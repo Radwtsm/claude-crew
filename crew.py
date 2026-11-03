@@ -1243,13 +1243,23 @@ def firma_del_team(app, team):
     return run("codesign", "--verify", "--deep", "--strict", "-R" + req, app)[0] == 0
 
 
-def installa_app_mac(app, scarica=scarica, cartelle=None, verifica=firma_del_team):
-    """Mac: solo la prima volta, dalla release (la stessa fonte da cui l'app poi si aggiorna da sola) e solo se firmata
+def installa_app_mac(app, scarica=scarica, cartelle=None, verifica=firma_del_team, ultima=None):
+    """Mac: dalla release (la stessa fonte da cui l'app poi si aggiorna da sola), la prima volta o sopra una versione
+    più vecchia dell'ultima (come Windows: una copia ferma non si aggiornava mai, 03/11 la 0.3.3), e solo se firmata
     dalla squadra. Scaricata qui e non dal browser: niente quarantena, Gatekeeper non la ferma (owner 31/10)."""
     nome, m = app["nome"], app["mac"]
     cartelle = cartelle or [os.path.join(CASA, "Applications"), "/Applications"]
-    if any(os.path.isdir(os.path.join(c, m["app"])) for c in cartelle):
-        return Esito(f"app {nome}", True, saltato=True, nota="installata, si aggiorna da sola")
+    gia = next((c for c in cartelle if os.path.isdir(os.path.join(c, m["app"]))), None)
+    if gia:
+        try:
+            with open(os.path.join(gia, m["app"], "Contents", "Info.plist"), "rb") as f:
+                ora = plistlib.load(f).get("CFBundleShortVersionString")
+        except (OSError, ValueError, plistlib.InvalidFileException):
+            ora = None
+        nuova = (ultima or (lambda: ultima_app(app)))()
+        if not nuova or (ora and versione(ora) >= versione(nuova)):
+            return Esito(f"app {nome}", True, saltato=True, nota="installata, si aggiorna da sola")
+        cartelle = [gia]  # la vecchia si sostituisce dov'è, non se ne aggiunge una seconda
     tmp = tempfile.mkdtemp(prefix="app-")
     try:
         try:
@@ -1264,7 +1274,10 @@ def installa_app_mac(app, scarica=scarica, cartelle=None, verifica=firma_del_tea
         if not verifica(nuova, m["team"]):
             return Esito(f"app {nome}", False, "non ha la firma della squadra: non la installo (avvisa chi la pubblica)")
         os.makedirs(cartelle[0], exist_ok=True)
-        if run("ditto", nuova, os.path.join(cartelle[0], m["app"]))[0] != 0:
+        dest = os.path.join(cartelle[0], m["app"])
+        if os.path.isdir(dest):  # ditto sopra una .app la mescola con i file vecchi
+            os.rename(dest, os.path.join(tmp, "vecchia.app"))
+        if run("ditto", nuova, dest)[0] != 0:
             return Esito(f"app {nome}", False, f"non riesco a copiarla in {privato_via(cartelle[0])}: rilancia `pleyades-cli app`")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
