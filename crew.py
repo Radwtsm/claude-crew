@@ -1604,6 +1604,7 @@ def aggiorna_comando():
     dest = os.path.join(CARTELLA, "crew.py")
     vecchio = open(dest, "rb").read() if os.path.exists(dest) else b""
     if nuovo == vecchio:
+        os.utime(dest)  # «pleyades-cli aggiornato» guarda questa data: conta l'ultimo controllo, non l'ultimo cambio
         return True, "già all'ultima versione"
     os.makedirs(CARTELLA, exist_ok=True)
     with open(dest + ".tmp", "wb") as f:
