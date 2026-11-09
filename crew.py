@@ -135,7 +135,7 @@ PASSI = [
                              "cartelle condivise del progetto", "app Nextcloud", "app Nextcloud sul computer"]},
     {"id": "talk", "nome": "Stanza Talk", "livello": "obbligatorio", "sistemi": "mac windows linux", "fa": "cli",
      "esiti": ["stanza Talk", "{}: stanza Talk", "stanza Talk «{}»"]},
-    {"id": "ruolo", "nome": "Skill del ruolo", "livello": "obbligatorio", "sistemi": "mac windows linux", "fa": "cli",
+    {"id": "ruolo", "nome": "Skill del ruolo", "livello": "facoltativo", "sistemi": "mac windows linux", "fa": "cli",
      "esiti": ["skill del tuo ruolo ({})", "{}: skill del ruolo"]},
     {"id": "scheda", "nome": "Scheda con gli Ambiti", "livello": "facoltativo", "sistemi": "mac windows linux",
      "fa": "skill:compila-servizi", "esiti": ["{}: scheda con Ambiti"]},
@@ -2697,7 +2697,7 @@ def guida(ui, richiesti, solo_progetti=False):
     if pronti and not lavoro():  # il primo 🔎 con le versioni: `squadra` lo vede subito (28/10: luco «senza controllo»)
         subprocess.Popen([sys.executable, os.path.join(CARTELLA, "crew.py"), "auto", "--subito"], cwd=CASA,
                          stdin=subprocess.DEVNULL, stdout=open(LOG_AUTO, "w", encoding="utf-8"), stderr=subprocess.STDOUT,
-                         env={**os.environ, "NO_COLOR": "1"}, **({"creationflags": 0x00000008 | 0x00000200} if WIN
+                         env={**os.environ, "NO_COLOR": "1"}, **({"creationflags": 0x08000000 | 0x00000200} if WIN
                                                               else {"start_new_session": True}))
     primo = pronti[0][1][0] if pronti else CASA
     for _, (d, c, t, conf) in pronti:  # il kit del ruolo a portata di mano, prima di cominciare

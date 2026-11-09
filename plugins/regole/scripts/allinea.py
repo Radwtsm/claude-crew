@@ -153,8 +153,9 @@ def main():
         sess[sid] = {"plugin": versioni_plugin()}
         scrivi(SESSIONI, sess)
     os.makedirs(os.path.dirname(LOG), exist_ok=True)
-    # staccato: l'avvio di Claude non aspetta (Windows: DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)
-    extra: dict = {"creationflags": 0x00000008 | 0x00000200} if os.name == "nt" else {"start_new_session": True}
+    # staccato: l'avvio di Claude non aspetta (Windows: CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP;
+    # DETACHED_PROCESS no: senza console ogni figlio .cmd/git/claude ne apriva una visibile, #53 paux)
+    extra: dict = {"creationflags": 0x08000000 | 0x00000200} if os.name == "nt" else {"start_new_session": True}
     with open(LOG, "w", encoding="utf-8") as log:
         subprocess.Popen([sys.executable, os.path.abspath(__file__), "--figlio", cli], stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
                          cwd=CASA, env={**os.environ, "NO_COLOR": "1"}, **extra)
