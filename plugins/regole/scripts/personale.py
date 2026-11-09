@@ -93,6 +93,27 @@ def git(*args, timeout=60):
     return run(["git", "-C", REPO, *args], timeout=timeout)
 
 
+def segreti_in_coda():
+    """File con un segreto nelle righe aggiunte in coda al commit (A124): il push automatico non li porta su GitHub."""
+    file, trovati = "", set()
+    for r in git("diff", "--cached", "-U0", "--no-color", "--no-ext-diff").stdout.splitlines():
+        if r.startswith("+++ "):
+            file = r[6:] if r.startswith("+++ b/") else r[4:]
+        elif r.startswith("+") and RE_SEGRETO.search(r):
+            trovati.add(file)
+    return sorted(trovati)
+
+
+def ferma_per_segreti():
+    """Segreto in coda → niente commit, toglie dalla coda e lo dice all'utente (systemMessage dell'hook)."""
+    trovati = segreti_in_coda()
+    if trovati:
+        git("reset", "-q")
+        print(json.dumps({"systemMessage": "⚠️ claude-personale: niente commit né push, sembra esserci un segreto in "
+                          + ", ".join(trovati) + ". Toglilo dal file (e cambialo se è vero), poi il prossimo giro pubblica."}))
+    return bool(trovati)
+
+
 def leggi_json(p):
     try:
         with open(p, encoding="utf-8") as f:
@@ -293,6 +314,8 @@ def setup():
 
     fatti += collega_tutte(os.getcwd())
     git("add", "-A")
+    if ferma_per_segreti():
+        return 1
     if git("diff", "--cached", "--quiet").returncode:
         git("commit", "-q", "-m", "configura-claude: struttura iniziale")
         git("branch", "-M", "main")
@@ -405,6 +428,8 @@ def fine():
         return 0
     if git("status", "--porcelain").stdout.strip():
         git("add", "-A")
+        if ferma_per_segreti():
+            return 0
         git("commit", "-q", "-m", "aggiornamento automatico")
     if git("rev-list", "--count", "@{u}..HEAD").stdout.strip() not in ("", "0"):
         git("push", "-q", timeout=30)

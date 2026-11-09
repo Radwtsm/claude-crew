@@ -45,6 +45,8 @@ python3 tools/test_finestre.py || exit 1  # niente cmd che lampeggiano su Window
 python3 tools/test_chiedi_prima.py || exit 1
 # Con l'invito la riga installa solo l'app firmata dalla squadra, senza domande né altri programmi (A90)
 python3 tools/test_solo_app.py || exit 1
+# Il push automatico di claude-personale non porta segreti su GitHub (A124)
+python3 tools/test_segreti_push.py || exit 1
 # Ogni plugin ha le sue `keywords` nel catalogo: da lì l'hook dei messaggi suggerisce un plugin mancante (personale.py)
 senza=$(python3 -c "import json;print(' '.join(p['name'] for p in json.load(open('.claude-plugin/marketplace.json'))['plugins'] if not p.get('keywords')))")
 if [ -n "$senza" ]; then
