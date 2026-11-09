@@ -1021,6 +1021,8 @@ APP_BASE = {"nome": "Pleiadi Studio",
                         "app": "Pleiadi"},
             "mac": {"url": APP_RELEASE + "Pleiadi.app.tar.gz",
                     "app": "Pleiadi.app", "team": "4KLXZKJMRY"}}
+# La chiave pubblica della squadra: firma l'app e gli aggiornamenti di crew.py e disinstalla.ps1 (tools/firma.py)
+CHIAVE_SQUADRA = APP_BASE["windows"]["chiave"]
 
 
 def app_progetti(base=False):
@@ -1613,10 +1615,25 @@ def icona_desktop(nome, png=None):
     return f
 
 
+def scarica_firmato(nome):
+    """Un file di claude-crew dall'ultimo commit di main, solo se ha la firma della squadra (`nome`.sig, chiave degli
+    aggiornamenti dell'app; tools/firma.py). File e firma dallo stesso commit: la cache di raw.githubusercontent
+    non li mescola. Chi entrasse nell'account GitHub non manda codice ai PC senza la chiave (A115, 09/11)."""
+    testa = (run("git", "ls-remote", "--", "https://github.com" + f"/{CREW}.git", "refs/heads/main", timeout=30)[1].split()
+             or [""])[0]
+    if not re.fullmatch(r"[0-9a-f]{40}", testa):
+        raise ValueError("non trovo l'ultimo commit di claude-crew")
+    base = CREW_PY.rsplit("/", 2)[0] + f"/{testa}/"
+    dati, firma = scarica(base + nome), scarica(base + nome + ".sig").decode().strip()
+    if not firma_aggiornamenti(CHIAVE_SQUADRA, firma, dati):
+        raise ValueError(f"{nome} senza la firma della squadra: tengo la versione di prima (avvisa il manutentore)")
+    return dati
+
+
 def aggiorna_comando():
-    """Scarica l'ultima crew.py; la sostituisce solo se è Python valido."""
+    """Scarica l'ultima crew.py; la sostituisce solo se è firmata dalla squadra ed è Python valido."""
     try:
-        nuovo = scarica(CREW_PY)
+        nuovo = scarica_firmato("crew.py")
         compile(nuovo, "crew.py", "exec")
     except (OSError, SyntaxError, ValueError) as e:
         return False, str(e)
@@ -1645,7 +1662,7 @@ def voce_disinstalla():
     import winreg
     f = os.path.join(DIS_WIN, "disinstalla.ps1")
     try:
-        nuovo = scarica(CREW_PY.rsplit("/", 1)[0] + "/disinstalla.ps1")
+        nuovo = scarica_firmato("disinstalla.ps1")
         if not os.path.isfile(f) or open(f, "rb").read() != nuovo:
             os.makedirs(DIS_WIN, exist_ok=True)
             with open(f, "wb") as h:

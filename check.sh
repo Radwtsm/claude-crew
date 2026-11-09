@@ -21,6 +21,8 @@ if [ -n "$hits" ]; then
 fi
 # Formato comune di regole e skill (README → Formato): solo i problemi nuovi bloccano, quelli noti in
 # lint-regole-baseline.txt possono solo calare; in più i limiti in byte di limiti-contesto.txt (contesto snello)
+# A115: i PC si aggiornano solo con la firma della squadra; col pre-commit e la chiave rifirma da solo
+python3 tools/firma.py $( [ "$CREW_FIRMA" = 0 ] || echo --firma ) || exit 1
 python3 plugins/regole/scripts/lint_regole.py . || exit 1
 # Ogni Esito di crew.py ha il suo passo di onboarding in PASSI (obbligatorio/facoltativo, sistemi): `pleyades-cli passi`
 python3 tools/lint_passi.py || exit 1
