@@ -21,7 +21,7 @@ CREW = os.path.join(CASA, ".crew", "crew.py")
 INSTALLATI = os.path.join(CASA, ".claude", "plugins", "installed_plugins.json")
 SESSIONI = os.path.join(CASA, ".crew", "sessioni.json")  # i plugin con cui è partita ogni sessione aperta
 CONTESTO = os.path.join(CASA, ".crew", "contesto.json")  # l'ultima soglia di contesto già detta, per sessione
-SOGLIA, PASSO = 150_000, 100_000  # come MAX_MEDIO di crew.py; poi un avviso ogni 100k in più
+SOGLIA, PASSO = 80_000, 50_000  # come MAX_MEDIO di crew.py; poi un avviso ogni 50k in più
 
 
 def leggi(p, base):

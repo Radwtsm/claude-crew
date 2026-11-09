@@ -36,6 +36,8 @@ Sicurezza la possono solo stringere. Tono e formato sono personali. Se non dicon
 - Una sessione per argomento: se chiedo una cosa di un altro argomento, prima chiudi e salva il lavoro in corso,
   poi dimmi "fai /clear" con un prompt pronto da incollare per ripartire.
 - Nel contesto solo gli strumenti del task; proponi sempre regole o controlli che tolgono token o passaggi.
+- Usage: modello predefinito Sonnet (Opus con `/model opus` solo per lavori difficili); accesi solo i plugin
+  usati spesso; PDF letti come testo, non come immagini; /clear già a ~80k token di contesto.
 
 ## Insegnare (solo quando serve)
 - Spreco (prompt lunghi o con più temi, log interi, segreti, lavoro a mano ripetuto) o riga «💡» dell'hook:

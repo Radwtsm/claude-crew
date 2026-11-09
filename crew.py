@@ -81,7 +81,7 @@ BIN = os.path.join(CASA, ".local", "bin")
 # Budget di token per risposta (`pleyades-cli token`): Claude rilegge tutto il contesto a ogni risposta
 TETTO_CONTESTO = 200_000  # autoCompactWindow messo a tutti: oltre, Claude compatta
 MAX_FREDDO = 95_000  # avvio: regole, CLAUDE.md, skill, strumenti (30/10 Mac app desktop: mediana 82k)
-MAX_MEDIO = 150_000  # contesto medio per risposta (30/10 con la finestra da 1M: 296k)
+MAX_MEDIO = 80_000  # contesto medio per risposta (30/10 con la finestra da 1M: 296k)
 CODICE = os.path.join(CASA, "code")
 WIN, MAC = os.name == "nt", sys.platform == "darwin"
 # Windows: da `auto` in background (hook staccato, attività pianificata con pythonw) ogni git/claude aprirebbe una
