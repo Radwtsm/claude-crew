@@ -306,8 +306,8 @@ def main():
     err = []
     try:
         env = prepara(casa)
-        # 1. collega nuovo, computer suo, senza GitHub, senza studio: 1 = «Mio», 2 = «senza account», Invio = no studio
-        c, out, s1 = guida(env, "1\n2\n\n\n\n\n\n\n", "guida")
+        # 1. collega nuovo, computer suo, senza studio: 1 = «Mio», Invio = no studio (GitHub: solo con `completa`, A117)
+        c, out, s1 = guida(env, "1\n\n\n\n\n\n\n", "guida")
         open(os.path.join(casa, "guida-1.txt"), "w").write(out)
         err += forma(out, "guida")
         visti = {crew.passo_di(n)["id"] for n in esiti(out)}
@@ -342,7 +342,7 @@ def main():
         studio = tempfile.mkdtemp(prefix="guida-studio-")
         try:
             env5 = prepara(studio)
-            c5, out5, _ = guida(env5, "1\n2\n1\n\n\n\n", "guida", f"--studio={indirizzo}")
+            c5, out5, _ = guida(env5, "1\n1\n\n\n\n", "guida", f"--studio={indirizzo}")
             err += forma(out5, "guida (studio)")
             if not os.path.isfile(os.path.join(studio, ".crew", "studio", "progetto-prova", "LEGGIMI.md")):
                 err.append("guida (studio): il progetto condiviso non è stato copiato in ~/.crew/studio/")
@@ -365,7 +365,7 @@ def main():
                     os.makedirs(casa7)
                     env7 = {**prepara(casa7), "INVITO": INVITO_PROVA.lower().replace("-", " - ")}  # come incollato male
                     accessi = Studio.accessi
-                    c7, out7, _ = guida(env7, "1\n2\n\n\n\n\n", "guida", f"--studio={indirizzo}")
+                    c7, out7, _ = guida(env7, "1\n\n\n\n\n", "guida", f"--studio={indirizzo}")
                     err += forma(out7, f"guida (invito {giro})")
                     if INVITO_PROVA in out7.upper().replace(" ", ""):
                         err.append(f"guida (invito {giro}): il codice d'invito compare a schermo")

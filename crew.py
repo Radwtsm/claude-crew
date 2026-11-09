@@ -2,10 +2,12 @@
 """pleyades-cli (Pleyades tools): la guida unica per entrare nei progetti, anche per chi non programma.
 
     pleyades-cli (o pley)           la prima volta la guida; poi un menu
-    pleyades-cli guida [OWNER/REPO …] [--studio=INDIRIZZO]   dall'inizio a tutto pronto: Claude Code, GitHub (con o senza
-                            account), plugin, progetti, Nextcloud e la stanza Talk; si può rilanciare: salta il fatto.
+    pleyades-cli guida [OWNER/REPO …] [--studio=INDIRIZZO]   solo l'indispensabile: Claude Code, regole, comando,
+                            aggiornamento automatico, app, progetti; si può rilanciare: salta il fatto.
                             Con --studio: accesso allo studio Nextcloud dal browser («Concedi accesso», la password
                             per app si salva da sola) e i progetti condivisi lì, anche senza GitHub
+    pleyades-cli completa [OWNER/REPO …]   la guida con anche le cose su richiesta: GitHub, skill del ruolo,
+                            stanza Talk, cartelle e app Nextcloud, app Talk, Calendario
     pleyades-cli entra OWNER/REPO   entra in un progetto (clone, plugin, stanza, cartelle)
     pleyades-cli controlla [--talk] solo i controlli, senza installare niente (--talk: riassunto e versioni in ogni stanza)
     pleyades-cli squadra [PROGETTO] chi del progetto è allineato: l'ultimo `controlla --talk` di ognuno nella stanza
@@ -68,6 +70,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 CREW = "Radwtsm/claude-crew"
 ALIAS = "pley"  # il nome corto dello stesso comando
+COMPLETO = False  # `pleyades-cli completa`: anche i passi su richiesta (A117: la guida fa solo il minimo)
 NOME_CLI = "pleyades-cli"  # il nome che si vede (owner 28/10: tutto Pleyades tools, niente «crew»)
 CREW_PY = "https://raw.githubusercontent.com/Radwtsm/claude-crew/main/crew.py"
 GH_RELEASE = "cli/cli"
@@ -148,11 +151,14 @@ PASSI = [
     {"id": "progetti", "nome": "Progetti (repo, plugin, passi, hook)", "livello": "obbligatorio",
      "sistemi": "mac windows linux", "fa": "cli",
      "esiti": ["progetti", "{}", "repo in {}", "{}: plugin", "plugin del progetto ({})", "passi del progetto",
-               "progetto", "progetto: dietro", "controlli prima del commit (hook git)"]},
-    {"id": "studio", "nome": "Studio Nextcloud e cartelle", "livello": "obbligatorio", "sistemi": "mac windows linux",
-     "fa": "cli", "esiti": ["invito per lo studio", "accesso allo studio", "progetti dello studio", "copia di «{}»", "copia di «{}» in {}",
-                             "cartelle condivise del progetto", "app Nextcloud", "app Nextcloud sul computer"]},
-    {"id": "talk", "nome": "Stanza Talk", "livello": "obbligatorio", "sistemi": "mac windows linux", "fa": "cli",
+               "progetto", "progetto: dietro"]},
+    {"id": "studio", "nome": "Studio Nextcloud", "livello": "obbligatorio", "sistemi": "mac windows linux",
+     "fa": "cli", "esiti": ["invito per lo studio", "accesso allo studio", "progetti dello studio", "copia di «{}»",
+                             "copia di «{}» in {}"]},
+    {"id": "nextcloud", "nome": "Cartelle condivise e app Nextcloud", "livello": "facoltativo",
+     "sistemi": "mac windows linux", "fa": "cli",
+     "esiti": ["cartelle condivise del progetto", "app Nextcloud", "app Nextcloud sul computer"]},
+    {"id": "talk", "nome": "Stanza Talk", "livello": "facoltativo", "sistemi": "mac windows linux", "fa": "cli",
      "esiti": ["stanza Talk", "{}: stanza Talk", "stanza Talk «{}»"]},
     {"id": "ruolo", "nome": "Skill del ruolo", "livello": "facoltativo", "sistemi": "mac windows linux", "fa": "cli",
      "esiti": ["skill del tuo ruolo ({})", "{}: skill del ruolo"]},
@@ -167,7 +173,7 @@ PASSI = [
     {"id": "aspetto", "nome": "Aspetto (terminale, Claude, Windows, icona)", "livello": "facoltativo",
      "sistemi": "mac windows linux", "fa": "cli",
      "esiti": ["look Pleyades (terminale + Claude)", "look Pleyades (Claude)", "aspetto messo ovunque",
-               "colori di Windows", "icona «Pleyades tools» sul desktop"]},
+               "colori di Windows"]},
     {"id": "app", "nome": "App del progetto (Pleiadi)", "livello": "obbligatorio", "sistemi": "mac windows",
      "fa": "cli", "esiti": ["app {}", "accesso per l'app Pleiadi"]},
     {"id": "token", "nome": "Consumo di token (budget per risposta)", "livello": "facoltativo",
@@ -1703,6 +1709,8 @@ def plugin_del_ruolo(d, c):
 
 def mio_kit(ui):
     ui.intestazione("il mio kit")
+    for x in (REGOLE_USO + "\n" + SPIEGA_APP_E_CLI).split("\n"):  # dalla guida al kit (A117: la guida finisce in una riga)
+        ui.info(x.strip())
     for etichetta, d in cartelle_progetti():
         codice, out = kit_ruolo(d, config_progetto(d))
         if codice == 0 and out:
@@ -2572,7 +2580,7 @@ def passo_progetto(ui, repo, cred=None):
         if acc == "rete":
             ui.esito(Esito(repo, False, "GitHub non risponde: controlla internet e rilancia `pleyades-cli`"))
         elif not gh_collegato():
-            ui.esito(Esito(repo, False, "è privato: serve un account GitHub. Rilancia `pleyades-cli guida`, scegli «Sì», poi "
+            ui.esito(Esito(repo, False, "è privato: serve un account GitHub. Lancia `pleyades-cli completa`, scegli «Sì», poi "
                            "manda il tuo nome GitHub a chi ti ha invitato"))
         else:
             ui.esito(Esito(repo, False, f"non hai accesso: manda il tuo nome GitHub «{gh_utente()}» a chi ti ha "
@@ -2597,13 +2605,15 @@ def prepara(ui, d, c, etichetta, cred=None, studio=False):
         ui.esito(Esito(f"plugin del progetto ({len(c['plugin'])})", not manca,
                        "in Claude Code: /plugin install " + " ".join(manca)))
     ruolo = plugin_del_ruolo(d, c)
-    if ruolo:
+    if ruolo and not COMPLETO:  # proposte, non installate (A108): si accendono quando un lavoro le chiede
+        ui.info(ui.c("2", f"skill del tuo ruolo, da prendere se servono: {', '.join(x.split('@')[0] for x in ruolo)} "
+                          f"(`{NOME_CLI} completa`)"))
+    elif ruolo:
         with ui.attesa("installo le skill del tuo ruolo") as a:
             manca, _ = assicura_plugin({"claude-crew": CREW}, ruolo)
         ui.esito(Esito(f"skill del tuo ruolo ({len(ruolo)})", not manca, "pleyades-cli aggiorna",
                        nota=", ".join(x.split("@")[0] for x in ruolo)))
-    if hook_git(d):
-        ui.esito(Esito("controlli prima del commit (hook git)", True))
+    hook_git(d)  # automatici (A117): niente riga, ci sono e basta
     moduli_del_progetto(c)
     t = modulo_talk(d, c)
     conf = None
@@ -2612,39 +2622,46 @@ def prepara(ui, d, c, etichetta, cred=None, studio=False):
             salva_credenziali(t, cred)
         conf = stanza_collegata(t, c.get("stanza"))
         nome = c.get("stanza") or t.STANZA
-        if not conf:
-            if not t.credenziali():
-                cred = cred or credenziali_note() or accedi_studio(ui, t.SERVER)
-                if cred:
-                    salva_credenziali(t, cred)
-            if t.credenziali():
-                collega_stanza(d, c)  # le credenziali ci sono: non chiede niente
-            else:
-                ui.fai(SPIEGA_APP.format(s=t.SERVER) + "\nNon hai ancora un utente Nextcloud? Chiedilo a chi ti ha "
-                       "invitato e rilancia `pleyades-cli` quando ce l'hai.")
-                if ui.conferma("Ti colleghi a mano?", "Sì, collegami", "Salta per ora"):
-                    collega_stanza(d, c)
+        if not COMPLETO:  # su richiesta (A117): si collega da sola solo con un accesso già salvato, senza domande
+            if not conf and (cred or t.credenziali()):
+                collega_stanza(d, c)
+                conf = stanza_collegata(t, c.get("stanza"))
+            if conf:
+                ui.esito(Esito(f"stanza Talk «{nome}»", True))
+        else:
+            if not conf:
+                if not t.credenziali():
+                    cred = cred or credenziali_note() or accedi_studio(ui, t.SERVER)
+                    if cred:
+                        salva_credenziali(t, cred)
+                if t.credenziali():
+                    collega_stanza(d, c)  # le credenziali ci sono: non chiede niente
+                else:
+                    ui.fai(SPIEGA_APP.format(s=t.SERVER) + "\nNon hai ancora un utente Nextcloud? Chiedilo a chi ti ha "
+                           "invitato e rilancia `pleyades-cli` quando ce l'hai.")
+                    if ui.conferma("Ti colleghi a mano?", "Sì, collegami", "Salta per ora"):
+                        collega_stanza(d, c)
+                conf = stanza_collegata(t, c.get("stanza"))
+            ui.esito(Esito(f"stanza Talk «{nome}»", bool(conf), "ti richiede utente e password per app",
+                           riprova=lambda: collega_stanza(d, c) or stanza_collegata(t, c.get("stanza"))))
             conf = stanza_collegata(t, c.get("stanza"))
-        ui.esito(Esito(f"stanza Talk «{nome}»", bool(conf), "ti richiede utente e password per app",
-                       riprova=lambda: collega_stanza(d, c) or stanza_collegata(t, c.get("stanza"))))
-        conf = stanza_collegata(t, c.get("stanza"))
-        if conf and c.get("cartelle"):
-            manca = cartelle_mancanti(t, conf, c["cartelle"])
-            if manca is not None:
-                ui.esito(Esito("cartelle condivise del progetto", not manca,
-                               f"non vedi {', '.join(manca)}: chiedi a chi ti ha invitato di condividerle col tuo utente"))
-            spunta = ", ".join(f"«{x}»" for x in c["cartelle"])
-            cosa = f"apri Nextcloud, accedi con il tuo utente ({t.SERVER.split('//')[-1]}), poi spunta {spunta}"
-            if not app_nextcloud() and ui.conferma("Installo l'app Nextcloud (sincronizza le cartelle del progetto)?",
-                                                   "Sì, installala", "Dopo"):
-                with ui.attesa("scarico l'app Nextcloud ufficiale (circa 150 MB)"):
-                    ok, perche = installa_nextcloud()
-                if ok and MAC:
-                    ui.fai("Si è aperto l'installer di Apple: premi «Continua» e «Installa» (chiede la password del Mac)")
-                cosa = perche or cosa
-            ui.esito(Esito("app Nextcloud sul computer", app_nextcloud(), cosa, riprova=app_nextcloud))
-        if conf:
-            app_native(ui, t, conf)
+            if conf and c.get("cartelle"):
+                manca = cartelle_mancanti(t, conf, c["cartelle"])
+                if manca is not None:
+                    ui.esito(Esito("cartelle condivise del progetto", not manca,
+                                   f"non vedi {', '.join(manca)}: chiedi a chi ti ha invitato di condividerle col tuo utente"))
+                spunta = ", ".join(f"«{x}»" for x in c["cartelle"])
+                cosa = f"apri Nextcloud, accedi con il tuo utente ({t.SERVER.split('//')[-1]}), poi spunta {spunta}"
+                if not app_nextcloud() and ui.conferma("Installo l'app Nextcloud (sincronizza le cartelle del progetto)?",
+                                                       "Sì, installala", "Dopo"):
+                    with ui.attesa("scarico l'app Nextcloud ufficiale (circa 150 MB)"):
+                        ok, perche = installa_nextcloud()
+                    if ok and MAC:
+                        ui.fai("Si è aperto l'installer di Apple: premi «Continua» e «Installa» (chiede la password del Mac)")
+                    cosa = perche or cosa
+                ui.esito(Esito("app Nextcloud sul computer", app_nextcloud(), cosa, riprova=app_nextcloud))
+            if conf:
+                app_native(ui, t, conf)
     if studio and c.get("proposte"):
         ui.fai(f"Questa è una copia di sola lettura: le tue proposte (skill, processi, modifiche) vanno nella cartella "
                f"«{c['proposte']}» dello studio; Claude le porta con la skill porta-proposte.")
@@ -2673,6 +2690,8 @@ def guida(ui, richiesti, solo_progetti=False):
                  ("Claude Code", "il programma di Claude nel terminale", passo_claude),
                  ("GitHub", "dove stanno i progetti: con o senza account", passo_github),
                  ("Pleyades tools", "le regole comuni e il comando `pleyades-cli`", passo_crew)]
+        if not COMPLETO:  # su richiesta (A117): `pleyades-cli completa`; un repo privato lo chiede lui
+            passi = [x for x in passi if x[2] is not passo_github]
         for n, (t, spiega, f) in enumerate(passi, 1):
             ui.passo(n, len(passi) + 1, t, spiega)
             if not f(ui) and f in (passo_profilo, passo_sistema, passo_claude):
@@ -2701,29 +2720,14 @@ def guida(ui, richiesti, solo_progetti=False):
         nuova = interfaccia()
         if isinstance(nuova, Marchio):  # stesso schermo, stessi esiti: cambia solo l'aspetto
             ui.__class__, ui.m, ui.nome = Marchio, nuova.m, nuova.nome
-    if pronti and file_marchio():
-        m = getattr(ui, "m", None)
-        f = icona_desktop(file_marchio()[1], m.png_sfondo(512, 512) if m and hasattr(m, "png_sfondo") else None)
-        ui.esito(Esito("icona «Pleyades tools» sul desktop", bool(f), "", saltato=f is None and not WIN,
-                       nota="doppio clic per aprire la guida" if f else "niente cartella Scrivania"))
     for _, r in pronti:
-        mostra_link(ui, *r)
         for x in r[1].get("dopo", []):
             ui.fai(x)
     if not lavoro():  # da subito si allinea da solo, senza aspettare il primo avvio di Claude
         ok, cosa = pianifica()
         ui.esito(Esito("aggiornamento automatico pianificato", ok, f"{cosa} → `{NOME_CLI} pianifica`", nota=cosa))
-        if not stato().get("tema_proposto") and sys.stdin.isatty():
-            salva_stato(tema_proposto=True)
-            if ui.conferma("Metto il look Pleyades a Claude? I colori dello studio e le parole della rotella "
-                           f"(il terminale resta com'è: `{NOME_CLI} tema` per quello nero con l'intro)",
-                           "Sì, mettilo", "No, grazie"):
-                voce_tema(ui, terminale=False)
     minuti = round((time.time() - inizio) / 60, 1)
     ui.riepilogo(minuti)
-    ui.titolo("Regole d'uso")
-    for r in REGOLE_USO.split("\n")[1:]:
-        ui.info(r.strip())
     verdi, tot, manca, _ = conta_esiti(ui.esiti)  # chi aiuta vede subito cosa manca, senza chiederlo
     for etichetta, (d, c, t, conf) in pronti:
         if t and stanza_collegata(t, c.get("stanza")):
@@ -2735,18 +2739,9 @@ def guida(ui, richiesti, solo_progetti=False):
                          stdin=subprocess.DEVNULL, stdout=open(LOG_AUTO, "w", encoding="utf-8"), stderr=subprocess.STDOUT,
                          env={**os.environ, "NO_COLOR": "1"}, **({"creationflags": 0x08000000 | 0x00000200} if WIN
                                                               else {"start_new_session": True}))
-    primo = pronti[0][1][0] if pronti else CASA
-    for _, (d, c, t, conf) in pronti:  # il kit del ruolo a portata di mano, prima di cominciare
-        codice, out = kit_ruolo(d, c)
-        if codice == 0 and out:
-            ui.titolo("Il tuo kit")
-            for r in out.splitlines()[1:]:
-                ui.info(r.strip())
-    ui.titolo("E adesso")
-    ui.info(f"Nel terminale, nella cartella {primo.replace(CASA, '~')}: scrivi {ui.c('1', 'claude')} e premi Invio.")
-    ui.info(f"Per rivedere tutto: {ui.c('1', file_marchio()[1] if pronti and file_marchio() else ui.nome)}")
-    for r in SPIEGA_APP_E_CLI.split("\n"):
-        ui.info(r.strip())
+    primo = pronti[0][1][0] if pronti else CASA  # fine = una riga (A117); kit, link e il resto: dal menu
+    ui.info(f"Adesso: {ui.c('1', 'claude')} nella cartella {primo.replace(CASA, '~')}. Su richiesta (GitHub, Talk, "
+            f"Nextcloud, skill del ruolo): `{NOME_CLI} completa`; tutto il resto: `{NOME_CLI}`.")
     prima = not stato().get("guida_fatta")
     salva_stato(guida_fatta=True)
     primo_prompt = pronti[0][1][1].get("primo_prompt") if pronti else None
@@ -2754,6 +2749,14 @@ def guida(ui, richiesti, solo_progetti=False):
             "Apro Claude qui? Finisce lui: le tue regole, il CLAUDE.md, la tua scheda", "Sì, apri Claude", "Dopo"):
         run("claude", primo_prompt, cwd=primo, vivo=True)  # la prima conversazione, già nella cartella giusta
     return 0 if verdi == len(ui.esiti) else 1
+
+
+def completa(ui, richiesti):
+    """La guida con anche i passi su richiesta (A117): GitHub, skill del ruolo, stanza Talk, cartelle e app Nextcloud,
+    app Talk, Calendario."""
+    global COMPLETO
+    COMPLETO = True
+    return guida(ui, richiesti)
 
 
 def mostra_link(ui, d, c, t, conf):
@@ -3261,6 +3264,7 @@ def menu(ui):
             ("I miei progetti", progetti), ("Entra in un nuovo progetto", None), ("I link", link),
             ("Look Pleyades: terminale nero con l'intro, Claude dello stesso colore", voce_tema),
             ("Il tuo aspetto: nome, titolo, frase, colori e forme 3D", voce_aspetto),
+            ("Aggiungi le cose su richiesta: GitHub, Talk, Nextcloud, skill del ruolo", lambda u: completa(u, [])),
             ("Rifai la guida da capo", lambda u: guida(u, []))]
     ui.intestazione("cosa c'è e cosa manca")
     if not lavoro():
@@ -4644,6 +4648,8 @@ def main():
             return guida(ui, a)
         if cmd == "guida":
             return guida(ui, resto)
+        if cmd == "completa":
+            return completa(ui, resto)
         if cmd == "entra" and resto:
             return guida(ui, resto, solo_progetti=True)
         if cmd == "profilo" and a[1:2] in (["casa"], ["lavoro"]):
