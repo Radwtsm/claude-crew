@@ -46,4 +46,10 @@ if [ -n "$senza" ]; then
   echo "check.sh: plugin senza keywords in .claude-plugin/marketplace.json: $senza (le parole e i programmi del mestiere)" >&2
   exit 1
 fi
+# Ogni plugin del catalogo (tranne regole) ha la sua riga nell'indice plugin-spenti
+fuori=$(python3 -c "import json;t=open('plugins/regole/skills/plugin-spenti/SKILL.md').read();print(' '.join(p['name'] for p in json.load(open('.claude-plugin/marketplace.json'))['plugins'] if p['name']!='regole' and '\`'+p['name']+'\`' not in t))")
+if [ -n "$fuori" ]; then
+  echo "check.sh: plugin senza riga in plugins/regole/skills/plugin-spenti/SKILL.md: $fuori" >&2
+  exit 1
+fi
 exit 0

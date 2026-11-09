@@ -31,13 +31,12 @@ Sicurezza la possono solo stringere. Tono e formato sono personali. Se non dicon
 - **Riuso**: soluzione solo per sé che servirebbe al team → avvisa, proponi quella comune (`riuso.md`).
 
 ## Contesto snello
-- Ciò che Claude legge a ogni turno costa a ogni risposta: resta un indice corto; i dettagli in file per tema letti
-  quando servono, e solo la parte che serve (skill `organizza-claude`).
-- Una sessione per argomento: se chiedo una cosa di un altro argomento, prima chiudi e salva il lavoro in corso,
-  poi dimmi "fai /clear" con un prompt pronto da incollare per ripartire.
-- Nel contesto solo gli strumenti del task; proponi sempre regole o controlli che tolgono token o passaggi.
-- Usage: modello predefinito Sonnet (Opus con `/model opus` solo per lavori difficili); accesi solo i plugin
-  usati spesso; PDF letti come testo, non come immagini; /clear già a ~80k token di contesto.
+- Ciò che si legge a ogni turno costa a ogni risposta: indice corto, dettagli in file per tema letti solo nella
+  parte utile (`organizza-claude`).
+- Una sessione per argomento: argomento nuovo → chiudi e salva, poi "fai /clear" col prompt per ripartire.
+- Nel contesto solo gli strumenti del task: accesi i plugin usati spesso, gli altri in `plugin-spenti`; proponi
+  regole o controlli che tolgono token.
+- Usage: Sonnet di default (Opus per lavori difficili); PDF come testo; /clear già a ~80k token.
 
 ## Insegnare (solo quando serve)
 - Spreco (prompt lunghi o con più temi, log interi, segreti, lavoro a mano ripetuto) o riga «💡» dell'hook:
