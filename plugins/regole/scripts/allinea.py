@@ -4,7 +4,7 @@
   allinea.py          lancia `pleyades-cli auto` staccato (aggiorna comando, marketplace e plugin, poi `controlla --talk`
                       se il riassunto è cambiato: `pleyades-cli squadra` vede tutti allineati senza chiederlo); una CLI
                       troppo vecchia per `auto` prima si aggiorna da sola; dice a Claude in una riga se l'ultimo
-                      allineamento ha trovato qualcosa da sistemare o se qualcuno della squadra è indietro
+                      allineamento ha trovato qualcosa da sistemare o, solo quando la lista cambia, chi è indietro
   allinea.py --turno  (UserPromptSubmit) a sessione aperta: se intanto `auto` (anche dall'attività pianificata) ha
                       installato plugin nuovi, lo dice a Claude una volta: questa sessione usa ancora i vecchi;
                       e quando il contesto della sessione passa i 150k token (poi ogni 100k in più), perché Claude lo
@@ -20,6 +20,7 @@ LOG = os.path.join(CASA, ".crew", "auto.log")
 CREW = os.path.join(CASA, ".crew", "crew.py")
 INSTALLATI = os.path.join(CASA, ".claude", "plugins", "installed_plugins.json")
 SESSIONI = os.path.join(CASA, ".crew", "sessioni.json")  # i plugin con cui è partita ogni sessione aperta
+SQUADRA_DETTA = os.path.join(CASA, ".crew", "squadra-detta.json")  # l'ultima lista "non allineati" già detta
 CONTESTO = os.path.join(CASA, ".crew", "contesto.json")  # l'ultima soglia di contesto già detta, per sessione
 SOGLIA, PASSO = 80_000, 50_000  # come MAX_MEDIO di crew.py; poi un avviso ogni 50k in più
 
@@ -142,10 +143,13 @@ def main():
         print(f"pleyades-cli: l'ultimo allineamento automatico ha {esito}: dillo all'utente in una riga e "
               "sistemalo con la skill `ripara-allineamento` (parte da `pleyades-cli diagnosi`).")
     fuori = sq.get("indietro", []) + [f"mai controllato: {n}" for n in sq.get("senza", [])]
-    if fuori:  # allineamento costante del team = priorità assoluta (owner 2026-10-28)
-        print(f"Squadra non allineata: {', '.join(fuori)}. Priorità assoluta: dillo all'utente prima del resto. "
-              "Ogni computer acceso si allinea da solo entro ~5 minuti da un push; se resta "
-              "indietro, skill `ripara-allineamento`.")
+    detta = leggi(SQUADRA_DETTA, {}).get("fuori")
+    if fuori and sorted(fuori) != detta:  # solo quando la lista cambia: ripetuto a ogni avvio dava fastidio (owner 09/11)
+        print(f"Squadra non allineata: {', '.join(fuori)}. Dillo all'utente in una riga (una volta: non torna "
+              "finché la lista non cambia). Ogni computer acceso si allinea da solo entro ~5 minuti da un push; "
+              "se resta indietro, skill `ripara-allineamento`.")
+    if sorted(fuori) != detta:
+        scrivi(SQUADRA_DETTA, {"fuori": sorted(fuori)})
     sid = sessione()
     if sid:
         sess = {k: v for k, v in leggi(SESSIONI, {}).items() if k != sid}
