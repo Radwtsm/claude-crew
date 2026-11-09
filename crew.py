@@ -87,6 +87,25 @@ WIN, MAC = os.name == "nt", sys.platform == "darwin"
 # Windows: da `auto` in background (hook staccato, attività pianificata con pythonw) ogni git/claude aprirebbe una
 # finestra nera per un attimo
 SENZA_FINESTRA: dict = {"creationflags": 0x08000000} if WIN else {}
+
+
+def figli_senza_finestra():
+    """Windows senza console (pythonw dell'attività pianificata): ogni programma a console lanciato senza
+    CREATE_NO_WINDOW ne aprirebbe una visibile (git, claude, .cmd). Qui lo aggiunge a ogni figlio, anche a quelli
+    lanciati senza SENZA_FINESTRA (owner 09/11: «cmd che si aprono»). Con una console vera non cambia niente."""
+    if not WIN:
+        return
+    import ctypes
+    if ctypes.windll.kernel32.GetConsoleWindow():
+        return
+    prima = subprocess.Popen.__init__
+
+    def init(self, *a, **k):
+        f = k.get("creationflags", 0)
+        if not f & (0x08000000 | 0x00000008 | 0x00000010):  # già senza finestra, staccato o con console nuova
+            k["creationflags"] = f | 0x08000000
+        prima(self, *a, **k)
+    subprocess.Popen.__init__ = init
 # senza schermo: collegati via ssh, o Linux senza grafica (es. un server): niente browser da aprire qui
 SENZA_SCHERMO = bool(os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY")) or \
     (not WIN and not MAC and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")))
@@ -4305,7 +4324,7 @@ def cancella(percorsi):
             dopo.append(p)
     if dopo and WIN and not casa_di_prova():
         togli = " & ".join(f'rmdir /s /q "{p}"' if os.path.isdir(p) else f'del /f /q "{p}"' for p in dopo)
-        subprocess.Popen(f"cmd /c ping -n 4 localhost >nul & {togli}", creationflags=0x08000008, close_fds=True)
+        subprocess.Popen(f"cmd /c ping -n 4 localhost >nul & {togli}", creationflags=0x08000000 | 0x00000200, close_fds=True)
         return []
     return dopo
 
@@ -4569,6 +4588,7 @@ def main():
     a = sys.argv[1:]
     if sys.stdout is None:  # pythonw (attività pianificata su Windows): l'output nel log
         sys.stdout = sys.stderr = log_pianificato()
+    figli_senza_finestra()
     if a[:1] == ["hook"]:
         try:
             return hook()

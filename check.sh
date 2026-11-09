@@ -36,6 +36,7 @@ python3 tools/test_setup_pc.py || exit 1
 # `disinstalla` rimette i file come prima del setup e lascia le cose della persona (casa finta)
 python3 tools/test_disinstalla.py || exit 1
 python3 tools/test_pianifica.py || exit 1
+python3 tools/test_finestre.py || exit 1  # niente cmd che lampeggiano su Windows (DETACHED_PROCESS vietato)
 # Chiede prima di installare (installa.ps1/.sh) e di cancellare la copia vecchia dell'app; `auto` non cancella
 python3 tools/test_chiedi_prima.py || exit 1
 # Con l'invito la riga installa solo l'app firmata dalla squadra, senza domande né altri programmi (A90)
