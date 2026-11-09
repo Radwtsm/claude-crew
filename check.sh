@@ -40,6 +40,8 @@ python3 tools/test_pianifica.py || exit 1
 python3 tools/test_chiedi_prima.py || exit 1
 # Con l'invito la riga installa solo l'app firmata dalla squadra, senza domande né altri programmi (A90)
 python3 tools/test_solo_app.py || exit 1
+# L'hook dei messaggi propone anche i plugin installati ma spenti (enable), mai quelli accesi
+python3 tools/test_suggerisci.py || exit 1
 # Ogni plugin ha le sue `keywords` nel catalogo: da lì l'hook dei messaggi suggerisce un plugin mancante (personale.py)
 senza=$(python3 -c "import json;print(' '.join(p['name'] for p in json.load(open('.claude-plugin/marketplace.json'))['plugins'] if not p.get('keywords')))")
 if [ -n "$senza" ]; then

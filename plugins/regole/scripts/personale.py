@@ -528,26 +528,28 @@ def statusline():
 
 
 def suggerisci(prompt):
-    """Plugin non installato che fa al caso della richiesta (parole `keywords` dei marketplace installati): una riga a
-    Claude, una volta a settimana per plugin. Niente output se non c'è (0 token)."""
+    """Plugin non installato o spento che fa al caso della richiesta (parole `keywords` dei marketplace installati):
+    una riga a Claude, una volta a settimana per plugin. Niente output se non c'è (0 token)."""
     testo = " " + re.sub(r"[^\w+-]+", " ", (prompt or "").lower()) + " "
     if len(testo) < 4:
         return
     inst = set((leggi_json(os.path.join(CONFIG, "plugins", "installed_plugins.json")) or {}).get("plugins", {}))
+    spenti = {k for k, v in leggi_json(os.path.join(CONFIG, "settings.json")).get("enabledPlugins", {}).items() if not v}
     stato, ora, righe = leggi_json(SUGGERITI) or {}, time.time(), []
     for mk in glob.glob(os.path.join(CONFIG, "plugins", "marketplaces", "*", ".claude-plugin", "marketplace.json")):
         nome_mk = os.path.basename(os.path.dirname(os.path.dirname(mk)))
         for p in (leggi_json(mk) or {}).get("plugins", []):
             pid = f"{p.get('name')}@{nome_mk}"
-            if pid in inst or ora - stato.get(pid, 0) < 7 * 86400:
+            if (pid in inst and pid not in spenti) or ora - stato.get(pid, 0) < 7 * 86400:
                 continue
             if any(f" {k.lower()} " in testo for k in p.get("keywords", [])):
-                righe.append(f"`{pid}` ({p.get('description', '')[:90]})")
+                cmd = "enable" if pid in inst else "install"
+                righe.append(f"`claude plugin {cmd} {pid}` ({p.get('description', '')[:90]})")
                 stato[pid] = ora
     if righe:
         scrivi_json(SUGGERITI, stato)
-        print("Per questa richiesta c'è un plugin non installato: " + "; ".join(righe[:2]) + ". Proponilo all'utente in "
-              "una riga (`claude plugin install <nome>`, vale dalla prossima sessione o con /reload-plugins); se non "
+        print("Per questa richiesta c'è un plugin spento o non installato: " + "; ".join(righe[:2]) + ". Proponilo "
+              "all'utente in una riga (vale dalla prossima sessione o con /reload-plugins); se non "
               "serve davvero al lavoro, non dirlo.")
 
 
