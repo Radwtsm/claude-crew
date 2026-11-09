@@ -38,6 +38,8 @@ python3 tools/test_setup_pc.py || exit 1
 # `disinstalla` rimette i file come prima del setup e lascia le cose della persona (casa finta)
 python3 tools/test_disinstalla.py || exit 1
 python3 tools/test_pianifica.py || exit 1
+# Gli interruttori dell'app (A119): scelte, dipendenze, allineato sugli accesi, spegni solo parti Pleyades
+python3 tools/test_interruttori.py || exit 1
 python3 tools/test_finestre.py || exit 1  # niente cmd che lampeggiano su Windows (DETACHED_PROCESS vietato)
 # Chiede prima di installare (installa.ps1/.sh) e di cancellare la copia vecchia dell'app; `auto` non cancella
 python3 tools/test_chiedi_prima.py || exit 1

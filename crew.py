@@ -22,6 +22,10 @@
     pleyades-cli app                l'app dei tuoi progetti (per ora Windows): la installa o la aggiorna dallo studio,
                                     solo se l'impronta corrisponde; `auto` la tiene aggiornata da sola
     pleyades-cli kit                il tuo kit in base al ruolo: skill, cosa leggere, a chi chiedere
+    pleyades-cli scelte [--json]    gli interruttori di questo computer (uno per passo e per progetto): spiegazione,
+                                    dipendenze, acceso e già presente; l'app Pleiadi li mostra in Tu → Questo computer
+    pleyades-cli accendi|spegni ID [--json]   accende o spegne un interruttore (ID da `scelte`, es. talk,
+                                    progetto:OWNER/REPO); spegni toglie solo le parti Pleyades; --json: righe per l'app
     pleyades-cli passi [--json]     i passi del setup: obbligatori (contano per «allineato»), facoltativi (proposti,
                                     mai rossi), sistemi e chi li fa; l'app e le skill leggono questo elenco
     pleyades-cli auto [--subito]    (hook d'avvio di regole e «📦 Push» nella stanza, in background) aggiorna tutto, poi
@@ -134,60 +138,85 @@ REGOLE_USO = """Regole d'uso (1 minuto):
 # passo non ha più Esiti: una funzione nuova arriva con il suo passo. App e skill lo leggono con `pleyades-cli passi --json`.
 PASSI = [
     {"id": "computer", "nome": "Questo computer (casa o lavoro)", "livello": "obbligatorio", "sistemi": "mac windows linux",
-     "fa": "cli", "esiti": ["profilo: casa", "profilo: lavoro", "profilo lavoro"]},
+     "fa": "cli", "esiti": ["profilo: casa", "profilo: lavoro", "profilo lavoro"],
+     "spiega": "Casa o lavoro: su un computer dell'azienda solo le regole comuni, niente progetti né studio.", "dipende": []},
     {"id": "sistema", "nome": "Python e git", "livello": "obbligatorio", "sistemi": "mac windows linux", "fa": "cli",
-     "esiti": ["git", "Python {} e git", "strumenti di Apple (git)", "GitHub raggiungibile"]},
+     "esiti": ["git", "Python {} e git", "strumenti di Apple (git)", "GitHub raggiungibile"],
+     "spiega": "Python e git: servono a pleyades-cli e ai progetti; li mette l'app la prima volta.", "dipende": []},
     {"id": "claude", "nome": "Claude Code e accesso", "livello": "obbligatorio", "sistemi": "mac windows linux",
-     "fa": "cli", "esiti": ["Claude Code", "accesso a Claude"]},
+     "fa": "cli", "esiti": ["Claude Code", "accesso a Claude"],
+     "spiega": "Il programma di Claude nel terminale e il tuo accesso (abbonamento Pro o Max): senza, niente regole né skill.", "dipende": []},
     {"id": "github", "nome": "GitHub (solo chi scrive codice)", "livello": "facoltativo", "sistemi": "mac windows linux",
-     "fa": "cli", "esiti": ["GitHub", "GitHub come {}", "GitHub CLI"]},
-    {"id": "crew", "nome": "Pleyades tools: regole comuni, plugin, comando", "livello": "obbligatorio",
+     "fa": "cli", "esiti": ["GitHub", "GitHub come {}", "GitHub CLI"],
+     "spiega": "Solo per chi scrive codice: i progetti privati e mandare modifiche. Senza: solo le cose pubbliche.", "dipende": []},
+    {"id": "crew", "nome": "Regole e plugin Pleyades", "livello": "obbligatorio",
      "sistemi": "mac windows linux", "fa": "cli",
-     "esiti": ["regole comuni", "plugin (marketplace)", "plugin installati ({})", "plugin {}", "comando pleyades-cli",
-               "comando `pleyades-cli` (per la prossima volta)", "pleyades-cli", "pleyades-cli aggiornato",
-               "aggiornamento automatico delle regole comuni"]},
+     "esiti": ["regole comuni", "plugin (marketplace)", "plugin installati ({})", "plugin {}",
+               "aggiornamento automatico delle regole comuni"],
+     "spiega": "Le regole comuni di Pleyades e il catalogo dei plugin in Claude: tutti i Claude della squadra lavorano allo stesso modo.", "dipende": ["claude"]},
+    {"id": "comando", "nome": "Comando nel terminale (pleyades-cli)", "livello": "obbligatorio",
+     "sistemi": "mac windows linux", "fa": "cli",
+     "esiti": ["comando pleyades-cli", "comando `pleyades-cli` (per la prossima volta)", "pleyades-cli",
+               "pleyades-cli aggiornato"],
+     "spiega": "Il comando `pleyades-cli` (e `pley`) nel terminale e l'icona sul desktop, per chi preferisce il terminale.", "dipende": []},
     {"id": "auto", "nome": "Aggiornamento automatico", "livello": "obbligatorio", "sistemi": "mac windows linux",
-     "fa": "cli", "esiti": ["aggiornamento automatico pianificato", "aggiornamento automatico (auto)"]},
+     "fa": "cli", "esiti": ["aggiornamento automatico pianificato", "aggiornamento automatico (auto)"],
+     "spiega": "Ogni 5 minuti, anche a Claude chiuso, porta regole, plugin e progetti all'ultima versione: resti allineato senza pensarci.", "dipende": []},
     {"id": "progetti", "nome": "Progetti (repo, plugin, passi, hook)", "livello": "obbligatorio",
      "sistemi": "mac windows linux", "fa": "cli",
      "esiti": ["progetti", "{}", "repo in {}", "{}: plugin", "plugin del progetto ({})", "passi del progetto",
-               "progetto", "progetto: dietro"]},
+               "progetto", "progetto: dietro"],
+     "spiega": "Un interruttore per progetto: scarica il progetto con i suoi plugin e lo tiene aggiornato.", "dipende": ["claude"]},
     {"id": "studio", "nome": "Studio Nextcloud", "livello": "obbligatorio", "sistemi": "mac windows linux",
      "fa": "cli", "esiti": ["invito per lo studio", "accesso allo studio", "progetti dello studio", "copia di «{}»",
-                             "copia di «{}» in {}"]},
+                             "copia di «{}» in {}"],
+     "spiega": "L'accesso allo studio Nextcloud della squadra (dall'invito) e i progetti condivisi lì, anche senza GitHub.", "dipende": []},
     {"id": "nextcloud", "nome": "Cartelle condivise e app Nextcloud", "livello": "facoltativo",
      "sistemi": "mac windows linux", "fa": "cli",
-     "esiti": ["cartelle condivise del progetto", "app Nextcloud", "app Nextcloud sul computer"]},
+     "esiti": ["cartelle condivise del progetto", "app Nextcloud", "app Nextcloud sul computer"],
+     "spiega": "Le cartelle condivise del progetto sincronizzate sul computer, con l'app Nextcloud ufficiale.", "dipende": ["talk"]},
     {"id": "talk", "nome": "Stanza Talk", "livello": "facoltativo", "sistemi": "mac windows linux", "fa": "cli",
-     "esiti": ["stanza Talk", "{}: stanza Talk", "stanza Talk «{}»"]},
+     "esiti": ["stanza Talk", "{}: stanza Talk", "stanza Talk «{}»"],
+     "spiega": "La stanza Talk del progetto: il tuo Claude scrive cosa fa e legge cosa fanno gli altri.", "dipende": []},
     {"id": "ruolo", "nome": "Skill del ruolo", "livello": "facoltativo", "sistemi": "mac windows linux", "fa": "cli",
-     "esiti": ["skill del tuo ruolo ({})", "{}: skill del ruolo"]},
+     "esiti": ["skill del tuo ruolo ({})", "{}: skill del ruolo"],
+     "spiega": "Le skill del tuo ruolo (es. video, grafica): installate subito invece che proposte quando servono.", "dipende": ["crew"]},
     {"id": "scheda", "nome": "Scheda con gli Ambiti", "livello": "facoltativo", "sistemi": "mac windows linux",
-     "fa": "skill:compila-servizi", "esiti": ["{}: scheda con Ambiti"]},
+     "fa": "skill:compila-servizi", "esiti": ["{}: scheda con Ambiti"],
+     "spiega": "La tua scheda con gli Ambiti: la prepari parlando con Claude.", "dipende": ["claude"]},
     {"id": "regole-personali", "nome": "Regole personali", "livello": "facoltativo", "sistemi": "mac windows linux",
-     "fa": "skill:configura-claude", "esiti": ["regole personali (claude-personale)"]},
+     "fa": "skill:configura-claude", "esiti": ["regole personali (claude-personale)"],
+     "spiega": "Le tue regole personali per Claude, in un tuo repo privato: le prepari parlando con Claude.", "dipende": ["claude"]},
     {"id": "app-talk", "nome": "App Nextcloud Talk", "livello": "facoltativo", "sistemi": "mac windows",
-     "fa": "cli", "esiti": ["app Nextcloud Talk"]},
+     "fa": "cli", "esiti": ["app Nextcloud Talk"],
+     "spiega": "L'app Nextcloud Talk sul computer: chat e chiamate del team fuori dal browser.", "dipende": ["talk"]},
     {"id": "calendario", "nome": "Calendario e Contatti", "livello": "facoltativo", "sistemi": "mac",
-     "fa": "cli", "esiti": ["Calendario e Contatti del Mac"]},
-    {"id": "aspetto", "nome": "Aspetto (terminale, Claude, Windows, icona)", "livello": "facoltativo",
+     "fa": "cli", "esiti": ["Calendario e Contatti del Mac"],
+     "spiega": "Calendario e Contatti del Mac collegati allo studio.", "dipende": ["talk"]},
+    {"id": "aspetto", "nome": "Aspetto (terminale, Claude, Windows)", "livello": "facoltativo",
      "sistemi": "mac windows linux", "fa": "cli",
      "esiti": ["look Pleyades (terminale + Claude)", "look Pleyades (Claude)", "aspetto messo ovunque",
-               "colori di Windows"]},
+               "colori di Windows"],
+     "spiega": "I colori del tuo aspetto su terminale, Claude e (Windows) finestre.", "dipende": []},
     {"id": "app", "nome": "App del progetto (Pleiadi)", "livello": "obbligatorio", "sistemi": "mac windows",
-     "fa": "cli", "esiti": ["app {}", "accesso per l'app Pleiadi"]},
+     "fa": "cli", "esiti": ["app {}", "accesso per l'app Pleiadi"],
+     "spiega": "L'app Pleiadi: la installa la riga di installazione e si aggiorna da sola.", "dipende": []},
     {"id": "token", "nome": "Consumo di token (budget per risposta)", "livello": "facoltativo",
      "sistemi": "mac windows linux", "fa": "cli",
-     "esiti": ["compattazione a {}", "token all'avvio", "token per risposta"]},
+     "esiti": ["compattazione a {}", "token all'avvio", "token per risposta"],
+     "spiega": "Quanto costa ogni risposta di Claude: un controllo, non installa niente.", "dipende": []},
     {"id": "lavoro-in-corso", "nome": "Lavoro non ancora pubblicato", "livello": "stato",
-     "sistemi": "mac windows linux", "fa": "cli", "esiti": ["progetto: modifiche non pubblicate"]},
+     "sistemi": "mac windows linux", "fa": "cli", "esiti": ["progetto: modifiche non pubblicate"],
+     "spiega": "Modifiche ai progetti non ancora pubblicate.", "dipende": []},
     {"id": "disinstalla", "nome": "Disinstallazione (pleyades-cli disinstalla)", "livello": "azione",
      "sistemi": "mac windows linux", "fa": "cli",
      "esiti": ["disinstalla: attività pianificata", "disinstalla: colori di Windows", "disinstalla: terminale",
                "disinstalla: impostazioni di Claude", "disinstalla: comandi e PATH", "disinstalla: prompt e salvaschermo",
-               "disinstalla: icona sul desktop", "disinstalla: portachiavi", "disinstalla: cartelle di pleyades-cli"]},
+               "disinstalla: icona sul desktop", "disinstalla: portachiavi", "disinstalla: cartelle di pleyades-cli"],
+     "spiega": "Cosa ha tolto `pleyades-cli disinstalla`.", "dipende": []},
     {"id": "azioni", "nome": "Esiti di comandi chiesti (prendi, togli, squadra)", "livello": "azione",
-     "sistemi": "mac windows linux", "fa": "cli", "esiti": ["{}: {}", "preso: {}", "{} ({})"]},
+     "sistemi": "mac windows linux", "fa": "cli", "esiti": ["{}: {}", "preso: {}", "{} ({})"],
+     "spiega": "Esiti dei comandi chiesti a mano.", "dipende": []},
 ]
 
 
@@ -200,8 +229,33 @@ _PASSI_RE = sorted(((_passo_re(t), p) for p in PASSI for t in p["esiti"]),
                    key=lambda x: -len(x[0].pattern.replace(".+", "")))
 
 
+PASSI_ID = {p["id"]: p for p in PASSI}
+
+
 def passo_di(nome):
     return next((p for r, p in _PASSI_RE if r.match(nome)), {"id": "?", "livello": "obbligatorio"})
+
+
+def accesi():
+    """Gli interruttori accesi su questo computer (A119, dall'app o da `accendi`); None = mai scelto (guida di prima)."""
+    return stato().get("accesi")
+
+
+def spento(i):
+    """Spento da una scelta (A119): la guida e `auto` non lo rimettono. Mai scelto = come prima."""
+    a = accesi()
+    if a is None or i not in INTERRUTTORI:  # i passi fissi (profilo, sistema) non si spengono
+        return False
+    return i not in a
+
+
+def livello_di(p):
+    """Allineato = gli interruttori accesi (A119): acceso conta come obbligatorio, spento solo proposto."""
+    a = accesi()
+    if a is None or p["id"] not in INTERRUTTORI and p["id"] != "progetti":
+        return p["livello"]
+    su = any(x.startswith("progetto:") for x in a) if p["id"] == "progetti" else p["id"] in a
+    return "obbligatorio" if su else "facoltativo"
 
 
 class Esito:
@@ -210,7 +264,7 @@ class Esito:
         """riprova = funzione che rifà il passo e torna True se ora va: la guida la offre sul posto (owner 28/10:
         tutto in una volta, non rilanciare il comando)."""
         self.nome, self.ok, self.cosa, self.saltato, self.nota, self.riprova = nome, ok, cosa, saltato, nota, riprova
-        self.livello = passo_di(nome)["livello"]
+        self.livello = livello_di(passo_di(nome))
 
     @property
     def manca(self):
@@ -725,14 +779,18 @@ def apri_profilo_dav(server, utente):
 
 def app_native(ui, t, conf):
     """Talk, Calendario/Contatti e app del telefono: ognuno chiesto una volta, saltato se c'è già."""
-    if (MAC or WIN) and not app_talk() and ui.conferma("Installo l'app Nextcloud Talk (chat e chiamate del team)?",
+    if spento("app-talk"):
+        pass
+    elif (MAC or WIN) and not app_talk() and ui.conferma("Installo l'app Nextcloud Talk (chat e chiamate del team)?",
                                                          "Sì, installala", "Dopo"):
         with ui.attesa("scarico Nextcloud Talk ufficiale (circa 250 MB)"):
             ok, perche = installa_talk()
         ui.esito(Esito("app Nextcloud Talk", ok, perche, riprova=app_talk))
     elif MAC or WIN:
         ui.esito(Esito("app Nextcloud Talk", app_talk(), "pleyades-cli guida (la installa)"))
-    if MAC and not profilo_dav_installato() and ui.conferma(
+    if spento("calendario"):
+        pass
+    elif MAC and not profilo_dav_installato() and ui.conferma(
             "Collego Calendario e Contatti del Mac allo studio?", "Sì, collegali", "Dopo"):
         apri_profilo_dav(t.SERVER, conf["utente"])
         ui.fai("Impostazioni di Sistema → Generali → Gestione dispositivi → «Pleyades Studio: calendario e contatti» "
@@ -916,7 +974,7 @@ def scrivi_allineamento(d, c, esiti, v):
         return None
     dati = {"persona": conf["utente"], "sistema": platform.system(), "cli": v.get("cli", "?"),
             "versioni": {k: x.rstrip("*") for k, x in v.items() if k != "cli"},
-            "avanti": v.get("progetto", "").endswith("*"),
+            "avanti": v.get("progetto", "").endswith("*"), "accesi": accesi(),
             "esiti": [{"passo": passo_di(e.nome)["id"], "livello": e.livello, "nome": privato_via(e.nome),
                        "stato": "ok" if e.ok else "saltato" if e.saltato else "manca",
                        "azione": "" if e.ok or e.saltato else privato_via(e.cosa)[:200]} for e in esiti]}
@@ -2437,12 +2495,20 @@ def passo_github(ui):
 
 
 def passo_crew(ui):
+    regole_crew(ui)
+    return True if spento("comando") else passo_comando(ui)
+
+
+def regole_crew(ui):
     impostazioni_utente()
     with ui.attesa("aggiungo le regole comuni a Claude Code"):
         manca, auto = assicura_plugin({"claude-crew": CREW}, ["regole@claude-crew"])
     ui.esito(Esito("regole comuni", not manca, "in Claude Code: /plugin install regole@claude-crew"))
-    ui.esito(Esito("aggiornamento automatico delle regole comuni", auto,
-                   "in Claude Code: /plugin → «Marketplaces» → claude-crew → «Enable auto-update»"))
+    return ui.esito(Esito("aggiornamento automatico delle regole comuni", auto,
+                          "in Claude Code: /plugin → «Marketplaces» → claude-crew → «Enable auto-update»"))
+
+
+def passo_comando(ui):
     ok = installa_comando()
     return ui.esito(Esito("comando `pleyades-cli` (per la prossima volta)", ok,
                           "chiudi e riapri il terminale: poi `pleyades-cli` funziona da ogni cartella"))
@@ -2593,7 +2659,12 @@ def passo_progetto(ui, repo, cred=None):
     return prepara(ui, d, config_progetto(d), repo, cred)
 
 
-def prepara(ui, d, c, etichetta, cred=None, studio=False):
+def vuoi(i):
+    """Una parte su richiesta: con `completa` o col suo interruttore acceso (A119)."""
+    return COMPLETO or i in (accesi() or [])
+
+
+def prepara(ui, d, c, etichetta, cred=None, studio=False, passi=True):
     """Plugin, hook, Talk, cartelle e passi di un progetto già su questo computer (repo o copia dallo studio)."""
     mk = marketplace_del_progetto(c)
     locale = (leggi_json(os.path.join(d, ".claude-plugin", "marketplace.json"), {}) or {}).get("name")
@@ -2605,7 +2676,7 @@ def prepara(ui, d, c, etichetta, cred=None, studio=False):
         ui.esito(Esito(f"plugin del progetto ({len(c['plugin'])})", not manca,
                        "in Claude Code: /plugin install " + " ".join(manca)))
     ruolo = plugin_del_ruolo(d, c)
-    if ruolo and not COMPLETO:  # proposte, non installate (A108): si accendono quando un lavoro le chiede
+    if ruolo and not vuoi("ruolo"):  # proposte, non installate (A108): si accendono quando un lavoro le chiede
         ui.info(ui.c("2", f"skill del tuo ruolo, da prendere se servono: {', '.join(x.split('@')[0] for x in ruolo)} "
                           f"(`{NOME_CLI} completa`)"))
     elif ruolo:
@@ -2617,12 +2688,12 @@ def prepara(ui, d, c, etichetta, cred=None, studio=False):
     moduli_del_progetto(c)
     t = modulo_talk(d, c)
     conf = None
-    if t:
+    if t and not spento("talk"):
         if cred:  # dallo studio, appena controllate: sostituiscono una password per app scaduta (Talk 401)
             salva_credenziali(t, cred)
         conf = stanza_collegata(t, c.get("stanza"))
         nome = c.get("stanza") or t.STANZA
-        if not COMPLETO:  # su richiesta (A117): si collega da sola solo con un accesso già salvato, senza domande
+        if not vuoi("talk"):  # su richiesta (A117): si collega da sola solo con un accesso già salvato, senza domande
             if not conf and (cred or t.credenziali()):
                 collega_stanza(d, c)
                 conf = stanza_collegata(t, c.get("stanza"))
@@ -2652,20 +2723,21 @@ def prepara(ui, d, c, etichetta, cred=None, studio=False):
                                    f"non vedi {', '.join(manca)}: chiedi a chi ti ha invitato di condividerle col tuo utente"))
                 spunta = ", ".join(f"«{x}»" for x in c["cartelle"])
                 cosa = f"apri Nextcloud, accedi con il tuo utente ({t.SERVER.split('//')[-1]}), poi spunta {spunta}"
-                if not app_nextcloud() and ui.conferma("Installo l'app Nextcloud (sincronizza le cartelle del progetto)?",
+                if vuoi("nextcloud") and not app_nextcloud() and ui.conferma("Installo l'app Nextcloud (sincronizza le cartelle del progetto)?",
                                                        "Sì, installala", "Dopo"):
                     with ui.attesa("scarico l'app Nextcloud ufficiale (circa 150 MB)"):
                         ok, perche = installa_nextcloud()
                     if ok and MAC:
                         ui.fai("Si è aperto l'installer di Apple: premi «Continua» e «Installa» (chiede la password del Mac)")
                     cosa = perche or cosa
-                ui.esito(Esito("app Nextcloud sul computer", app_nextcloud(), cosa, riprova=app_nextcloud))
+                if vuoi("nextcloud"):
+                    ui.esito(Esito("app Nextcloud sul computer", app_nextcloud(), cosa, riprova=app_nextcloud))
             if conf:
                 app_native(ui, t, conf)
     if studio and c.get("proposte"):
         ui.fai(f"Questa è una copia di sola lettura: le tue proposte (skill, processi, modifiche) vanno nella cartella "
                f"«{c['proposte']}» dello studio; Claude le porta con la skill porta-proposte.")
-    if not studio and c.get("passi") and os.path.isfile(os.path.join(d, c["passi"])):
+    if passi and not studio and c.get("passi") and os.path.isfile(os.path.join(d, c["passi"])):
         ui.info(ui.c("2", f"passi propri del progetto ({c['passi']}):"))
         args = [sys.executable, os.path.join(d, c["passi"]), "--da-crew"]
         if conf:
@@ -2690,8 +2762,9 @@ def guida(ui, richiesti, solo_progetti=False):
                  ("Claude Code", "il programma di Claude nel terminale", passo_claude),
                  ("GitHub", "dove stanno i progetti: con o senza account", passo_github),
                  ("Pleyades tools", "le regole comuni e il comando `pleyades-cli`", passo_crew)]
-        if not COMPLETO:  # su richiesta (A117): `pleyades-cli completa`; un repo privato lo chiede lui
+        if not vuoi("github"):  # su richiesta (A117): `pleyades-cli completa`; un repo privato lo chiede lui
             passi = [x for x in passi if x[2] is not passo_github]
+        passi = [x for x in passi if not spento({passo_claude: "claude", passo_crew: "crew"}.get(x[2], ""))]  # A119
         for n, (t, spiega, f) in enumerate(passi, 1):
             ui.passo(n, len(passi) + 1, t, spiega)
             if not f(ui) and f in (passo_profilo, passo_sistema, passo_claude):
@@ -2723,7 +2796,7 @@ def guida(ui, richiesti, solo_progetti=False):
     for _, r in pronti:
         for x in r[1].get("dopo", []):
             ui.fai(x)
-    if not lavoro():  # da subito si allinea da solo, senza aspettare il primo avvio di Claude
+    if not lavoro() and not spento("auto"):  # da subito si allinea da solo, senza aspettare Claude
         ok, cosa = pianifica()
         ui.esito(Esito("aggiornamento automatico pianificato", ok, f"{cosa} → `{NOME_CLI} pianifica`", nota=cosa))
     minuti = round((time.time() - inizio) / 60, 1)
@@ -4586,6 +4659,228 @@ def disinstalla(ui, prova=False, si=False):
         ui.info(f"• {t}")
     return 0 if all(e.ok for e in voci) else 1
 
+# ───────────────────────────── interruttori (A119) ─────────────────────────────
+# L'app Pleiadi mostra un interruttore per passo (Tu → «Questo computer») e chiama `accendi|spegni ID --json`: qui la
+# sola implementazione. Accendere fa il passo; spegnere toglie solo le parti Pleyades (Claude Code, Python, git e le
+# app di terzi restano, e lo dice). Lo stato scelto è `accesi` in stato.json: conta per «allineato» (livello_di).
+
+class JsonUI:
+    """Ogni cosa che la guida mostrerebbe = una riga JSON su stdout, per l'avanzamento dal vivo nell'app. Le domande
+    hanno già la risposta: accendere è la scelta; un testo da scrivere resta vuoto."""
+    eof, pieno, colori, nome = False, False, False, NOME_CLI
+
+    def __init__(self):
+        self.esiti = []
+
+    def riga(self, tipo, **k):
+        print(json.dumps({"tipo": tipo, **k}, ensure_ascii=False), flush=True)
+
+    def esito(self, e):
+        self.esiti.append(e)
+        self.riga("esito", passo=passo_di(e.nome)["id"], nome=privato_via(e.nome), nota=privato_via(e.nota),
+                  stato="ok" if e.ok else "saltato" if e.saltato else "manca", cosa=privato_via(e.cosa))
+        return e.ok
+
+    def info(self, t): self.riga("info", testo=re.sub(r"\x1b\[[0-9;]*m", "", t))
+    def fai(self, t): self.riga("fai", testo=t)
+    def titolo(self, t): self.riga("titolo", testo=t)
+    def link(self, nome, url): self.riga("link", nome=nome, url=url)
+    def passo(self, n, tot, t, spiega=""): self.riga("titolo", testo=t)
+    def intestazione(self, t): pass
+    def pulisci(self): pass
+    def riepilogo(self, minuti): pass
+    def c(self, codice, t): return t
+    def scegli(self, domanda, opzioni): return 0
+    def conferma(self, domanda, si="Sì", no="No"): return True
+
+    def chiedi(self, domanda, base=""):
+        self.riga("domanda", testo=domanda, risposta=base)
+        return base
+
+    def attesa(self, testo):
+        ui = self
+
+        class A:
+            def __enter__(self):
+                LIVE.append(self)
+                ui.riga("attesa", testo=testo)
+                return self
+
+            def avanza(self, frazione=None, dettaglio=None):
+                ui.riga("avanza", frazione=frazione, dettaglio=privato_via(dettaglio or ""))
+
+            def __exit__(self, *a):
+                if self in LIVE:
+                    LIVE.remove(self)
+        return A()
+
+
+def plugin_presenti():
+    return leggi_json(os.path.join(CASA, ".claude", "plugins", "installed_plugins.json"), {}).get("plugins", {})
+
+
+def per_progetto(ui, i):
+    """talk, nextcloud, app-talk, calendario, ruolo: si accendono progetto per progetto (prepara, senza i suoi passi)."""
+    elenco = [(r, d) for r, d in cartelle_progetti()]
+    for r, d in elenco:
+        ui.titolo(f"Progetto {r}")
+        prepara(ui, d, config_progetto(d), r, passi=False)
+    if not elenco:
+        ui.esito(Esito("progetti", True, saltato=True, nota="nessun progetto qui: vale per quelli che accenderai"))
+    return True
+
+
+def stanze():
+    for _, d in cartelle_progetti():
+        c = config_progetto(d)
+        t = modulo_talk(d, c)
+        if t:
+            yield d, c, t
+
+
+def togli_stanze(prova=False):
+    """La stanza si scollega (il file della stanza di talk.py); l'accesso allo studio resta."""
+    fatto = []
+    for d, c, t in stanze():
+        f = getattr(t, "file_stanza", lambda n: "")(c.get("stanza") or t.STANZA)
+        if f and os.path.isfile(f):
+            fatto.append(c.get("stanza") or t.STANZA)
+            if not prova:
+                os.remove(f)
+    return fatto
+
+
+def togli_ruolo():
+    via = [p for _, d in cartelle_progetti() for p in plugin_del_ruolo(d, config_progetto(d)) if p in plugin_presenti()]
+    for p in via:
+        run("claude", "plugin", "uninstall", p)
+    return [p.split("@")[0] for p in via]
+
+
+def togli_studio():
+    e = dis_portachiavi(False)
+    cancella([dir_studio(x) for x in stato().get("studio_progetti", []) if os.path.isdir(dir_studio(x))])
+    salva_stato(studio_progetti=[])
+    return [e.nota] if e else []
+
+
+def togli_crew():
+    run("claude", "plugin", "uninstall", "regole@claude-crew")
+    return ["regole comuni tolte da Claude Code"] + note(dis_claude(False))
+
+
+def accendi_auto(ui):
+    """`auto` lancia ~/.crew/crew.py: la copia c'è anche senza il comando nel terminale."""
+    os.makedirs(CARTELLA, exist_ok=True)
+    if os.path.normcase(os.path.abspath(__file__)) != os.path.normcase(os.path.join(CARTELLA, "crew.py")):
+        shutil.copy(os.path.abspath(__file__), os.path.join(CARTELLA, "crew.py"))
+    ok, cosa = pianifica(rimetti=True)
+    return ui.esito(Esito("aggiornamento automatico pianificato", ok, cosa, nota=cosa))
+
+
+def ruolo_presente():
+    r = [p for _, d in cartelle_progetti() for p in plugin_del_ruolo(d, config_progetto(d))]
+    return bool(r) and all(p in plugin_presenti() for p in r)
+
+
+def note(*esiti):
+    return [e.nota for e in esiti if e]
+
+
+RESTA = "{} resta sul computer: si toglie come ogni programma"
+# id → (accendi(ui), spegni() → [cosa tolto], presente() → bool, consigliato)
+INTERRUTTORI = {
+    "claude": (passo_claude, lambda: [RESTA.format("Claude Code")], lambda: ha("claude"), True),
+    "crew": (regole_crew, togli_crew, lambda: "regole@claude-crew" in plugin_presenti(), True),
+    "comando": (passo_comando, lambda: note(dis_comandi(False), dis_icona(False)),
+                lambda: os.path.isfile(os.path.join(BIN, NOME_CLI + (".cmd" if WIN else ""))), False),
+    "auto": (accendi_auto, lambda: note(dis_pianifica(False)), lambda: dis_pianifica(True) is not None, True),
+    "github": (passo_github, lambda: salva_stato(github=False) or [RESTA.format("GitHub CLI (e l'accesso: `gh auth logout`)")],
+               lambda: bool(stato().get("github")), False),
+    "studio": (lambda ui: passo_studio(ui) is not None, togli_studio, lambda: bool(stato().get("studio_utente")), False),
+    "talk": (lambda ui: per_progetto(ui, "talk"), togli_stanze, lambda: any(stanza_collegata(t, c.get("stanza"))
+                                                                          for _, c, t in stanze()), False),
+    "nextcloud": (lambda ui: per_progetto(ui, "nextcloud"), lambda: [RESTA.format("L'app Nextcloud")],
+                  lambda: app_nextcloud(), False),
+    "app-talk": (lambda ui: per_progetto(ui, "app-talk"), lambda: [RESTA.format("L'app Talk")], lambda: app_talk(), False),
+    "calendario": (lambda ui: per_progetto(ui, "calendario"), lambda: [
+        "il profilo resta: Impostazioni di Sistema → Generali → Gestione dispositivi → «Rimuovi»"],
+        lambda: MAC and profilo_dav_installato(), False),
+    "ruolo": (lambda ui: per_progetto(ui, "ruolo"), togli_ruolo, ruolo_presente, False),
+    "aspetto": (voce_tema, lambda: note(dis_terminale(False), dis_prompt(False), dis_finestre(False)), lambda: terminale_messo(),
+                False),
+}
+
+
+def sistema_qui():
+    return "windows" if WIN else "mac" if MAC else "linux"
+
+
+def scelte():
+    """Gli interruttori di questo computer per l'app: uno per passo (più uno per progetto), con spiegazione,
+    dipendenze, se è acceso (scelto) e se c'è già (trovato). I passi fatti con Claude: `fa` = skill:<nome>."""
+    a, out = accesi(), []
+    for p in PASSI:
+        if sistema_qui() not in p["sistemi"].split() or not (p["id"] in INTERRUTTORI or p["fa"].startswith("skill:")):
+            continue
+        x = {k: p[k] for k in ("id", "nome", "spiega", "dipende", "fa")}
+        if p["id"] in INTERRUTTORI:
+            presente = bool(INTERRUTTORI[p["id"]][2]())
+            x.update(presente=presente, acceso=presente if a is None else p["id"] in a,
+                     consigliato=INTERRUTTORI[p["id"]][3])
+        out.append(x)
+    prog = dict.fromkeys(stato().get("progetti", []) + [x[len("progetto:"):] for x in a or [] if
+                                                         x.startswith("progetto:")])
+    for r in prog:
+        presente = os.path.isdir(os.path.join(cartella_progetto(r), ".git"))
+        out.append({"id": "progetto:" + r, "nome": r, "spiega": PASSI_ID["progetti"]["spiega"], "fa": "cli",
+                    "dipende": PASSI_ID["progetti"]["dipende"], "presente": presente, "consigliato": False,
+                    "acceso": presente if a is None else "progetto:" + r in a})
+    return out
+
+
+def interruttore(ui, i, su, json_out):
+    """`accendi|spegni ID`: 0 fatto, 1 fatto con errori, 2 ID sconosciuto, 3 dipendenze (accendi: spente da
+    accendere prima; spegni: accese che ne hanno bisogno). L'app le propone con conferma e richiama."""
+    base = i.split(":")[0] if i.startswith("progetto:") else i
+    if (base == "progetto" and "/" not in i) or base != "progetto" and (i not in INTERRUTTORI or sistema_qui() not in PASSI_ID[i]["sistemi"].split()):
+        print(f"{NOME_CLI}: interruttore «{i}» sconosciuto qui (`{NOME_CLI} scelte` per l'elenco)", file=sys.stderr)
+        return 2
+    a = accesi()
+    if a is None:  # la prima scelta: parte da ciò che c'è già, così niente di già fatto diventa «spento»
+        a = [x["id"] for x in scelte() if x.get("acceso")]
+    pid = "progetti" if base == "progetto" else i
+    if su:
+        manca = [d for d in PASSI_ID[pid]["dipende"] if d not in a]
+    else:
+        manca = [p["id"] for p in PASSI if pid in p["dipende"] and p["id"] in a] + (
+            [x for x in a if x.startswith("progetto:")] if i == "claude" else [])
+    if manca:
+        if json_out:
+            ui.riga("dipende", id=i, accendi=su, mancano=manca)
+        else:
+            ui.info(("Prima accendi: " if su else "Prima spegni: ") + ", ".join(manca))
+        return 3
+    salva_stato(accesi=sorted(set(a) | {i}) if su else [x for x in a if x != i])
+    ok = True
+    if su and base == "progetto":
+        r = passo_progetto(ui, i.split(":", 1)[1])
+        if r:
+            salva_stato(progetti=list(dict.fromkeys(stato().get("progetti", []) + [i.split(":", 1)[1]])))
+        ok = bool(r)
+    elif su:
+        ok = INTERRUTTORI[i][0](ui) is not False
+    elif base == "progetto":
+        salva_stato(progetti=[x for x in stato().get("progetti", []) if x != i.split(":", 1)[1]])
+        ui.info(f"la cartella {cartella_progetto(i.split(':', 1)[1]).replace(CASA, '~')} resta: è il tuo lavoro")
+    else:
+        for x in INTERRUTTORI[i][1]() or []:
+            ui.info(x)
+    ok = ok and all(e.ok or e.saltato for e in ui.esiti)
+    if json_out:
+        ui.riga("fine", id=i, acceso=su, ok=ok)
+    return 0 if ok else 1
+
 
 def log_pianificato():
     """Il log dell'attività in aggiunta, non riscritto: con "w" il giro di 5 minuti dopo cancellava l'errore di quello
@@ -4633,8 +4928,16 @@ def main():
             for p in PASSI:
                 print(f"{p['livello']:<12} {p['nome']}\n{'':13}{p['sistemi']} · {p['fa']}")
         return 0
+    if a[:1] == ["scelte"]:  # gli interruttori per l'app (A119): niente schermo, niente rete
+        x = scelte()
+        print(json.dumps(x, ensure_ascii=False, indent=1) if "--json" in a else "\n".join(
+            f"{'●' if v.get('acceso') else '○'} {v['id']:<14} {v['nome']}" for v in x))
+        return 0
     prendi_invito()
     path_aggiornato()
+    if a[:1] in (["accendi"], ["spegni"]) and len(a) > 1:
+        js = "--json" in a
+        return interruttore(JsonUI() if js else interfaccia(), a[1], a[0] == "accendi", js)
     for x in a:
         if x.startswith("--studio="):
             salva_stato(studio=studio_url(x.split("=", 1)[1]))
