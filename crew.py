@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# versione-firmata: 1
 """pleyades-cli (Pleyades tools): la guida unica per entrare nei progetti, anche per chi non programma.
 
     pleyades-cli (o pley)           la prima volta la guida; poi un menu
@@ -952,8 +953,15 @@ def dav_elenco(server, cred, percorso=""):
         if rel == io_stesso:
             continue
         cartella = r.find(".//{DAV:}resourcetype/{DAV:}collection") is not None
-        out.append((rel.rsplit("/", 1)[-1], cartella))
+        nome = rel.rsplit("/", 1)[-1]
+        if nome_sicuro(nome):  # A129: `..` o `a\\b` dal server non escono dalla copia locale
+            out.append((nome, cartella))
     return out
+
+
+def nome_sicuro(nome):
+    """Un pezzo di percorso arrivato da fuori (studio, server) usabile come nome di file locale."""
+    return nome not in ("", ".", "..") and not re.search(r'[\\/:\x00]', nome)
 
 
 def dav_leggi(server, cred, percorso):
@@ -1044,6 +1052,8 @@ def scarica_cartella(server, cred, cartella, dest):
     for i, f in enumerate(file):
         live(i / max(1, len(file)), f"{i + 1}/{len(file)} file · {f.rsplit('/', 1)[-1]}")
         p = os.path.join(nuovo, *f.split("/"))
+        if not all(map(nome_sicuro, f.split("/"))) or not os.path.realpath(p).startswith(os.path.realpath(nuovo) + os.sep):
+            raise ValueError(f"nome di file non valido nello studio: {f!r}")
         os.makedirs(os.path.dirname(p), exist_ok=True)
         with open(p, "wb") as h:
             h.write(dav_leggi(server, cred, f"{cartella}/{f}"))
@@ -1694,6 +1704,13 @@ def scarica_firmato(nome):
     return dati
 
 
+def versione_firmata(dati):
+    """Numero di `# versione-firmata: N` di un file firmato (A128): dentro la firma, cresce a ogni versione nuova.
+    Un file firmato più vecchio (anche dalla storia pubblica) non torna indietro sui PC; senza riga = 0."""
+    m = re.search(rb"^# versione-firmata: (\d+)\s*$", dati or b"", re.M)
+    return int(m.group(1)) if m else 0
+
+
 def aggiorna_comando():
     """Scarica l'ultima crew.py; la sostituisce solo se è firmata dalla squadra ed è Python valido."""
     try:
@@ -1703,6 +1720,8 @@ def aggiorna_comando():
         return False, str(e)
     dest = os.path.join(CARTELLA, "crew.py")
     vecchio = open(dest, "rb").read() if os.path.exists(dest) else b""
+    if vecchio and versione_firmata(nuovo) < versione_firmata(vecchio):
+        return False, "su GitHub c'è una crew.py firmata ma più vecchia: tengo questa (avvisa il manutentore)"
     if nuovo == vecchio:
         os.utime(dest)  # «pleyades-cli aggiornato» guarda questa data: conta l'ultimo controllo, non l'ultimo cambio
         return True, "già all'ultima versione"
@@ -1727,6 +1746,8 @@ def voce_disinstalla():
     f = os.path.join(DIS_WIN, "disinstalla.ps1")
     try:
         nuovo = scarica_firmato("disinstalla.ps1")
+        if os.path.isfile(f) and versione_firmata(nuovo) < versione_firmata(open(f, "rb").read()):
+            nuovo = open(f, "rb").read()  # firmato ma più vecchio (A128): resta quello che c'è
         if not os.path.isfile(f) or open(f, "rb").read() != nuovo:
             os.makedirs(DIS_WIN, exist_ok=True)
             with open(f, "wb") as h:

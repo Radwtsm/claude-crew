@@ -1,3 +1,4 @@
+# versione-firmata: 1
 # Toglie da Windows tutto ciò che Pleyades tools e l'app Pleiadi hanno messo, anche da un'installazione a metà:
 # non serve Python né pleyades-cli funzionante. Si lancia da Impostazioni → App → «Pleyades tools» → Disinstalla
 # (la voce la scrive installa.ps1 per prima cosa) oppure con la riga in PowerShell:

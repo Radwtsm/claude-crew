@@ -21,8 +21,9 @@ if [ -n "$hits" ]; then
 fi
 # Formato comune di regole e skill (README → Formato): solo i problemi nuovi bloccano, quelli noti in
 # lint-regole-baseline.txt possono solo calare; in più i limiti in byte di limiti-contesto.txt (contesto snello)
-# A115: i PC si aggiornano solo con la firma della squadra; col pre-commit e la chiave rifirma da solo
-python3 tools/firma.py $( [ "$CREW_FIRMA" = 0 ] || echo --firma ) || exit 1
+# A115: i PC si aggiornano solo con la firma della squadra. Qui solo il controllo: firmare è un gesto voluto,
+# `python3 tools/firma.py --firma` con conferma di una persona (A128), mai dal pre-commit
+python3 tools/firma.py || exit 1
 python3 plugins/regole/scripts/lint_regole.py . || exit 1
 # Ogni Esito di crew.py ha il suo passo di onboarding in PASSI (obbligatorio/facoltativo, sistemi): `pleyades-cli passi`
 python3 tools/lint_passi.py || exit 1
@@ -47,6 +48,9 @@ python3 tools/test_chiedi_prima.py || exit 1
 python3 tools/test_solo_app.py || exit 1
 # Il push automatico di claude-personale non porta segreti su GitHub (A124)
 python3 tools/test_segreti_push.py || exit 1
+# Lo scarico dello studio non scrive fuori dalla copia (A129); firma solo voluta e solo in avanti (A128)
+python3 tools/test_studio_percorsi.py || exit 1
+python3 tools/test_firma.py || exit 1
 # Ogni plugin ha le sue `keywords` nel catalogo: da lì l'hook dei messaggi suggerisce un plugin mancante (personale.py)
 senza=$(python3 -c "import json;print(' '.join(p['name'] for p in json.load(open('.claude-plugin/marketplace.json'))['plugins'] if not p.get('keywords')))")
 if [ -n "$senza" ]; then
