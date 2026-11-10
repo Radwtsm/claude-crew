@@ -228,6 +228,10 @@ def app_windows(crew):
     """installa_app_windows con installer e registro finti: si gira anche sul Mac e nella CI."""
     err, stato, casa_vera = [], {"lanci": 0, "installata": False}, crew.CASA
     app = {"nome": "Prova", "windows": {"manifesto": "finto", "chiave": CHIAVE_PROVA, "app": "Prova"}}
+    # rotazione (A127): una lista di chiavi vale se una sola combacia, e mai se nessuna
+    if not crew.firma_aggiornamenti([crew.CHIAVE_SQUADRA[0], CHIAVE_PROVA], FIRMA_PROVA, DATI_FINTI) \
+            or crew.firma_aggiornamenti(list(crew.CHIAVE_SQUADRA), FIRMA_PROVA, DATI_FINTI):
+        err.append("firma: la lista di chiavi non vale come una qualsiasi delle sue")
 
     def giu(dati, firma):
         def f(url, timeout=0):
@@ -265,7 +269,7 @@ def app_windows(crew):
             err.append("app: senza progetti non propone l'app di base (o la propone anche al giro automatico)")
     finally:
         crew.cartelle_progetti = vero
-    if base64.b64decode(base64.b64decode(crew.APP_BASE["windows"]["chiave"]).decode().splitlines()[1])[:2] != b"Ed":
+    if base64.b64decode(base64.b64decode(crew.APP_BASE["windows"]["chiave"][0]).decode().splitlines()[1])[:2] != b"Ed":
         err.append("app: la chiave degli aggiornamenti dell'app di base non è una chiave minisign")
     # progetto.json di prima del 31/10 (sistema come stringa): resta l'app di base, sennò `auto` la saltava
     vecchio = crew.app_di({"app": {"nome": "Pleiadi Studio", "windows": "Pleiadi-setup.exe"}})

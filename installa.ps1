@@ -55,7 +55,9 @@ function Bloccato {
 # La firma degli aggiornamenti dell'app (minisign di Tauri, Ed25519 su BLAKE2b-512), la stessa che l'app controlla a ogni
 # aggiornamento e crew.py in firma_aggiornamenti. In C# compilato da PowerShell (Add-Type, nessun programma in più):
 # in PowerShell puro BLAKE2b su un installer di 10 MB richiederebbe minuti.
-$ChiaveSquadra = 'dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU4MjFERURBRDdGQTQ5M0EKUldRNlNmclgydDRoNkFnVmcrRkFUa1AwMDQwSmJFMUtpb2NOR21pWndMYzNjSnZiTlg4SlA3eDYK'
+# più chiavi = rotazione (A127): basta una
+$ChiaviSquadra = @('dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDA5RDYyOERGMTU1RTM0OUMKUldTY05GNFYzeWpXQ2FJQU1TT1gwQ2xvV0w3ZVNzUVlYVEZLQnZMMHNIRWtFQ3dGelV4Mm84Mk0K',
+    'dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU4MjFERURBRDdGQTQ5M0EKUldRNlNmclgydDRoNkFnVmcrRkFUa1AwMDQwSmJFMUtpb2NOR21pWndMYzNjSnZiTlg4SlA3eDYK')
 $FirmaCs = @'
 using System; using System.Numerics; using System.Security.Cryptography;
 public static class PleiadiFirma {
@@ -130,7 +132,8 @@ public static class PleiadiFirma {
 
 function Firma-Ok($firma, [byte[]]$dati) {
     if (-not ('PleiadiFirma' -as [type])) { Add-Type -TypeDefinition $FirmaCs -ReferencedAssemblies System.Numerics }
-    return [PleiadiFirma]::Firmato($ChiaveSquadra, $firma, $dati)
+    foreach ($k in $ChiaviSquadra) { if ([PleiadiFirma]::Firmato($k, $firma, $dati)) { return $true } }
+    return $false
 }
 
 function App-Installata {  # la voce «Uninstall» dell'installer NSIS (per l'utente), come crew.py app_windows_installata

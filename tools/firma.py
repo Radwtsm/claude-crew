@@ -4,9 +4,9 @@
                                     mostra cosa cambia dall'ultima versione firmata e chiede conferma a una persona
                                     (dialogo sul Mac o terminale), alza `# versione-firmata` se serve (A128).
 Il pre-commit solo controlla: un merge non riletto o un processo che fa `git commit` non firma niente da solo.
-Chiave privata: solo sul computer del manutentore (TAURI_SIGNING_PRIVATE_KEY_PATH o `git config crew.chiave-firma <percorso>`), mai nel repo;
-firma con la CLI di Tauri, la stessa degli aggiornamenti dell'app. Una PR unita da GitHub senza firma: i PC restano
-alla versione di prima finché il manutentore non rifirma."""
+Chiave privata: solo sul computer del manutentore (TAURI_SIGNING_PRIVATE_KEY_PATH o `git config crew.chiave-firma <percorso>`), mai nel repo
+né nella CI, con passphrase nel Portachiavi (A127); firma con la CLI di Tauri dell'app, la stessa degli aggiornamenti.
+Una PR unita da GitHub senza firma: i PC restano alla versione di prima finché il manutentore non rifirma."""
 import os, re, shutil, subprocess, sys, tempfile
 
 RADICE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
@@ -24,10 +24,22 @@ def git(*a, binario=False):
 
 
 def tauri():
-    for c in (shutil.which("tauri"), os.path.expanduser("~/code/agenzia-crew/app/pleiadi-tauri/node_modules/.bin/tauri")):
+    """La CLI di Tauri già installata (quella dell'app, versione fissata dal suo package-lock): mai `npx --yes`, che
+    scaricherebbe al volo un pacchetto a cui dare la chiave (A127)."""
+    for c in (os.path.expanduser("~/code/agenzia-crew/app/pleiadi-tauri/node_modules/.bin/tauri"), shutil.which("tauri")):
         if c and os.path.exists(c):
             return [c]
-    return ["npx", "--yes", "@tauri-apps/cli@2", ] if shutil.which("npx") else None
+    return None
+
+
+def passphrase(chiave):
+    """Passphrase della chiave dal Portachiavi (servizio «pleiadi-firma», account = nome del file), "" se non c'è
+    (la chiave vecchia non l'aveva). Va alla CLI per variabile d'ambiente: in argv la vedrebbe `ps` (A127)."""
+    if sys.platform != "darwin":
+        return os.environ.get("TAURI_SIGNING_PRIVATE_KEY_PASSWORD", "")
+    r = subprocess.run(["security", "find-generic-password", "-s", "pleiadi-firma", "-a", os.path.basename(chiave), "-w"],
+                       capture_output=True, text=True)
+    return r.stdout.rstrip("\n") if r.returncode == 0 else ""
 
 
 def firma(dati):
@@ -37,7 +49,9 @@ def firma(dati):
     with tempfile.TemporaryDirectory() as d:
         f = os.path.join(d, "f")
         open(f, "wb").write(dati)
-        subprocess.run([*t, "signer", "sign", "-f", CHIAVE, "-p", "", f], capture_output=True, stdin=subprocess.DEVNULL)
+        env = {k: v for k, v in os.environ.items() if not k.startswith("TAURI_SIGNING_")}
+        env["TAURI_SIGNING_PRIVATE_KEY_PASSWORD"] = passphrase(CHIAVE)
+        subprocess.run([*t, "signer", "sign", "-f", CHIAVE, f], capture_output=True, stdin=subprocess.DEVNULL, env=env)
         return open(f + ".sig").read().strip() if os.path.exists(f + ".sig") else None
 
 

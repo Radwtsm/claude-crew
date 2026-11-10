@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# versione-firmata: 1
+# versione-firmata: 2
 """pleyades-cli (Pleyades tools): la guida unica per entrare nei progetti, anche per chi non programma.
 
     pleyades-cli (o pley)           la prima volta la guida; poi un menu
@@ -1082,7 +1082,7 @@ def cartelle_progetti():
 # L'app di un progetto, in progetto.json. Una sola fonte per sistema: la release da cui l'app poi si aggiorna da sola
 # (owner 31/10: con due fonti l'aggiornamento finiva in un'altra cartella e il collegamento apriva la vecchia).
 # Mac: `"mac": {"url": "<.app.tar.gz della release>", "app": "<Nome>.app", "team": "<Team ID della firma>"}`.
-# Windows: `"windows": {"manifesto": "<latest.json dell'updater>", "chiave": "<updater.pubkey di tauri.conf>",
+# Windows: `"windows": {"manifesto": "<latest.json dell'updater>", "chiave": "<updater.pubkey di tauri.conf>" (o una lista),
 # "app": "<productName>"}`: installer NSIS per l'utente (niente amministratore), solo con la firma degli aggiornamenti.
 
 # L'app di base: da zero non c'è ancora un progetto (l'accesso allo studio arriva dal codice invito dell'app stessa),
@@ -1091,11 +1091,13 @@ APP_REPO = CREW.split("/")[0] + "/pleiadi-app"  # pubblico: da zero si scarica s
 APP_RELEASE = "https://github.com" + f"/{APP_REPO}/releases/latest/download/"
 APP_BASE = {"nome": "Pleiadi Studio",
             "windows": {"manifesto": APP_RELEASE + "latest.json",
-                        "chiave": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU4MjFERURBRDdGQTQ5M0EKUldRNlNmclgydDRoNkFnVmcrRkFUa1AwMDQwSmJFMUtpb2NOR21pWndMYzNjSnZiTlg4SlA3eDYK",
+                        "chiave": ["dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDA5RDYyOERGMTU1RTM0OUMKUldTY05GNFYzeWpXQ2FJQU1TT1gwQ2xvV0w3ZVNzUVlYVEZLQnZMMHNIRWtFQ3dGelV4Mm84Mk0K",
+                                   "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU4MjFERURBRDdGQTQ5M0EKUldRNlNmclgydDRoNkFnVmcrRkFUa1AwMDQwSmJFMUtpb2NOR21pWndMYzNjSnZiTlg4SlA3eDYK"],  # vecchia: via dopo il passaggio (A127)
                         "app": "Pleiadi"},
             "mac": {"url": APP_RELEASE + "Pleiadi.app.tar.gz",
                     "app": "Pleiadi.app", "team": "4KLXZKJMRY"}}
-# La chiave pubblica della squadra: firma l'app e gli aggiornamenti di crew.py e disinstalla.ps1 (tools/firma.py)
+# Le chiavi pubbliche della squadra: firmano l'app e gli aggiornamenti di crew.py e disinstalla.ps1 (tools/firma.py).
+# Più chiavi = rotazione senza lasciare indietro nessuno (A127): la nuova si aggiunge, la vecchia esce dopo un giro.
 CHIAVE_SQUADRA = APP_BASE["windows"]["chiave"]
 
 
@@ -1204,8 +1206,11 @@ def ed25519_ok(pk, firma, msg):
 
 def firma_aggiornamenti(chiave, firma, dati):
     """`dati` firmati con la chiave degli aggiornamenti di Tauri (minisign: chiave e firma in base64 del file .pub/.sig).
-    La stessa verifica che l'app fa da sola a ogni aggiornamento: chi installa la prima volta non si fida di meno."""
+    La stessa verifica che l'app fa da sola a ogni aggiornamento: chi installa la prima volta non si fida di meno.
+    `chiave` può essere una lista (rotazione, A127): basta una."""
     import base64
+    if isinstance(chiave, (list, tuple)):
+        return any(firma_aggiornamenti(c, firma, dati) for c in chiave)
     try:
         pk = base64.b64decode(base64.b64decode(chiave).decode().splitlines()[1])
         s = base64.b64decode(base64.b64decode(firma).decode().splitlines()[1])
