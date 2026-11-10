@@ -28,6 +28,8 @@ crew.ha = lambda x: False
 crew.casa_di_prova = lambda: True
 if crew.WIN:  # CredDeleteW non passa da run: senza, cancellerebbe la voce vera
     crew.togli_segreto = lambda *a, **k: chiamate.append(("segreto",)) or True
+crew.accesso_studio = lambda: {"utente": "prova", "password": "pw"}  # mai il portachiavi vero
+crew.chiama = lambda url, metodo="GET", *a, **k: chiamate.append(("chiama", metodo, url)) or b""  # mai la rete
 crew.tema_finestre = lambda togli=False: chiamate.append(("finestre", togli)) or (True, "rimessi")  # registro vero
 crew.pianifica = lambda togli=False, rimetti=False: chiamate.append(("pianifica", togli)) or (True, "tolta")
 
@@ -104,7 +106,8 @@ else:
 if crew.MAC:
     scrivi(os.path.join("Library", "LaunchAgents", crew.PIANO + ".plist"), "plist")
     scrivi(os.path.join("Library", "Application Support", "iTerm2", "DynamicProfiles", "pleyades.json"), "{}")
-crew.salva_stato(studio_utente="prova", terminale_messo=True)
+crew.salva_stato(studio="https://{host}/", studio_utente="prova", terminale_messo=True)
+scrivi(os.path.join(".config", "agenzia", "talk.json"), '{"utente": "altro", "stanza": "x"}')  # talk.py (A130)
 if not os.path.isfile(os.path.join(crew.CARTELLA, "crew.py")) or not crew.comandi_crew():
     male.append("preparazione: ~/.crew o i comandi mancanti")
 
@@ -115,7 +118,7 @@ crew.disinstalla(UI(True), prova=True)
 if foto() != prima:
     male.append("--prova ha cambiato dei file")
 if any(c[0] == "pianifica" or (c[0] == "powershell" and "GetFolderPath" not in c[-1]) or c[:2] in (("defaults", "write"), ("defaults", "delete"))
-       or c[:2] == ("security", "delete-generic-password") or c[0] == "segreto" for c in chiamate):
+       or c[:2] == ("security", "delete-generic-password") or c[0] in ("segreto", "chiama") for c in chiamate):
     male.append(f"--prova ha lanciato dei comandi: {chiamate}")
 ui = UI(False)
 crew.disinstalla(ui)
@@ -143,8 +146,12 @@ for rel in (".crew", os.path.join(".config", "crew"), os.path.join(".config", "s
 if crew.WIN and (open(wt, encoding="utf-8").read() != '{"theme": "mio"}' or os.path.exists(wt + ".prima-di-crew")):
     male.append("Windows Terminal non torna com'era")
 attese = [("pianifica", True)] if crew.MAC or crew.WIN else []
+attese += [("chiama", "DELETE", "https://{host}/ocs/v2.php/core/apppassword")]  # revoca (A130)
+if os.path.lexists(os.path.join(CASA, ".config", "agenzia")):
+    male.append(".config/agenzia (talk.json) resta")
 if crew.MAC:
     attese += [("security", "delete-generic-password", "-s", "pleyades-studio", "-a", "prova"),
+               ("security", "delete-generic-password", "-s", "pleyades-studio", "-a", "altro"),
                ("defaults", "delete", "com.googlecode.iterm2", "Default Bookmark Guid"),
                ("defaults", "write", "com.apple.Terminal", "Default Window Settings", "Basic")]
 if crew.WIN:

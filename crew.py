@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# versione-firmata: 2
+# versione-firmata: 3
 """pleyades-cli (Pleyades tools): la guida unica per entrare nei progetti, anche per chi non programma.
 
     pleyades-cli (o pley)           la prima volta la guida; poi un menu
@@ -213,7 +213,7 @@ PASSI = [
      "sistemi": "mac windows linux", "fa": "cli",
      "esiti": ["disinstalla: attività pianificata", "disinstalla: colori di Windows", "disinstalla: terminale",
                "disinstalla: impostazioni di Claude", "disinstalla: comandi e PATH", "disinstalla: prompt e salvaschermo",
-               "disinstalla: icona sul desktop", "disinstalla: portachiavi", "disinstalla: cartelle di pleyades-cli"],
+               "disinstalla: icona sul desktop", "disinstalla: accesso allo studio", "disinstalla: portachiavi", "disinstalla: cartelle di pleyades-cli"],
      "spiega": "Cosa ha tolto `pleyades-cli disinstalla`.", "dipende": []},
     {"id": "azioni", "nome": "Esiti di comandi chiesti (prendi, togli, squadra)", "livello": "azione",
      "sistemi": "mac windows linux", "fa": "cli", "esiti": ["{}: {}", "preso: {}", "{} ({})"],
@@ -4635,6 +4635,36 @@ def dis_portachiavi(prova):
                  + ("" if ok else " (non c'era più)"))
 
 
+TALK_DIR = os.path.join(CASA, ".config", "agenzia")  # talk.py: talk.json (utente, stanze), code, cantieri
+
+
+def dis_accesso(prova):
+    """Prima della voce del portachiavi (A130): la password per app revocata sullo studio, così una copia rimasta
+    altrove non vale più; poi la voce di talk.py se è di un altro utente e ~/.config/agenzia (disinstalla.ps1 la toglie
+    su Windows, qui Mac e Linux)."""
+    cred, server = accesso_studio(), stato().get("studio")
+    talk = (leggi_json(os.path.join(TALK_DIR, "talk.json"), {}) or {}).get("utente")
+    if not cred and not os.path.isdir(TALK_DIR):
+        return None
+    nota = ("password per app revocata sullo studio" if cred and server else "") + \
+           (f"{'; ' if cred and server else ''}{TALK_DIR} (Talk)" if os.path.isdir(TALK_DIR) else "")
+    if prova:
+        return Esito("disinstalla: accesso allo studio", True, nota=nota)
+    revocata = True
+    if cred and server:
+        try:  # revoca la password con cui si chiama, nient'altro dell'account
+            chiama(server.rstrip("/") + "/ocs/v2.php/core/apppassword", "DELETE", cred=cred,
+                   intestazioni={"OCS-APIRequest": "true"}, timeout=15)
+        except (OSError, ValueError):  # urllib.error.* sono OSError
+            revocata = False
+    if talk and talk != (cred or {}).get("utente") and not (WIN and casa_di_prova()):
+        togli_segreto(talk)
+    resta = cancella([TALK_DIR]) if os.path.isdir(TALK_DIR) else []
+    return Esito("disinstalla: accesso allo studio", revocata and not resta,
+                 f"revocala a mano: studio → Impostazioni personali → Sicurezza → Dispositivi e sessioni"
+                 if not revocata else f"togli a mano: {', '.join(resta)}", nota=nota)
+
+
 def dis_cartelle(prova):
     c = [x for x in (CARTELLA, os.path.dirname(STATO)) + ((DIS_WIN,) if WIN else ()) if os.path.isdir(x)]
     if not c:
@@ -4667,7 +4697,7 @@ def disinstalla(ui, prova=False, si=False):
     """`pleyades-cli disinstalla [--prova] [--si]`: elenca, chiede conferma, poi toglie (--prova: elenca soltanto;
     --si: senza domanda, lo lancia disinstalla.ps1 che ha già chiesto); per ultime ~/.crew e lo stato."""
     passi = (dis_pianifica, dis_finestre, dis_terminale, dis_claude, dis_comandi, dis_prompt, dis_icona,
-             dis_portachiavi, dis_cartelle)
+             dis_accesso, dis_portachiavi, dis_cartelle)
     ui.titolo(f"{NOME_CLI} disinstalla" + (" · prova: non cambio niente" if prova else ""))
     voci = [e for e in (f(True) for f in passi) if e]
     for e in voci:
