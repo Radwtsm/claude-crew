@@ -122,16 +122,73 @@ if [ "$(uname)" = Darwin ] && ! xcode-select -p >/dev/null 2>&1; then
     exit 1
   fi
 fi
-if ! command -v python3 >/dev/null; then
-  printf '❌ manca python3: installalo (es. sudo apt install python3 git) e rilancia la stessa riga.\n'
+if ! command -v python3 >/dev/null || ! command -v git >/dev/null; then  # git: anche Linux (commit firmato, poi crew.py)
+  printf '❌ manca python3 o git: installali (es. sudo apt install python3 git) e rilancia la stessa riga.\n'
   exit 1
 fi
+# A122: crew.py solo con la firma della squadra anche alla prima installazione (come crew.py scarica_firmato): chi
+# entrasse nell'account GitHub non manda codice ai PC nuovi senza la chiave. File e firma dallo stesso commit.
+# Verifica minisign (Ed25519 su BLAKE2b-512) in Python puro, chiavi qui: mai il codice appena scaricato a fidarsi di sé.
+# La prova da zero cambia CREW_RAW/CREW_GIT con le copie locali (CREW_GIT vuoto = main).
+CREW_RAW=https://raw.githubusercontent.com/Radwtsm/claude-crew
+CREW_GIT=https://github.com/Radwtsm/claude-crew.git
+read -r -d '' FIRMA_PY <<'PY'
+import base64, hashlib, sys
+CHIAVI = ["dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDA5RDYyOERGMTU1RTM0OUMKUldTY05GNFYzeWpXQ2FJQU1TT1gwQ2xvV0w3ZVNzUVlYVEZLQnZMMHNIRWtFQ3dGelV4Mm84Mk0K",
+          "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU4MjFERURBRDdGQTQ5M0EKUldRNlNmclgydDRoNkFnVmcrRkFUa1AwMDQwSmJFMUtpb2NOR21pWndMYzNjSnZiTlg4SlA3eDYK"]
+q, l = 2**255 - 19, 2**252 + 27742317777372353535851937790883648493
+d, radice = -121665 * pow(121666, q - 2, q) % q, pow(2, (q - 1) // 4, q)
+def piu(P, Q):
+    (x1, y1, z1, t1), (x2, y2, z2, t2) = P, Q
+    a, b = (y1 - x1) * (y2 - x2) % q, (y1 + x1) * (y2 + x2) % q
+    c, e = 2 * t1 * t2 * d % q, 2 * z1 * z2 % q
+    return ((b - a) * (e - c) % q, (e + c) * (b + a) % q, (e - c) * (e + c) % q, (b - a) * (b + a) % q)
+def per(P, n):
+    R = (0, 1, 1, 0)
+    while n:
+        R, P, n = (piu(R, P) if n & 1 else R), piu(P, P), n >> 1
+    return R
+def punto(b):
+    y = int.from_bytes(b, "little"); s, y = y >> 255, y & ((1 << 255) - 1)
+    x2 = (y * y - 1) * pow(d * y * y + 1, q - 2, q) % q
+    x = pow(x2, (q + 3) // 8, q); x = x if (x * x - x2) % q == 0 else x * radice % q
+    if y >= q or (x * x - x2) % q or (x == 0 and s):
+        return None
+    x = q - x if x & 1 != s else x
+    return (x, y, 1, x * y % q)
+def ed25519_ok(pk, firma, msg):
+    A, R, s = punto(pk), punto(firma[:32]), int.from_bytes(firma[32:], "little")
+    if A is None or R is None or s >= l:
+        return False
+    G = punto((4 * pow(5, q - 2, q) % q).to_bytes(32, "little"))
+    h = int.from_bytes(hashlib.sha512(firma[:32] + pk + msg).digest(), "little") % l
+    P, Q = per(G, s), piu(R, per(A, h))
+    return (P[0] * Q[2] - Q[0] * P[2]) % q == 0 and (P[1] * Q[2] - Q[1] * P[2]) % q == 0
+def ok(chiave, firma, dati):
+    try:
+        pk = base64.b64decode(base64.b64decode(chiave).decode().splitlines()[1])
+        s = base64.b64decode(base64.b64decode(firma).decode().splitlines()[1])
+    except (ValueError, IndexError, UnicodeDecodeError):
+        return False
+    if len(pk) != 42 or len(s) != 74 or pk[:2] != b"Ed" or s[:2] not in (b"ED", b"Ed") or s[2:10] != pk[2:10]:
+        return False
+    return ed25519_ok(pk[10:], s[10:], hashlib.blake2b(dati).digest() if s[:2] == b"ED" else dati)
+dati, firma = open(sys.argv[1], "rb").read(), open(sys.argv[2]).read().strip()
+sys.exit(0 if any(ok(c, firma, dati) for c in CHIAVI) else 1)
+PY
+scarica_firmato() {  # $1 = file di claude-crew, $2 = dove: solo se la firma vale
+  local rif=main t
+  [ -n "$CREW_GIT" ] && t=$(git ls-remote -- "$CREW_GIT" refs/heads/main 2>/dev/null | cut -f1)
+  printf '%s' "${t:-}" | grep -Eq '^[0-9a-f]{40}$' && rif=$t
+  curl -fsSL "$CREW_RAW/$rif/$1" -o "$2.tmp" && curl -fsSL "$CREW_RAW/$rif/$1.sig" -o "$2.sig.tmp" || {
+    rm -f "$2.tmp" "$2.sig.tmp"; printf '❌ non riesco a scaricare %s: controlla internet e rilancia la stessa riga.\n' "$1"; return 1; }
+  if ! python3 -c "$FIRMA_PY" "$2.tmp" "$2.sig.tmp"; then
+    rm -f "$2.tmp" "$2.sig.tmp"; printf '❌ %s non ha la firma della squadra: non lo uso. Avvisa chi ti ha invitato.\n' "$1"; return 1
+  fi
+  rm -f "$2.sig.tmp"; mv "$2.tmp" "$2"
+}
 mkdir -p "$HOME/.crew"
-if ! curl -fsSL https://raw.githubusercontent.com/Radwtsm/claude-crew/main/crew.py -o "$HOME/.crew/crew.py.tmp"; then
-  printf '❌ non riesco a scaricare la guida: controlla internet e rilancia la stessa riga.\n'
-  exit 1
-fi
-mv "$HOME/.crew/crew.py.tmp" "$HOME/.crew/crew.py"
+scarica_firmato crew.py "$HOME/.crew/crew.py" || exit 1
 [ -n "${STUDIO:-}" ] && set -- "$@" "--studio=$STUDIO"  # INVITO arriva a crew.py per ambiente, che lo toglie subito
 term=/dev/$(ps -o tty= -p $$ 2>/dev/null | tr -d ' ')  # il terminale vero: da /dev/tty Claude Code (Bun) non legge su macOS
 # aprirlo davvero: senza terminale (lanciata da un programma) /dev/tty è leggibile ma non si apre

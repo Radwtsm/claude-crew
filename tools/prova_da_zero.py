@@ -107,10 +107,13 @@ def mac_utente():
     lavoro = tempfile.mkdtemp(prefix="da-zero-", dir="/Users/Shared")
     esito = os.path.join(lavoro, "esito")
     os.makedirs(esito)
-    crew = os.path.join(lavoro, "crew.py")
-    shutil.copy(os.path.join(QUI, "..", "crew.py"), crew)
+    os.makedirs(os.path.join(lavoro, "main"))  # come raw.githubusercontent: <commit>/crew.py + .sig (A122, firma verificata)
+    for f in ("crew.py", "crew.py.sig"):
+        shutil.copy(os.path.join(QUI, "..", f), os.path.join(lavoro, "main", f))
+        os.chmod(os.path.join(lavoro, "main", f), 0o644)
+    os.chmod(os.path.join(lavoro, "main"), 0o755)
     sh = open(os.path.join(QUI, "..", "installa.sh"), encoding="utf-8").read()
-    sh = re.sub(r"https://raw\.githubusercontent\.com/[^ ]+/crew\.py", "file://" + crew, sh)
+    sh = re.sub(r"(?m)^CREW_RAW=.*$", "CREW_RAW=file://" + lavoro, re.sub(r"(?m)^CREW_GIT=.*$", "CREW_GIT=", sh))
     open(os.path.join(lavoro, "installa.sh"), "w", encoding="utf-8").write(sh)
     if invito:  # come la riga del messaggio: codice e studio in variabili, il file sparisce appena letto
         with os.fdopen(os.open(os.path.join(lavoro, "invito.txt"), os.O_WRONLY | os.O_CREAT, 0o600), "w") as f:
@@ -118,7 +121,7 @@ def mac_utente():
     os.chmod(lavoro, 0o755)
     os.chmod(esito, 0o777)
     for f in os.listdir(lavoro):
-        if f not in ("esito", "invito.txt"):
+        if f not in ("esito", "invito.txt", "main"):
             os.chmod(os.path.join(lavoro, f), 0o644)
     if invito:
         sudo("chown", UTENTE, os.path.join(lavoro, "invito.txt"), check=True)
@@ -180,7 +183,8 @@ def main():
     ps(host, f"Remove-Item -Recurse -Force '{dir_pc}' -ErrorAction SilentlyContinue; New-Item -ItemType Directory '{dir_pc}' | Out-Null; "
              f"New-Item -ItemType Directory -Force '{dir_pc}-cache' | Out-Null")  # la cache (winget) resta fra le prove
     subprocess.run(["scp", "-q", "-o", "BatchMode=yes", os.path.join(QUI, CARTELLA, "avvio.ps1"), os.path.join(QUI, CARTELLA, "sveglia.ps1"),
-                    os.path.join(QUI, "..", "installa.ps1"), os.path.join(QUI, "..", "crew.py"),
+                    *(os.path.join(QUI, "..", f) for f in ("installa.ps1", "crew.py", "crew.py.sig", "disinstalla.ps1",
+                                                           "disinstalla.ps1.sig")),
                     f"{host}:{dir_pc}/".replace("\\", "/")], check=True)  # provati prima del push
     invito = open(sys.argv[sys.argv.index("--invito") + 1]).read().split() if "--invito" in sys.argv else []
     if invito:

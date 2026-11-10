@@ -38,8 +38,8 @@ function Voce-Disinstalla {  # per prima cosa: un'installazione che si blocca a 
     $dir = Join-Path $env:LOCALAPPDATA 'Pleyades'
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
     $f = Join-Path $dir 'disinstalla.ps1'
-    try { Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/Radwtsm/claude-crew/main/disinstalla.ps1 -OutFile $f }
-    catch { return }
+    try { [IO.File]::WriteAllBytes($f, (Scarica-Firmato 'disinstalla.ps1')) }  # lanciato con -ExecutionPolicy Bypass: solo firmato
+    catch { Write-Host "⚠️ $_" -ForegroundColor Yellow; return }
     $k = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\PleyadesTools'
     New-Item -Force -Path $k | Out-Null
     $cmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command `"`$env:PLEYADES_PAUSA='1'; iex ([IO.File]::ReadAllText('$f'))`""  # UTF-8: con & file PowerShell 5.1 legge ANSI
@@ -136,6 +136,24 @@ function Firma-Ok($firma, [byte[]]$dati) {
     return $false
 }
 
+# A122: crew.py e disinstalla.ps1 con la firma della squadra anche alla prima installazione (come crew.py scarica_firmato):
+# chi entrasse nell'account GitHub non manda codice ai PC nuovi senza la chiave. File e firma dallo stesso commit
+# (git ls-remote; senza git ancora installato: main). La prova da zero cambia queste due righe con le copie locali.
+$CrewRaw = 'https://raw.githubusercontent.com/Radwtsm/claude-crew/'
+$CrewGit = 'https://github.com/Radwtsm/claude-crew.git'
+function Scarica-Firmato($nome) {
+    $rif = 'main'
+    if ($CrewGit -and (Ha git)) {
+        $t = "$(git ls-remote -- $CrewGit refs/heads/main 2>$null)".Split()[0]
+        if ($t -match '^[0-9a-f]{40}$') { $rif = $t }
+    }
+    $wc = New-Object Net.WebClient
+    $dati = $wc.DownloadData("$CrewRaw$rif/$nome")  # in memoria: firma prima, disco dopo
+    $firma = [Text.Encoding]::ASCII.GetString($wc.DownloadData("$CrewRaw$rif/$nome.sig")).Trim()
+    if (-not (Firma-Ok $firma $dati)) { throw "$nome senza la firma della squadra: non lo uso (avvisa il manutentore)" }
+    return ,$dati
+}
+
 function App-Installata {  # la voce «Uninstall» dell'installer NSIS (per l'utente), come crew.py app_windows_installata
     Get-ChildItem 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall' -ErrorAction SilentlyContinue |
         Get-ItemProperty | Where-Object { $_.DisplayName -eq 'Pleiadi' } | Select-Object -First 1
@@ -224,10 +242,10 @@ function Avvia {
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
     $crew = Join-Path $dir 'crew.py'
     try {
-        Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/Radwtsm/claude-crew/main/crew.py -OutFile "$crew.tmp"
+        [IO.File]::WriteAllBytes("$crew.tmp", (Scarica-Firmato 'crew.py'))
         Move-Item -Force "$crew.tmp" $crew
     } catch {
-        Write-Host "❌ non riesco a scaricare la guida: controlla internet e rilancia la stessa riga" -ForegroundColor Red
+        Write-Host "❌ non riesco a scaricare la guida ($_): controlla internet e rilancia la stessa riga" -ForegroundColor Red
         Bloccato; return
     }
     $argomenti = @('guida')

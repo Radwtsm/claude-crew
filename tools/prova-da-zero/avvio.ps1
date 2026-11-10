@@ -72,8 +72,11 @@ Start-Job -ArgumentList $esito {
 # e le risposte di chi non sa nulla: «Mio», niente accesso a Claude (serve il browser), «senza account GitHub», poi
 # Invio a tutto. Una domanda nuova sfasa le risposte: un Invio su «Colleghiamo GitHub?» aspetta il browser 15 min
 Passo 'installa.ps1'
-(Get-Content -Raw -Encoding UTF8 C:\prova\installa.ps1) -replace 'https://raw\.githubusercontent\.com/[^ ]+/crew\.py',
-    'file:///C:/prova/crew.py' | Set-Content -Encoding UTF8 "$env:TEMP\installa.ps1"
+# come raw.githubusercontent: main/<file> + .sig, con la firma verificata (A122)
+New-Item -ItemType Directory -Force C:\prova\main | Out-Null
+Copy-Item C:\prova\crew.py*, C:\prova\disinstalla.ps1* C:\prova\main\
+(Get-Content -Raw -Encoding UTF8 C:\prova\installa.ps1) -replace "(?m)^\`$CrewRaw = .*$", "`$CrewRaw = 'file:///C:/prova/'" `
+    -replace "(?m)^\`$CrewGit = .*$", "`$CrewGit = ''" | Set-Content -Encoding UTF8 "$env:TEMP\installa.ps1"
 $risposte = "1`n2`n2`n`n`n`n`n`n`n`n"
 # Con un invito (prova_da_zero.py --invito): come la riga del messaggio, codice e studio in variabili; il file sparisce
 if (Test-Path C:\prova\invito.txt) {
