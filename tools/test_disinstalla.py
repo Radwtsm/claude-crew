@@ -174,6 +174,32 @@ if not os.path.isfile(os.path.join(CASA, ".local", "bin", "claude")) or crew.com
 if not crew.WIN and ".local/bin" not in open(os.path.join(CASA, ".zshrc"), encoding="utf-8").read():
     male.append("PATH tolta da .zshrc con claude ancora in ~/.local/bin")
 
+# A126: si consiglia di togliere solo ciò che ha installato Pleyades (messi.txt, anche col BOM di PowerShell)
+if any("Claude Code" in t or "winget" in t or "GitHub CLI" in t for t in crew.tieni([])):
+    male.append("tieni senza messi consiglia di togliere Claude, gh o programmi che c'erano già")
+os.makedirs(os.path.dirname(crew.MESSI), exist_ok=True)
+open(crew.MESSI, "w", encoding="utf-8-sig").write("Git.Git\n")
+crew.segna_messo("Claude Code"); crew.segna_messo("Git.Git")
+t = " ".join(crew.tieni())
+if crew.messi() != ["Git.Git", "Claude Code"] or "winget uninstall --id Git.Git" not in t or "Python" in t \
+        or "rm -rf ~/.claude" in t or "Claude Code, se non lo usi più" not in t:
+    male.append(f"messi/tieni sbagliati: {crew.messi()} · {t[:160]}")
+# A126: .prima-di-crew scritta una volta sola (resta quella di prima del primo giro)
+imp = os.path.join(CASA, ".claude", "settings.json")
+os.makedirs(os.path.dirname(imp), exist_ok=True)
+for f in (imp, imp + ".prima-di-crew"):
+    if os.path.exists(f):
+        os.remove(f)
+scrivi(os.path.join(".claude", "settings.json"), '{"mio": 1}')
+crew.impostazioni_utente()
+scrivi(os.path.join(".claude", "settings.json"), '{"mio": 2}')
+crew.impostazioni_utente()
+if json.load(open(imp + ".prima-di-crew", encoding="utf-8")) != {"mio": 1}:
+    male.append(".prima-di-crew riscritta a un giro successivo")
+# A125: un apostrofo nel percorso (D'Amico) non chiude la stringa PowerShell
+if crew.ps_testo("C:\\Users\\D'Amico\\x") != "'C:\\Users\\D''Amico\\x'":
+    male.append(f"ps_testo: {crew.ps_testo(chr(39))}")
+
 shutil.rmtree(CASA, ignore_errors=True)
 if male:
     sys.exit("test_disinstalla: " + "; ".join(male))

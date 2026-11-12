@@ -1,4 +1,4 @@
-# versione-firmata: 1
+# versione-firmata: 2
 # Toglie da Windows tutto ciò che Pleyades tools e l'app Pleiadi hanno messo, anche da un'installazione a metà:
 # non serve Python né pleyades-cli funzionante. Si lancia da Impostazioni → App → «Pleyades tools» → Disinstalla
 # (la voce la scrive installa.ps1 per prima cosa) oppure con la riga in PowerShell:
@@ -13,6 +13,9 @@ $Bin = Join-Path $HOME '.local\bin'
 $Voce = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\PleyadesTools'
 $Copia = Join-Path $env:LOCALAPPDATA 'Pleyades'  # dove installa.ps1 mette questo file per la voce in Impostazioni
 $Prova = $env:PLEYADES_PROVA -eq '1'
+# A126: i programmi che ha installato Pleyades (installa.ps1, crew.py segna_messo), letti prima che ~/.config/crew vada
+# via: alla fine si consiglia di togliere solo questi, mai Git, Python o Claude Code che c'erano già
+$Messi = @(Get-Content (Join-Path $HOME '.config\crew\messi.txt') | ForEach-Object { "$_".Trim([char]0xFEFF).Trim() } | Where-Object { $_ })
 
 function App-Pleiadi {  # la voce «Uninstall» dell'installer NSIS dell'app (per l'utente)
     Get-ChildItem 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall' |
@@ -114,7 +117,11 @@ if ($fai) {
     } else { Write-Host "`n✓ tolto tutto" -ForegroundColor Green }
 }
 Write-Host "`nRestano (programmi generici, non li tocco):"
-Write-Host '   • Claude Code: Remove-Item ~\.local\bin\claude.exe; Remove-Item -Recurse ~\.local\share\claude, ~\.claude'
-Write-Host '   • Git e Python: winget uninstall --id Git.Git, poi Python.Python.3.12; GitHub CLI: ~\.local\bin\gh.exe'
+if ($Messi -contains 'Claude Code') {
+    Write-Host '   • Claude Code, se non lo usi più: Remove-Item ~\.local\bin\claude.exe; Remove-Item -Recurse ~\.local\share\claude'
+    Write-Host '     (~\.claude sono le tue impostazioni e chat: lasciala)'
+}
+if ($Messi -contains 'GitHub CLI') { Write-Host '   • GitHub CLI, se non lo usi più: Remove-Item ~\.local\bin\gh.exe' }
+$Messi | Where-Object { $_ -like '*.*' } | ForEach-Object { Write-Host "   • installato da Pleyades, se non ti serve: winget uninstall --id $_ -e" }
 Write-Host '   • progetti clonati in ~\code: cancella le cartelle che non servono più'
 if ($env:PLEYADES_PAUSA -eq '1') { Read-Host "`nInvio per chiudere" | Out-Null }  # da Impostazioni: la finestra resta

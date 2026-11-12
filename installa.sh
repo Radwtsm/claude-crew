@@ -9,6 +9,8 @@
 # Qui solo ciò che serve a far partire Python; tutto il resto (Claude Code, GitHub, plugin, progetti, Nextcloud)
 # lo fa crew.py, uguale su Mac, Linux e Windows.
 set -u
+# A125: tutto dentro main(), chiamata all'ultima riga: con `curl | bash` troncato a metà non parte niente
+main() {
 tempo() { local s=$(( $(date +%s) - $1 )); [ $s -ge 60 ] && printf '%d:%02d' $((s/60)) $((s%60)) || printf '%d s' $s; }
 giro=(✦ ✧ ⋆ · ⋆ ✧)  # la stella che pulsa (Pleyades tools); array: il bash 3.2 del Mac taglia male i caratteri UTF-8
 A='\033[38;5;153m'; F='\033[38;5;61m'; Z='\033[0m'  # azzurro stella, blu fioco (marchio Pleyades)
@@ -70,7 +72,10 @@ if [ "$(uname)" = Darwin ] && ! xcode-select -p >/dev/null 2>&1; then
   printf '  Se è aperta la finestra «Scarico il software» di un tentativo precedente, premi «Interrompi»: ne basta uno.\n'
   segnale=/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
   elenco=$(mktemp); log=$(mktemp)
-  trap 'stty echo </dev/tty 2>/dev/null; rm -f "$segnale" "$elenco" "$log"' EXIT INT
+  # pulisci anche prima di exec (A125): exec non fa scattare la trap EXIT, e il segnale lasciato in /tmp
+  # farebbe proporre gli strumenti di Apple a ogni `softwareupdate -l`; sudo -k: niente password valida che resta
+  pulisci() { stty echo </dev/tty 2>/dev/null; rm -f "$segnale" "$elenco" "$log"; sudo -k 2>/dev/null; }
+  trap pulisci EXIT INT
   touch "$segnale"
   stty -echo 2>/dev/null </dev/tty  # 28/10: chi scrive la password in anticipo non la lascia sullo schermo
   softwareupdate -l >"$elenco" 2>&1 & pid=$!; t0=$(date +%s); i=0
@@ -80,7 +85,7 @@ if [ "$(uname)" = Darwin ] && ! xcode-select -p >/dev/null 2>&1; then
   done
   printf '\r\033[K'
   nome=$(sed -n 's/^ *\* Label: //p' "$elenco" | grep 'Command Line Tools' | tail -1)
-  mb=$(grep -A1 "Label: $nome" "$elenco" | grep -o 'Size: [0-9]*' | grep -o '[0-9]*' | head -1); mb=$(( ${mb:-0} / 1024 ))
+  mb=$(grep -F -A1 "Label: $nome" "$elenco" | grep -o 'Size: [0-9]*' | grep -o '[0-9]*' | head -1); mb=$(( ${mb:-0} / 1024 ))
   perl -MPOSIX -e 'tcflush(0, TCIFLUSH)' </dev/tty 2>/dev/null  # butta ciò che è stato scritto in anticipo
   stty echo 2>/dev/null </dev/tty
   if [ -n "$nome" ] && sudo -k && sudo -v -p '→ Password del Mac (quella con cui accendi il computer; mentre scrivi non si vede niente): '; then
@@ -121,6 +126,7 @@ if [ "$(uname)" = Darwin ] && ! xcode-select -p >/dev/null 2>&1; then
     printf '  poi incolla di nuovo la stessa riga.\n'
     exit 1
   fi
+  pulisci; trap - EXIT INT
 fi
 if ! command -v python3 >/dev/null || ! command -v git >/dev/null; then  # git: anche Linux (commit firmato, poi crew.py)
   printf '❌ manca python3 o git: installali (es. sudo apt install python3 git) e rilancia la stessa riga.\n'
@@ -197,3 +203,5 @@ if ( : <"$term" ) 2>/dev/null; then
   exec python3 "$HOME/.crew/crew.py" guida "$@" <"$term"
 fi
 exec python3 "$HOME/.crew/crew.py" guida "$@"
+}
+main "$@"

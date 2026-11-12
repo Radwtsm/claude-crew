@@ -20,14 +20,23 @@ function Python-Vero {  # 'python' of the Microsoft Store is only a stub that op
     return ($p -and $p -notlike '*WindowsApps*')
 }
 
+# A126: cosa ha installato Pleyades (una riga per programma, scritta una volta): la disinstallazione consiglia di
+# togliere solo questi, non Git o Python che c'erano già. Lo stesso file lo scrive crew.py (segna_messo).
+function Segna-Messo($nome) {
+    $f = Join-Path $HOME '.config\crew\messi.txt'
+    New-Item -ItemType Directory -Force -Path (Split-Path $f) | Out-Null
+    if (-not ((Test-Path $f) -and (Get-Content $f) -contains $nome)) { Add-Content -Path $f -Value $nome -Encoding UTF8 }
+}
+
 function Installa($id) {  # winget's own message if it fails: the colleague can tell us why, not just "missing"
     # --source winget: on a new PC msstore matches too and winget stops asking which one (-1978335173);
-    # --scope user first: no admin rights, no UAC prompt (the all-users Python installer hangs waiting for it)
+    # --scope user: no admin rights, no UAC prompt (the all-users Python installer hangs waiting for it)
     $w = @('install', '--id', $id, '-e', '--source', 'winget', '--silent', '--accept-package-agreements', '--accept-source-agreements')
     # @() |: stdin vuoto, winget e l'installer non leggono le risposte destinate alla guida (né aspettano un tasto)
+    # solo per l'utente (A125): niente secondo tentativo per tutti gli utenti, che chiede l'admin e può restare fermo
     $out = @() | winget @w --scope user 2>&1
-    if ($LASTEXITCODE -ne 0) { $out = @() | winget @w 2>&1 }
-    if ($LASTEXITCODE -ne 0) {
+    if ($LASTEXITCODE -eq 0) { Segna-Messo $id }
+    else {
         $motivo = ($out | ForEach-Object { "$_".Trim() } | Where-Object { $_ -match '\w{3}' } | Select-Object -Last 1)
         Write-Host "⚠️ winget: $id non installato (codice $LASTEXITCODE)" -ForegroundColor Yellow
         if ($motivo) { Write-Host "   $("$motivo".Substring(0, [Math]::Min(75, "$motivo".Length)))" -ForegroundColor Yellow }
@@ -42,7 +51,8 @@ function Voce-Disinstalla {  # per prima cosa: un'installazione che si blocca a 
     catch { Write-Host "⚠️ $_" -ForegroundColor Yellow; return }
     $k = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\PleyadesTools'
     New-Item -Force -Path $k | Out-Null
-    $cmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command `"`$env:PLEYADES_PAUSA='1'; iex ([IO.File]::ReadAllText('$f'))`""  # UTF-8: con & file PowerShell 5.1 legge ANSI
+    $q = $f.Replace("'", "''")  # A125: un apostrofo nel nome utente (D'Amico) chiuderebbe la stringa
+    $cmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command `"`$env:PLEYADES_PAUSA='1'; iex ([IO.File]::ReadAllText('$q'))`""  # UTF-8: con & file PowerShell 5.1 legge ANSI
     @{ DisplayName = 'Pleyades tools'; Publisher = 'Pleyades Studio'; UninstallString = $cmd; NoModify = 1; NoRepair = 1
        DisplayIcon = 'powershell.exe'; InstallLocation = (Join-Path $HOME '.crew') }.GetEnumerator() |
         ForEach-Object { Set-ItemProperty -Path $k -Name $_.Key -Value $_.Value }

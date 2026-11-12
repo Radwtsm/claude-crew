@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# versione-firmata: 3
+# versione-firmata: 4
 """pleyades-cli (Pleyades tools): la guida unica per entrare nei progetti, anche per chi non programma.
 
     pleyades-cli (o pley)           la prima volta la guida; poi un menu
@@ -366,6 +366,30 @@ def stato():
     return leggi_json(STATO, {})
 
 
+MESSI = os.path.join(CASA, ".config", "crew", "messi.txt")  # A126: i programmi installati da Pleyades, uno per riga
+
+
+def segna_messo(nome):
+    """Ricorda che `nome` l'ha installato Pleyades (lo scrive anche installa.ps1 per Git e Python): `disinstalla`
+    consiglia di togliere solo questi, mai un programma che c'era già."""
+    if nome not in messi():
+        os.makedirs(os.path.dirname(MESSI), exist_ok=True)
+        with open(MESSI, "a", encoding="utf-8") as f:
+            f.write(nome + "\n")
+
+
+def messi():
+    try:  # utf-8-sig: Add-Content -Encoding UTF8 di PowerShell 5.1 mette il BOM
+        return [r.strip() for r in open(MESSI, encoding="utf-8-sig") if r.strip()]
+    except OSError:
+        return []
+
+
+def ps_testo(s):
+    """`s` come stringa PowerShell fra apici: un apostrofo nel percorso (D'Amico) non la chiude (A125)."""
+    return "'" + str(s).replace("'", "''") + "'"
+
+
 def salva_stato(**k):
     s = stato()
     s.update(k)
@@ -419,6 +443,8 @@ def installa_claude():
         cmd = ["bash", "-c", "curl -fsSL https://claude.ai/install.sh | bash"]
     out = run_live(*cmd, timeout=900)[1]
     path_aggiornato()
+    if ha("claude"):
+        segna_messo("Claude Code")
     return ha("claude"), out[-400:]
 
 
@@ -464,6 +490,8 @@ def installa_gh():
         f.write(contenuto)
     os.chmod(dest, 0o755)
     path_aggiornato()
+    if ha("gh"):
+        segna_messo("GitHub CLI")
     return ha("gh"), dest
 
 
@@ -516,7 +544,7 @@ def impostazioni_utente(marketplace=()):
         if isinstance(m, dict):
             m["autoUpdate"] = True  # `marketplace add` lo toglie: rimesso dopo
     if json.dumps(s, sort_keys=True) != prima:
-        if os.path.exists(p):
+        if os.path.exists(p) and not os.path.exists(p + ".prima-di-crew"):  # A126: quella di prima del primo giro
             shutil.copy(p, p + ".prima-di-crew")
         scrivi_json(p, s)
     return all(s.get("extraKnownMarketplaces", {}).get(n, {}).get("autoUpdate") for n in marketplace)
@@ -672,6 +700,8 @@ def installa_nextcloud():
     if WIN:
         ok = run("winget", "install", "-e", "--id", "Nextcloud.NextcloudDesktop", "--accept-package-agreements",
                  "--accept-source-agreements", timeout=900)[0] == 0
+        if ok:
+            segna_messo("Nextcloud.NextcloudDesktop")
         return ok, "" if ok else "scaricala da nextcloud.com/install («Desktop»)"
     if not MAC:
         return False, "installala con il gestore pacchetti (es. sudo apt install nextcloud-desktop)"
@@ -688,6 +718,7 @@ def installa_nextcloud():
         os.remove(pkg)
         return False, "il pacchetto scaricato non ha la firma di Nextcloud: non lo apro (scaricala da nextcloud.com/install)"
     run("open", pkg)
+    segna_messo("Nextcloud")
     return True, ""
 
 
@@ -719,6 +750,8 @@ def installa_talk():
     if WIN:
         ok = run("winget", "install", "-e", "--id", "Nextcloud.Talk", "--accept-package-agreements",
                  "--accept-source-agreements", timeout=900)[0] == 0
+        if ok:
+            segna_messo("Nextcloud.Talk")
         return ok, "" if ok else "scaricala da nextcloud.com/talk («Desktop»)"
     dmg = os.path.join(CARTELLA, "Talk.dmg")
     try:
@@ -742,6 +775,7 @@ def installa_talk():
         run("hdiutil", "detach", disco)
         if os.path.isdir(TALK_MAC) and os.path.isfile(dmg):
             os.remove(dmg)
+    segna_messo("Talk")
     return True, ""
 
 
@@ -1667,9 +1701,10 @@ def icona_desktop(nome, png=None):
         desk = run("powershell", "-NoProfile", "-Command", "[Environment]::GetFolderPath('Desktop')")[1].strip()
         cmd = os.path.join(BIN, nome + ".cmd")
         lnk = os.path.join(desk, titolo + ".lnk")
+        argomenti = ps_testo(f'/k "{cmd}"')  # fuori dall'f-string: Python < 3.12 non vuole \ nelle espressioni
         ok = run("powershell", "-NoProfile", "-Command",
-                 f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{lnk}'); $s.TargetPath='cmd.exe'; "
-                 f"$s.Arguments='/k \"{cmd}\"'; $s.WorkingDirectory='{CASA}'; $s.Save()")[0] == 0
+                 f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut({ps_testo(lnk)}); $s.TargetPath='cmd.exe'; "
+                 f"$s.Arguments={argomenti}; $s.WorkingDirectory={ps_testo(CASA)}; $s.Save()")[0] == 0
         return lnk if ok else None
     desk = os.path.join(CASA, "Desktop")
     if not os.path.isdir(desk):
@@ -1685,7 +1720,7 @@ def icona_desktop(nome, png=None):
             with open(img, "wb") as h:
                 h.write(png)
             run("osascript", "-l", "JavaScript", "-e", "ObjC.import('AppKit'); $.NSWorkspace.sharedWorkspace."
-                f"setIconForFileOptions($.NSImage.alloc.initWithContentsOfFile('{img}'), '{f}', 0)")
+                f"setIconForFileOptions($.NSImage.alloc.initWithContentsOfFile({json.dumps(img)}), {json.dumps(f)}, 0)")
         return f
     f = os.path.join(desk, "pleyades-tools.desktop")
     with open(f, "w", encoding="utf-8") as h:
@@ -1758,7 +1793,7 @@ def voce_disinstalla():
             with open(f, "wb") as h:
                 h.write(nuovo)
         # letto come UTF-8: `-File` o `& file` in Windows PowerShell 5.1 lo leggerebbe ANSI e le «» lo rompono
-        cmd = f"powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"$env:PLEYADES_PAUSA='1'; iex ([IO.File]::ReadAllText('{f}'))\""
+        cmd = f"powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"$env:PLEYADES_PAUSA='1'; iex ([IO.File]::ReadAllText({ps_testo(f)}))\""
         with winreg.CreateKey(winreg.HKEY_CURRENT_USER, VOCE_DIS) as k:
             for nome, v in (("DisplayName", "Pleyades tools"),
                             ("Publisher", "Pleyades Studio"), ("UninstallString", cmd), ("DisplayIcon", "powershell.exe"),
@@ -2824,7 +2859,10 @@ def guida(ui, richiesti, solo_progetti=False):
             ui.fai(x)
     if not lavoro() and not spento("auto"):  # da subito si allinea da solo, senza aspettare Claude
         ok, cosa = pianifica()
-        ui.esito(Esito("aggiornamento automatico pianificato", ok, f"{cosa} → `{NOME_CLI} pianifica`", nota=cosa))
+        # A126: detto chiaro cosa gira sul PC e come fermarlo
+        ui.esito(Esito("aggiornamento automatico pianificato", ok, f"{cosa} → `{NOME_CLI} pianifica`",
+                       nota=f"{cosa}: all'accesso e ogni 5 minuti aggiorna plugin e progetti; "
+                            f"per fermarla `{NOME_CLI} pianifica --togli`"))
     minuti = round((time.time() - inizio) / 60, 1)
     ui.riepilogo(minuti)
     verdi, tot, manca, _ = conta_esiti(ui.esiti)  # chi aiuta vede subito cosa manca, senza chiederlo
@@ -4126,7 +4164,7 @@ def tema(forza=False, terminale_mac=True, terminale=None):
         s["theme"] = "custom:tema-studio:" + tinta_claude(asp)
     s.setdefault("enabledPlugins", {})["tema-studio@claude-crew"] = True  # installato ma spento = Claude arancione
     if json.dumps(s, sort_keys=True) != prima:
-        if os.path.exists(p):
+        if os.path.exists(p) and not os.path.exists(p + ".prima-di-crew"):  # A126: quella di prima del primo giro
             shutil.copy(p, p + ".prima-di-crew")
         scrivi_json(p, s)
     if ha("claude"):  # il tema sta nel plugin tema-studio: senza il marketplace Claude torna al tema di base, zitto
@@ -4356,7 +4394,7 @@ def tema_windows():
         else:
             continue
         # Starship dalla riga di comando, non da $PROFILE (Restricted, vedi sopra)
-        x["commandline"] = (f"{exe} -NoLogo -NoExit -Command \"& '{cli}' intro; if (Get-Command starship -EA 0) "
+        x["commandline"] = (f"{exe} -NoLogo -NoExit -Command \"& {ps_testo(cli)} intro; if (Get-Command starship -EA 0) "
                             "{ Invoke-Expression (&starship init powershell) }\"")
     scrivi_json(f, w)
     ps = shutil.which("powershell") and subprocess.run(["powershell", "-NoProfile", "-Command", "$PROFILE"],
@@ -4546,8 +4584,8 @@ def dis_claude(prova):
     copia = os.path.exists(p + ".prima-di-crew")
     if json.dumps(s, sort_keys=True) == prima and not copia:
         return None
-    # la copia .prima-di-crew non torna al suo posto: è di prima dell'ultimo cambio di crew, non del primo, e
-    # perderebbe i plugin e le scelte venute dopo; tolte solo le chiavi di crew, la copia va via
+    # la copia .prima-di-crew non torna al suo posto: è di prima del primo giro di crew e perderebbe i plugin e le
+    # scelte venute dopo; tolte solo le chiavi di crew, la copia va via
     if not prova:
         if s:
             scrivi_json(p, s)
@@ -4677,17 +4715,26 @@ def dis_cartelle(prova):
                  + ("; «Pleyades tools» in Impostazioni → App" if WIN else ""))
 
 
-def tieni():
-    """Cosa `disinstalla` non tocca, con come toglierlo a mano."""
+def tieni(messo=None):
+    """Cosa `disinstalla` non tocca, con come toglierlo a mano. Dei programmi solo quelli installati da Pleyades
+    (`messo`, letto prima che le cartelle vadano via): Git, Python o Claude che c'erano già non si consigliano (A126)."""
+    messo = messi() if messo is None else messo
     claude = (r'Remove-Item "$HOME\.local\bin\claude.exe"; Remove-Item -Recurse "$HOME\.local\share\claude"' if WIN
               else "rm -f ~/.local/bin/claude; rm -rf ~/.local/share/claude")
-    prog = ("winget uninstall --id Git.Git (e Python.Python.3.x, Nextcloud.NextcloudDesktop, Nextcloud.Talk)" if WIN
-            else "dalla cartella Applicazioni (Nextcloud, Talk); git e Python sono del sistema" if MAC
-            else "con il gestore dei pacchetti (git, python3, nextcloud-desktop)")
-    return ["plugin di Claude: `claude plugin list`, poi `claude plugin uninstall NOME`; il catalogo: "
-            "`claude plugin marketplace remove claude-crew`",
-            f"Claude Code (e ~/.claude, le tue impostazioni): {claude}",
-            f"GitHub CLI: cancella {os.path.join(BIN, 'gh.exe' if WIN else 'gh')}; programmi: {prog}",
+    winget = [x for x in messo if "." in x]  # id di winget: Git.Git, Python.Python.3.12, Nextcloud.*
+    app = [n for x, n in (("Nextcloud", "Nextcloud"), ("Talk", "Nextcloud Talk")) if x in messo]
+    r = ["plugin di Claude: `claude plugin list`, poi `claude plugin uninstall NOME`; il catalogo: "
+         "`claude plugin marketplace remove claude-crew`"]
+    if "Claude Code" in messo:
+        r.append(f"Claude Code, se non lo usi più: {claude} (~/.claude sono le tue impostazioni e chat: lasciala)")
+    if "GitHub CLI" in messo:
+        r.append(f"GitHub CLI, se non lo usi più: cancella {os.path.join(BIN, 'gh.exe' if WIN else 'gh')}")
+    if winget:
+        r.append("programmi installati da Pleyades, se non ti servono: "
+                 + "; ".join(f"winget uninstall --id {x} -e" for x in winget))
+    if app:
+        r.append(f"app installate da Pleyades, se non ti servono: {', '.join(app)} dalla cartella Applicazioni")
+    return r + [
             f"progetti clonati in {CODICE} e claude-personale: cancella le cartelle quando non servono più",
             "git config (nome, email, hooksPath dei progetti): `git config --global --edit`",
             "app Pleiadi e il suo accesso (voce «Pleiadi Studio» del portachiavi): si toglie come ogni app"]
@@ -4698,6 +4745,7 @@ def disinstalla(ui, prova=False, si=False):
     --si: senza domanda, lo lancia disinstalla.ps1 che ha già chiesto); per ultime ~/.crew e lo stato."""
     passi = (dis_pianifica, dis_finestre, dis_terminale, dis_claude, dis_comandi, dis_prompt, dis_icona,
              dis_accesso, dis_portachiavi, dis_cartelle)
+    messo = messi()  # prima: dis_cartelle toglie ~/.config/crew
     ui.titolo(f"{NOME_CLI} disinstalla" + (" · prova: non cambio niente" if prova else ""))
     voci = [e for e in (f(True) for f in passi) if e]
     for e in voci:
@@ -4711,7 +4759,7 @@ def disinstalla(ui, prova=False, si=False):
         for e in voci:
             ui.esito(e)
     ui.titolo("Restano (non li tocco)")
-    for t in tieni():
+    for t in tieni(messo):
         ui.info(f"• {t}")
     return 0 if all(e.ok for e in voci) else 1
 
